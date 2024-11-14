@@ -1,0 +1,46 @@
+{
+  "name": "TODO",
+  "version": "1.0.0",
+  "main": "build/index.js",
+  "license": "TODO",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "xo && c8 ava",
+    "prepack": "yarn build"
+  },
+  "homepage": "https://github.com/futpib/TODO",
+  "ava": {
+    "typescript": {
+      "rewritePaths": {
+        "src/": "build/"
+      },
+      "compile": false
+    },
+    "verbose": true
+  },
+  "devDependencies": {
+    "@ava/typescript": "^5.0.0",
+    "@fast-check/ava": "^2.0.1",
+    "@types/invariant": "^2",
+    "@types/node": "^22.9.0",
+    "ava": "^6.2.0",
+    "bson": "^6.9.0",
+    "c8": "^10.1.2",
+    "coveralls": "^3.1.1",
+    "eslint-config-xo-overrides": "^1.5.0",
+    "invariant": "^2.2.4",
+    "type-fest": "^4.26.1",
+    "typescript": "^5.6.3",
+    "xo": "^0.59.3"
+  },
+  "xo": {
+    "extends": [
+      "eslint-config-xo-overrides"
+    ],
+    "rules": {
+      "ava/no-ignored-test-files": "off"
+    }
+  },
+  "packageManager": "yarn@4.5.1"
+}
