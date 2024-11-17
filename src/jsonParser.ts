@@ -1,6 +1,7 @@
 import { JsonArray, JsonObject, JsonPrimitive, JsonValue, Writable } from 'type-fest';
 import { Parser } from './parser.js';
 import invariant from 'invariant';
+import { createFixedLengthChunkParser } from './fixedLengthChunkParser.js';
 
 const jsonStringEscapeSequenceParser: Parser<string, string> = async (inputReader) => {
 	const backslash = await inputReader.peek(0);
@@ -54,16 +55,7 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = async (inputReade
 	if (character === 'u') {
 		inputReader.skip(1);
 
-		let hexCode = '';
-
-		hexCode += await inputReader.peek(0);
-		hexCode += await inputReader.peek(1);
-		hexCode += await inputReader.peek(2);
-		hexCode += await inputReader.peek(3);
-
-		invariant(hexCode.length === 4, 'Expected 4 hex digits');
-
-		inputReader.skip(4);
+		const hexCode = await createFixedLengthChunkParser<string>(4)(inputReader);
 
 		return String.fromCharCode(parseInt(hexCode, 16));
 	}

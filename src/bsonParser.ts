@@ -2,6 +2,20 @@ import { JsonObject, JsonValue } from 'type-fest';
 import { Parser } from './parser.js';
 import { invariantDefined } from './invariantDefined.js';
 import invariant from 'invariant';
+import { createFixedLengthChunkParser } from './fixedLengthChunkParser.js';
+
+const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => {
+	const fixedLengthChunkParser = createFixedLengthChunkParser<Uint8Array>(length);
+
+	return async (parserContext) => {
+		const inputChunk = await fixedLengthChunkParser(parserContext);
+
+		return Buffer.from(inputChunk);
+	}
+}
+
+const buffer4Parser = createFixedLengthBufferParser(4);
+const buffer8Parser = createFixedLengthBufferParser(8);
 
 const cstringParser: Parser<string, Uint8Array> = async (inputReader) => {
 	let string = '';
@@ -24,46 +38,21 @@ const cstringParser: Parser<string, Uint8Array> = async (inputReader) => {
 }
 
 const doubleParser: Parser<number, Uint8Array> = async (inputReader) => {
-	const doubleBuffer = Buffer.alloc(8);
-
-	doubleBuffer[0] = invariantDefined(await inputReader.peek(0), 'Unexpected end of input');
-	doubleBuffer[1] = invariantDefined(await inputReader.peek(1), 'Unexpected end of input');
-	doubleBuffer[2] = invariantDefined(await inputReader.peek(2), 'Unexpected end of input');
-	doubleBuffer[3] = invariantDefined(await inputReader.peek(3), 'Unexpected end of input');
-	doubleBuffer[4] = invariantDefined(await inputReader.peek(4), 'Unexpected end of input');
-	doubleBuffer[5] = invariantDefined(await inputReader.peek(5), 'Unexpected end of input');
-	doubleBuffer[6] = invariantDefined(await inputReader.peek(6), 'Unexpected end of input');
-	doubleBuffer[7] = invariantDefined(await inputReader.peek(7), 'Unexpected end of input');
-
-	inputReader.skip(8);
+	const doubleBuffer = await buffer8Parser(inputReader);
 
 	return doubleBuffer.readDoubleLE(0);
 }
 
 const int32Parser: Parser<number, Uint8Array> = async (inputReader) => {
-	const int32Buffer = Buffer.alloc(4);
-
-	int32Buffer[0] = invariantDefined(await inputReader.peek(0), 'Unexpected end of input');
-	int32Buffer[1] = invariantDefined(await inputReader.peek(1), 'Unexpected end of input');
-	int32Buffer[2] = invariantDefined(await inputReader.peek(2), 'Unexpected end of input');
-	int32Buffer[3] = invariantDefined(await inputReader.peek(3), 'Unexpected end of input');
-
-	inputReader.skip(4);
+	const int32Buffer = await buffer4Parser(inputReader);
 
 	return int32Buffer.readInt32LE(0);
 }
 
 const bsonStringParser: Parser<string, Uint8Array> = async (inputReader) => {
-	const stringSizeBuffer = Buffer.alloc(4);
-
-	stringSizeBuffer[0] = invariantDefined(await inputReader.peek(0), 'Unexpected end of input');
-	stringSizeBuffer[1] = invariantDefined(await inputReader.peek(1), 'Unexpected end of input');
-	stringSizeBuffer[2] = invariantDefined(await inputReader.peek(2), 'Unexpected end of input');
-	stringSizeBuffer[3] = invariantDefined(await inputReader.peek(3), 'Unexpected end of input');
+	const stringSizeBuffer = await buffer4Parser(inputReader);
 
 	const stringSize = stringSizeBuffer.readUInt32LE(0);
-
-	inputReader.skip(4);
 
 	let string = '';
 
