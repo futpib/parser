@@ -7,7 +7,7 @@ import { stringInputCompanion } from './inputCompanion.js';
 testProp(
 	'json',
 	[
-		arbitrarilySlicedAsyncIterator(fc.json())
+		arbitrarilySlicedAsyncIterator(fc.json()),
 	],
 	async (t, [ jsonString, jsonStringChunkIterator ]) => {
 		const actual = await runParser(jsonValueParser, jsonStringChunkIterator, stringInputCompanion);

@@ -1,16 +1,16 @@
-import invariant from "invariant";
-import { Parser } from "./parser.js";
+import invariant from 'invariant';
+import { type Parser } from './parser.js';
 
 export const createFixedLengthChunkParser = <InputChunk>(length: number): Parser<InputChunk, InputChunk, unknown> => {
-	invariant(length > 0, "Length must be positive.");
+	invariant(length > 0, 'Length must be positive.');
 
-	return async (parserContext) => {
+	return async parserContext => {
 		const elements = [];
 
 		for (let i = 0; i < length; i++) {
 			const element = await parserContext.peek(i);
 
-			invariant(element !== undefined, "Unexpected end of input.");
+			invariant(element !== undefined, 'Unexpected end of input.');
 
 			elements.push(element);
 		}

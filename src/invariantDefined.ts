@@ -1,4 +1,4 @@
-import invariant from "invariant";
+import invariant from 'invariant';
 
 export function invariantDefined<T>(value: T, format: string, ...extra: any[]): Exclude<T, undefined> {
 	invariant(value !== undefined, format, ...extra);

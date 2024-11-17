@@ -1,17 +1,17 @@
-import { InputChunkBuffer } from "./inputChunkBuffer.js";
-import { InputCompanion } from "./inputCompanion.js";
+import { InputChunkBuffer } from './inputChunkBuffer.js';
+import { type InputCompanion } from './inputCompanion.js';
 
-export interface InputReader<InputChunk, InputElement> {
+export type InputReader<InputChunk, InputElement> = {
 	peek(offset: number): Promise<InputElement | undefined>;
 	skip(offset: number): void;
-}
+};
 
 export class InputReaderImplementation<InputChunk, InputElement> implements InputReader<InputChunk, InputElement> {
-	private _inputChunkBuffer: InputChunkBuffer<InputChunk, InputElement>;
+	private readonly _inputChunkBuffer: InputChunkBuffer<InputChunk, InputElement>;
 
 	constructor(
-		private _inputCompanion: InputCompanion<InputChunk, InputElement>,
-		private _inputAsyncIterator: AsyncIterator<InputChunk>,
+		private readonly _inputCompanion: InputCompanion<InputChunk, InputElement>,
+		private readonly _inputAsyncIterator: AsyncIterator<InputChunk>,
 	) {
 		this._inputChunkBuffer = new InputChunkBuffer<InputChunk, InputElement>(this._inputCompanion);
 	}

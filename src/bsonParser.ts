@@ -1,23 +1,23 @@
-import { JsonObject, JsonValue } from 'type-fest';
-import { Parser } from './parser.js';
-import { invariantDefined } from './invariantDefined.js';
+import { type JsonObject, type JsonValue } from 'type-fest';
 import invariant from 'invariant';
+import { type Parser } from './parser.js';
+import { invariantDefined } from './invariantDefined.js';
 import { createFixedLengthChunkParser } from './fixedLengthChunkParser.js';
 
 const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => {
 	const fixedLengthChunkParser = createFixedLengthChunkParser<Uint8Array>(length);
 
-	return async (parserContext) => {
+	return async parserContext => {
 		const inputChunk = await fixedLengthChunkParser(parserContext);
 
 		return Buffer.from(inputChunk);
-	}
-}
+	};
+};
 
 const buffer4Parser = createFixedLengthBufferParser(4);
 const buffer8Parser = createFixedLengthBufferParser(8);
 
-const cstringParser: Parser<string, Uint8Array> = async (inputReader) => {
+const cstringParser: Parser<string, Uint8Array> = async inputReader => {
 	let string = '';
 
 	while (true) {
@@ -35,21 +35,21 @@ const cstringParser: Parser<string, Uint8Array> = async (inputReader) => {
 	}
 
 	return string;
-}
+};
 
-const doubleParser: Parser<number, Uint8Array> = async (inputReader) => {
+const doubleParser: Parser<number, Uint8Array> = async inputReader => {
 	const doubleBuffer = await buffer8Parser(inputReader);
 
 	return doubleBuffer.readDoubleLE(0);
-}
+};
 
-const int32Parser: Parser<number, Uint8Array> = async (inputReader) => {
+const int32Parser: Parser<number, Uint8Array> = async inputReader => {
 	const int32Buffer = await buffer4Parser(inputReader);
 
 	return int32Buffer.readInt32LE(0);
-}
+};
 
-const bsonStringParser: Parser<string, Uint8Array> = async (inputReader) => {
+const bsonStringParser: Parser<string, Uint8Array> = async inputReader => {
 	const stringSizeBuffer = await buffer4Parser(inputReader);
 
 	const stringSize = stringSizeBuffer.readUInt32LE(0);
@@ -73,23 +73,23 @@ const bsonStringParser: Parser<string, Uint8Array> = async (inputReader) => {
 	inputReader.skip(1);
 
 	return string;
-}
+};
 
-const bsonArrayParser: Parser<JsonValue[], Uint8Array> = async (inputReader) => {
+const bsonArrayParser: Parser<JsonValue[], Uint8Array> = async inputReader => {
 	inputReader.skip(4);
 
 	return (await bsonElementListParser(inputReader)).map(([ _, value ]) => value);
 };
 
-const bsonBooleanParser: Parser<boolean, Uint8Array> = async (inputReader) => {
+const bsonBooleanParser: Parser<boolean, Uint8Array> = async inputReader => {
 	const booleanValue = invariantDefined(await inputReader.peek(0), 'Unexpected end of input');
 
 	inputReader.skip(1);
 
 	return booleanValue === 1;
-}
+};
 
-const bsonElementParser: Parser<[ string, JsonValue ], Uint8Array> = async (inputReader) => {
+const bsonElementParser: Parser<[ string, JsonValue ], Uint8Array> = async inputReader => {
 	const elementTypeBuffer = Buffer.alloc(1);
 
 	elementTypeBuffer[0] = invariantDefined(await inputReader.peek(0), 'Unexpected end of input');
@@ -141,10 +141,10 @@ const bsonElementParser: Parser<[ string, JsonValue ], Uint8Array> = async (inpu
 	}
 
 	invariant(false, 'Not implemented %s', elementType);
-}
+};
 
-const bsonElementListParser: Parser<[ string, JsonValue ][], Uint8Array> = async (inputReader) => {
-	const elements: [ string, JsonValue ][] = [];
+const bsonElementListParser: Parser<Array<[ string, JsonValue ]>, Uint8Array> = async inputReader => {
+	const elements: Array<[ string, JsonValue ]> = [];
 
 	while (true) {
 		const elementTypeBuffer = Buffer.alloc(1);
@@ -166,8 +166,8 @@ const bsonElementListParser: Parser<[ string, JsonValue ][], Uint8Array> = async
 	return elements;
 };
 
-export const bsonDocumentParser: Parser<JsonObject, Uint8Array> = async (inputReader) => {
+export const bsonDocumentParser: Parser<JsonObject, Uint8Array> = async inputReader => {
 	inputReader.skip(4);
 
 	return Object.fromEntries(await bsonElementListParser(inputReader));
-}
+};

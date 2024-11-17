@@ -559,7 +559,8 @@ __metadata:
     bson: "npm:^6.9.0"
     c8: "npm:^10.1.2"
     coveralls: "npm:^3.1.1"
-    eslint-config-xo-overrides: "npm:^1.5.0"
+    eslint-config-xo-typescript-overrides: "npm:^1.5.0"
+    fast-check: "npm:^3.23.1"
     invariant: "npm:^2.2.4"
     type-fest: "npm:^4.26.1"
     typescript: "npm:^5.6.3"
@@ -1915,12 +1916,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-config-xo-overrides@npm:^1.5.0":
-  version: 1.5.0
-  resolution: "eslint-config-xo-overrides@npm:1.5.0"
+"eslint-config-xo-typescript-overrides@npm:^1.5.0":
+  version: 1.6.0
+  resolution: "eslint-config-xo-typescript-overrides@npm:1.6.0"
   bin:
-    eslint-config-xo-overrides: cli.js
-  checksum: 10/905440a2f78db8153493b0bd0455d4afd9281e25348d4172ee9a444d4a015f05aba8aea65af26ba54e069fcf6938964b1184d9ff6c742de27c3225e3f2d715d8
+    eslint-config-xo-typescript-overrides: cli.js
+  checksum: 10/55b0bbc3c13ad2078d3da76e6790ba611d455e0264fa5e8422d9903e9ab1061ec6b93455f27b4e19e8b83a560bd8506c63ea8a3b75ab78be2e1eabffffcc4a06
   languageName: node
   linkType: hard
 
@@ -2428,7 +2429,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-check@npm:^3.0.0":
+"fast-check@npm:^3.0.0, fast-check@npm:^3.23.1":
   version: 3.23.1
   resolution: "fast-check@npm:3.23.1"
   dependencies:

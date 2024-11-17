@@ -1,9 +1,11 @@
-import { JsonArray, JsonObject, JsonPrimitive, JsonValue, Writable } from 'type-fest';
-import { Parser } from './parser.js';
+import {
+	type JsonArray, type JsonObject, type JsonPrimitive, type JsonValue, type Writable,
+} from 'type-fest';
 import invariant from 'invariant';
+import { type Parser } from './parser.js';
 import { createFixedLengthChunkParser } from './fixedLengthChunkParser.js';
 
-const jsonStringEscapeSequenceParser: Parser<string, string> = async (inputReader) => {
+const jsonStringEscapeSequenceParser: Parser<string, string> = async inputReader => {
 	const backslash = await inputReader.peek(0);
 
 	invariant(backslash !== undefined, 'Unexpected end of input');
@@ -19,7 +21,7 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = async (inputReade
 
 	if (character === '\\') {
 		inputReader.skip(1);
-		return '\\'
+		return '\\';
 	}
 
 	if (character === '/') {
@@ -57,13 +59,13 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = async (inputReade
 
 		const hexCode = await createFixedLengthChunkParser<string>(4)(inputReader);
 
-		return String.fromCharCode(parseInt(hexCode, 16));
+		return String.fromCharCode(Number.parseInt(hexCode, 16));
 	}
 
 	invariant(false, 'Not implemented %s', character);
-}
+};
 
-const jsonStringParser: Parser<string, string> = async (inputReader) => {
+const jsonStringParser: Parser<string, string> = async inputReader => {
 	let quoteCount = 0;
 	let string = '';
 
@@ -94,9 +96,9 @@ const jsonStringParser: Parser<string, string> = async (inputReader) => {
 	}
 
 	return string;
-}
+};
 
-const jsonNumberParser: Parser<number, string> = async (inputReader) => {
+const jsonNumberParser: Parser<number, string> = async inputReader => {
 	let numberString = '';
 
 	while (true) {
@@ -122,9 +124,9 @@ const jsonNumberParser: Parser<number, string> = async (inputReader) => {
 	}
 
 	return Number(numberString);
-}
+};
 
-const jsonPrimitiveParser: Parser<JsonPrimitive, string> = async (inputReader) => {
+const jsonPrimitiveParser: Parser<JsonPrimitive, string> = async inputReader => {
 	const character = await inputReader.peek(0);
 
 	invariant(character !== undefined, 'Unexpected end of input');
@@ -153,10 +155,10 @@ const jsonPrimitiveParser: Parser<JsonPrimitive, string> = async (inputReader) =
 	}
 
 	invariant(false, 'Not implemented %s', character);
-}
+};
 
-const jsonObjectParser: Parser<JsonObject, string> = async (inputReader) => {
-	let value: JsonObject = {};
+const jsonObjectParser: Parser<JsonObject, string> = async inputReader => {
+	const value: JsonObject = {};
 
 	const firstCharacter = await inputReader.peek(0);
 
@@ -200,10 +202,10 @@ const jsonObjectParser: Parser<JsonObject, string> = async (inputReader) => {
 	}
 
 	return value;
-}
+};
 
-const jsonArrayParser: Parser<JsonArray, string> = async (inputReader) => {
-	let value: Writable<JsonArray> = [];
+const jsonArrayParser: Parser<JsonArray, string> = async inputReader => {
+	const value: Writable<JsonArray> = [];
 
 	const firstCharacter = await inputReader.peek(0);
 
@@ -236,9 +238,9 @@ const jsonArrayParser: Parser<JsonArray, string> = async (inputReader) => {
 	}
 
 	return value;
-}
+};
 
-export const jsonValueParser: Parser<JsonValue, string> = async (inputReader) => {
+export const jsonValueParser: Parser<JsonValue, string> = async inputReader => {
 	const character = await inputReader.peek(0);
 
 	invariant(character !== undefined, 'Unexpected end of input');
@@ -252,4 +254,4 @@ export const jsonValueParser: Parser<JsonValue, string> = async (inputReader) =>
 	}
 
 	return jsonPrimitiveParser(inputReader);
-}
+};

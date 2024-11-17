@@ -29,7 +29,8 @@
     "bson": "^6.9.0",
     "c8": "^10.1.2",
     "coveralls": "^3.1.1",
-    "eslint-config-xo-overrides": "^1.5.0",
+    "eslint-config-xo-typescript-overrides": "^1.5.0",
+    "fast-check": "^3.23.1",
     "invariant": "^2.2.4",
     "type-fest": "^4.26.1",
     "typescript": "^5.6.3",
@@ -37,7 +38,7 @@
   },
   "xo": {
     "extends": [
-      "eslint-config-xo-overrides"
+      "eslint-config-xo-typescript-overrides"
     ],
     "rules": {
       "ava/no-ignored-test-files": "off"

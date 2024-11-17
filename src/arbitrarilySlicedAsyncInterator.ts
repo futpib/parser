@@ -1,4 +1,4 @@
-import { Arbitrary } from 'fast-check';
+import { type Arbitrary } from 'fast-check';
 import { arbitrarilySlicedAsyncIterable } from './arbitrarilySlicedAsyncInterable.js';
 
 export function arbitrarilySlicedAsyncIterator<Sliceable extends string | Uint8Array>(
@@ -19,7 +19,7 @@ export function arbitrarilySlicedAsyncIterator<Sliceable extends string | Uint8A
 				return [
 					sliceable,
 					asyncIterator,
-				]
+				];
 			})
 	);
 }

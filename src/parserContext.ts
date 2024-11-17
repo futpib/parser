@@ -1,21 +1,20 @@
-import { InputCompanion } from "./inputCompanion.js";
-import { InputReader } from "./inputReader.js";
+import { type InputCompanion } from './inputCompanion.js';
+import { type InputReader } from './inputReader.js';
 
-export interface ParserContext<InputChunk, InputElement> {
+export type ParserContext<InputChunk, InputElement> = {
 	from(inputElements: InputElement[]): InputChunk;
 	length(inputChunk: InputChunk): number;
 	at(inputChunk: InputChunk, index: number): InputElement | undefined;
 
 	peek(offset: number): Promise<InputElement | undefined>;
 	skip(offset: number): void;
-}
+};
 
 export class ParserContextImplementation<InputChunk, InputElement> implements ParserContext<InputChunk, InputElement> {
 	constructor(
-		private _inputCompanion: InputCompanion<InputChunk, InputElement>,
-		private _inputReader: InputReader<InputChunk, InputElement>,
-	) {
-	}
+		private readonly _inputCompanion: InputCompanion<InputChunk, InputElement>,
+		private readonly _inputReader: InputReader<InputChunk, InputElement>,
+	) {}
 
 	from(inputElements: InputElement[]): InputChunk {
 		return this._inputCompanion.from(inputElements);

@@ -1,6 +1,6 @@
-import { InputCompanion } from "./inputCompanion.js";
-import { InputReaderImplementation } from "./inputReader.js";
-import { ParserContext, ParserContextImplementation } from "./parserContext.js";
+import { type InputCompanion } from './inputCompanion.js';
+import { InputReaderImplementation } from './inputReader.js';
+import { type ParserContext, ParserContextImplementation } from './parserContext.js';
 
 type DeriveInputElement<InputChunk> = (
 	InputChunk extends string
@@ -18,7 +18,7 @@ export type Parser<
 	InputElement = DeriveInputElement<InputChunk>,
 > = (parserContext: ParserContext<InputChunk, InputElement>) => Promise<Output>;
 
-export function runParser<
+export async function runParser<
 	Output,
 	InputChunk,
 	InputElement = DeriveInputElement<InputChunk>,

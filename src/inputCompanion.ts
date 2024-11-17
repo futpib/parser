@@ -1,9 +1,9 @@
 
-export interface InputCompanion<InputChunk, InputElement> {
+export type InputCompanion<InputChunk, InputElement> = {
 	from(inputElements: InputElement[]): InputChunk;
 	length(inputChunk: InputChunk): number;
 	at(inputChunk: InputChunk, index: number): InputElement | undefined;
-}
+};
 
 export const stringInputCompanion = new class StringInputCompanion implements InputCompanion<string, string> {
 	from(inputElements: string[]): string {
@@ -17,7 +17,7 @@ export const stringInputCompanion = new class StringInputCompanion implements In
 	at(inputChunk: string, index: number): string | undefined {
 		return inputChunk.at(index);
 	}
-};
+}();
 
 export const uint8ArrayInputCompanion = new class Uint8ArrayInputCompanion implements InputCompanion<Uint8Array, number> {
 	from(inputElements: number[]): Uint8Array {
@@ -31,4 +31,4 @@ export const uint8ArrayInputCompanion = new class Uint8ArrayInputCompanion imple
 	at(inputChunk: Uint8Array, index: number): number | undefined {
 		return inputChunk.at(index);
 	}
-};
+}();

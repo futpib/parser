@@ -1,7 +1,7 @@
+import { inspect } from 'node:util';
 import * as fc from 'fast-check';
-import { Arbitrary } from 'fast-check';
+import { type Arbitrary } from 'fast-check';
 import invariant from 'invariant';
-import { inspect } from 'util';
 
 function concat<Sliceable extends string | Uint8Array>(slices: Sliceable[]): Sliceable {
 	const firstSlice = slices.at(0);
@@ -29,7 +29,7 @@ export function arbitrarilySlicedAsyncIterable<Sliceable extends string | Uint8A
 			.map(([ sliceable, sliceSizes ]) => {
 				let start = 0;
 
-				const slices = sliceSizes.map((sliceSize) => {
+				const slices = sliceSizes.map(sliceSize => {
 					const slice = sliceable.slice(start, start + sliceSize) as Sliceable;
 					start += sliceSize;
 					return slice;
@@ -55,8 +55,8 @@ export function arbitrarilySlicedAsyncIterable<Sliceable extends string | Uint8A
 				);
 
 				const asyncIterable = {
-					[Symbol.asyncIterator]: async function* () {
-						yield* slices;
+					async * [Symbol.asyncIterator]() {
+						yield * slices;
 					},
 					[Symbol.toStringTag]: 'ArbitrarilySlicedAsyncIterable ' + JSON.stringify(slices),
 				};

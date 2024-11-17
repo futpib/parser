@@ -1,11 +1,11 @@
-import invariant from "invariant";
-import { InputCompanion } from "./inputCompanion.js";
+import invariant from 'invariant';
+import { type InputCompanion } from './inputCompanion.js';
 
 export class InputChunkBuffer<InputChunk, InputElement> {
-	private _inputChunks: InputChunk[] = [];
+	private readonly _inputChunks: InputChunk[] = [];
 	private _indexInFirstInputChunk = 0;
 
-	constructor(private _inputCompanion: InputCompanion<InputChunk, InputElement>) {}
+	constructor(private readonly _inputCompanion: InputCompanion<InputChunk, InputElement>) {}
 
 	push(inputChunk: InputChunk) {
 		this._inputChunks.push(inputChunk);
@@ -29,7 +29,7 @@ export class InputChunkBuffer<InputChunk, InputElement> {
 	}
 
 	peek(offset: number): InputElement | undefined {
-		invariant(offset >= 0, "Offset must be non-negative.");
+		invariant(offset >= 0, 'Offset must be non-negative.');
 
 		let index = this._indexInFirstInputChunk + offset;
 
