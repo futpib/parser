@@ -44,5 +44,8 @@
       "ava/no-ignored-test-files": "off"
     }
   },
-  "packageManager": "yarn@4.5.1"
+  "packageManager": "yarn@4.5.1",
+  "dependencies": {
+    "p-mutex": "^0.1.0"
+  }
 }

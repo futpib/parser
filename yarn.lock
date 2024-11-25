@@ -562,6 +562,7 @@ __metadata:
     eslint-config-xo-typescript-overrides: "npm:^1.5.0"
     fast-check: "npm:^3.23.1"
     invariant: "npm:^2.2.4"
+    p-mutex: "npm:^0.1.0"
     type-fest: "npm:^4.26.1"
     typescript: "npm:^5.6.3"
     xo: "npm:^0.59.3"
@@ -4621,6 +4622,15 @@ __metadata:
   version: 7.0.2
   resolution: "p-map@npm:7.0.2"
   checksum: 10/b4a590038b991c17b9c1484aa8c24cb9d3aa8a6167d02b9f9459c9200c7d392202a860c95b6dcd190d51f5f083ed256b32f9cb5976785022b0111bab853ec58b
+  languageName: node
+  linkType: hard
+
+"p-mutex@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "p-mutex@npm:0.1.0"
+  dependencies:
+    yocto-queue: "npm:^1.0.0"
+  checksum: 10/7cc37742db7b617c2a95679519f06a886d122aa340a2e95539d6314f19c2c8657596643c456d01d5e7efb7e6fb7ade07b99e1d0905f326aea315c957258fd112
   languageName: node
   linkType: hard
 

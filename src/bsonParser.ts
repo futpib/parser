@@ -2,10 +2,10 @@ import { type JsonObject, type JsonValue } from 'type-fest';
 import invariant from 'invariant';
 import { type Parser } from './parser.js';
 import { invariantDefined } from './invariantDefined.js';
-import { createFixedLengthChunkParser } from './fixedLengthChunkParser.js';
+import { createFixedLengthParser } from './fixedLengthParser.js';
 
 const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => {
-	const fixedLengthChunkParser = createFixedLengthChunkParser<Uint8Array>(length);
+	const fixedLengthChunkParser = createFixedLengthParser<Uint8Array>(length);
 
 	return async parserContext => {
 		const inputChunk = await fixedLengthChunkParser(parserContext);

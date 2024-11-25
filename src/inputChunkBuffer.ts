@@ -1,7 +1,13 @@
 import invariant from 'invariant';
 import { type InputCompanion } from './inputCompanion.js';
 
-export class InputChunkBuffer<InputChunk, InputElement> {
+export interface InputChunkBuffer<InputChunk, InputElement> {
+	push(inputChunk: InputChunk): void;
+	peek(offset: number): InputElement | undefined;
+	skip(offset: number): void;
+}
+
+export class InputChunkBufferImplementation<InputChunk, InputElement> implements InputChunkBuffer<InputChunk, InputElement> {
 	private readonly _inputChunks: InputChunk[] = [];
 	private _indexInFirstInputChunk = 0;
 

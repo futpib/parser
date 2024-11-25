@@ -35,7 +35,11 @@ export function arbitrarilySlicedAsyncIterable<Sliceable extends string | Uint8A
 					return slice;
 				});
 
-				slices.push(sliceable.slice(start) as Sliceable);
+				const lastSlice = sliceable.slice(start) as Sliceable;
+
+				if (lastSlice.length > 0) {
+					slices.push(lastSlice);
+				}
 
 				const concatenated = concat(slices);
 
@@ -54,11 +58,13 @@ export function arbitrarilySlicedAsyncIterable<Sliceable extends string | Uint8A
 					inspect(slices),
 				);
 
-				const asyncIterable = {
+				const asyncIterable: AsyncIterable<Sliceable> & {
+					[Symbol.toStringTag]: string;
+				} = {
 					async * [Symbol.asyncIterator]() {
 						yield * slices;
 					},
-					[Symbol.toStringTag]: 'ArbitrarilySlicedAsyncIterable ' + JSON.stringify(slices),
+					[Symbol.toStringTag]: 'ArbitrarilySlicedAsyncIterable ' + slices.length + ' ' + JSON.stringify(slices),
 				};
 
 				return [ sliceable, asyncIterable ];

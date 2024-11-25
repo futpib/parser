@@ -3,15 +3,15 @@ import {
 } from 'type-fest';
 import invariant from 'invariant';
 import { type Parser } from './parser.js';
-import { createFixedLengthChunkParser } from './fixedLengthChunkParser.js';
+import { createFixedLengthParser } from './fixedLengthParser.js';
+import { parserParsingInvariant } from './parserParsingInvariant.js';
+import { createUnionParser } from './unionParser.js';
 
 const jsonStringEscapeSequenceParser: Parser<string, string> = async inputContext => {
-	const backslash = await inputContext.peek(0);
+	const backslash = await inputContext.read(0);
 
-	invariant(backslash !== undefined, 'Unexpected end of input');
-	invariant(backslash === '\\', 'Expected "\\"');
+	parserParsingInvariant(backslash === '\\', 'Expected "\\", got "%s"', backslash);
 
-	inputContext.skip(1);
 	const character = await inputContext.peek(0);
 
 	if (character === '"') {
@@ -57,7 +57,7 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = async inputContex
 	if (character === 'u') {
 		inputContext.skip(1);
 
-		const hexCode = await createFixedLengthChunkParser<string>(4)(inputContext);
+		const hexCode = await createFixedLengthParser<string>(4)(inputContext);
 
 		return String.fromCharCode(Number.parseInt(hexCode, 16));
 	}
@@ -70,9 +70,7 @@ const jsonStringParser: Parser<string, string> = async inputContext => {
 	let string = '';
 
 	while (true) {
-		const character = await inputContext.peek(0);
-
-		invariant(character !== undefined, 'Unexpected end of input');
+		const character = parserParsingInvariant(await inputContext.peek(0), 'Unexpected end of input');
 
 		if (character === '\\') {
 			const escapeSequence = await jsonStringEscapeSequenceParser(inputContext);
@@ -127,9 +125,7 @@ const jsonNumberParser: Parser<number, string> = async inputContext => {
 };
 
 const jsonPrimitiveParser: Parser<JsonPrimitive, string> = async inputContext => {
-	const character = await inputContext.peek(0);
-
-	invariant(character !== undefined, 'Unexpected end of input');
+	const character = parserParsingInvariant(await inputContext.peek(0), 'Unexpected end of input');
 
 	if (character === '"') {
 		return jsonStringParser(inputContext);
@@ -154,7 +150,7 @@ const jsonPrimitiveParser: Parser<JsonPrimitive, string> = async inputContext =>
 		return null;
 	}
 
-	invariant(false, 'Not implemented %s', character);
+	return parserParsingInvariant(false, 'Unexpected character "%s"', character);
 };
 
 const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
@@ -162,7 +158,7 @@ const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 
 	const firstCharacter = await inputContext.peek(0);
 
-	invariant(firstCharacter === '{', 'Expected "{"');
+	parserParsingInvariant(firstCharacter === '{', 'Expected "{", got "%s"', firstCharacter);
 
 	inputContext.skip(1);
 
@@ -178,7 +174,7 @@ const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 
 		const colon = await inputContext.peek(0);
 
-		invariant(colon === ':', 'Expected ":"');
+		parserParsingInvariant(colon === ':', 'Expected ":", got "%s"', colon);
 
 		inputContext.skip(1);
 
@@ -196,7 +192,7 @@ const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 			break;
 		}
 
-		invariant(commaOrClosingBrace === ',', 'Expected ","');
+		parserParsingInvariant(commaOrClosingBrace === ',', 'Expected ",", got "%s"', commaOrClosingBrace);
 
 		inputContext.skip(1);
 	}
@@ -209,7 +205,7 @@ const jsonArrayParser: Parser<JsonArray, string> = async inputContext => {
 
 	const firstCharacter = await inputContext.peek(0);
 
-	invariant(firstCharacter === '[', 'Expected "["');
+	parserParsingInvariant(firstCharacter === '[', 'Expected "[", got "%s"', firstCharacter);
 
 	inputContext.skip(1);
 
@@ -221,9 +217,9 @@ const jsonArrayParser: Parser<JsonArray, string> = async inputContext => {
 			break;
 		}
 
-		const keyValue = await jsonValueParser(inputContext);
+		const elementValue = await jsonValueParser(inputContext);
 
-		value.push(keyValue);
+		value.push(elementValue);
 
 		const commaOrClosingBracket = await inputContext.peek(0);
 
@@ -232,7 +228,7 @@ const jsonArrayParser: Parser<JsonArray, string> = async inputContext => {
 			break;
 		}
 
-		invariant(commaOrClosingBracket === ',', 'Expected ","');
+		parserParsingInvariant(commaOrClosingBracket === ',', 'Expected ",", got "%s"', commaOrClosingBracket);
 
 		inputContext.skip(1);
 	}
@@ -240,18 +236,8 @@ const jsonArrayParser: Parser<JsonArray, string> = async inputContext => {
 	return value;
 };
 
-export const jsonValueParser: Parser<JsonValue, string> = async inputContext => {
-	const character = await inputContext.peek(0);
-
-	invariant(character !== undefined, 'Unexpected end of input');
-
-	if (character === '{') {
-		return jsonObjectParser(inputContext);
-	}
-
-	if (character === '[') {
-		return jsonArrayParser(inputContext);
-	}
-
-	return jsonPrimitiveParser(inputContext);
-};
+export const jsonValueParser: Parser<JsonValue, string> = createUnionParser([
+	jsonObjectParser,
+	jsonArrayParser,
+	jsonPrimitiveParser,
+]);

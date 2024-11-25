@@ -1,9 +1,9 @@
 import test from 'ava';
-import { InputChunkBuffer } from './inputChunkBuffer.js';
+import { InputChunkBufferImplementation } from './inputChunkBuffer.js';
 import { stringInputCompanion } from './inputCompanion.js';
 
 test('inputChunkBuffer', t => {
-	const inputChunkBuffer = new InputChunkBuffer(stringInputCompanion);
+	const inputChunkBuffer = new InputChunkBufferImplementation(stringInputCompanion);
 
 	t.is(inputChunkBuffer.peek(0), undefined);
 
