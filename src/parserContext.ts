@@ -17,25 +17,11 @@ export type ParserContext<Sequence, Element> = {
 	unlookahead(other: ParserContext<Sequence, Element>): void;
 };
 
-let idCounter = 0;
-
 export class ParserContextImplementation<Sequence, Element> implements ParserContext<Sequence, Element> {
 	constructor(
 		private readonly _inputCompanion: InputCompanion<Sequence, Element>,
 		private _inputReader: InputReader<Sequence, Element>,
 	) {}
-
-	private readonly _id = idCounter++;
-	private _lastPeek0: Element | undefined;
-
-	get [Symbol.toStringTag]() {
-		return [
-			'ParserContextImplementation',
-			this._id,
-			this._inputReader.position,
-			JSON.stringify(this._lastPeek0),
-		].join(' ');
-	}
 
 	from(elements: Element[]): Sequence {
 		return this._inputCompanion.from(elements);
@@ -49,14 +35,8 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		return this._inputCompanion.at(sequence, index);
 	}
 
-	async peek(offset: number): Promise<Element | undefined> {
-		const element = await this._inputReader.peek(offset);
-
-		if (offset === 0) {
-			this._lastPeek0 = element;
-		}
-
-		return element;
+	peek(offset: number): Promise<Element | undefined> {
+		return this._inputReader.peek(offset);
 	}
 
 	skip(offset: number) {

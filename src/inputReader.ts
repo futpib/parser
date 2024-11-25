@@ -43,28 +43,21 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		}
 
 		return this._promiseMutex.withLock(async () => {
-			const element = await (async () => {
-				while (true) {
-					const element = this._sequenceBuffer.peek(offset);
+			while (true) {
+				const element = this._sequenceBuffer.peek(offset);
 
-					if (element !== undefined) {
-						return element;
-					}
-
-					const inputIteratorResult = await this._inputAsyncIterator.next();
-
-					if (inputIteratorResult.done) {
-						return undefined;
-					}
-
-					this._sequenceBuffer.push(inputIteratorResult.value);
+				if (element !== undefined) {
+					return element;
 				}
-			})();
 
-			this._sequenceBuffer.skip(this._queuedSkipOffset);
-			this._queuedSkipOffset = 0;
+				const inputIteratorResult = await this._inputAsyncIterator.next();
 
-			return element;
+				if (inputIteratorResult.done) {
+					return undefined;
+				}
+
+				this._sequenceBuffer.push(inputIteratorResult.value);
+			}
 		});
 	}
 
@@ -76,7 +69,8 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		if (this._promiseMutex.isLocked) {
 			this._queuedSkipOffset += offset;
 		} else {
-			this._sequenceBuffer.skip(offset);
+			this._sequenceBuffer.skip(offset + this._queuedSkipOffset);
+			this._queuedSkipOffset = 0;
 		}
 	}
 
