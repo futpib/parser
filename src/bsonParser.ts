@@ -8,9 +8,9 @@ const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Arra
 	const fixedLengthChunkParser = createFixedLengthParser<Uint8Array>(length);
 
 	return async parserContext => {
-		const inputChunk = await fixedLengthChunkParser(parserContext);
+		const sequence = await fixedLengthChunkParser(parserContext);
 
-		return Buffer.from(inputChunk);
+		return Buffer.from(sequence);
 	};
 };
 

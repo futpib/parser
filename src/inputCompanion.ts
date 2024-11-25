@@ -1,34 +1,34 @@
 
-export type InputCompanion<InputChunk, InputElement> = {
-	from(inputElements: InputElement[]): InputChunk;
-	length(inputChunk: InputChunk): number;
-	at(inputChunk: InputChunk, index: number): InputElement | undefined;
+export type InputCompanion<Sequence, Element> = {
+	from(elements: Element[]): Sequence;
+	length(sequence: Sequence): number;
+	at(sequence: Sequence, index: number): Element | undefined;
 };
 
 export const stringInputCompanion = new class StringInputCompanion implements InputCompanion<string, string> {
-	from(inputElements: string[]): string {
-		return inputElements.join('');
+	from(elements: string[]): string {
+		return elements.join('');
 	}
 
-	length(inputChunk: string): number {
-		return inputChunk.length;
+	length(sequence: string): number {
+		return sequence.length;
 	}
 
-	at(inputChunk: string, index: number): string | undefined {
-		return inputChunk.at(index);
+	at(sequence: string, index: number): string | undefined {
+		return sequence.at(index);
 	}
 }();
 
 export const uint8ArrayInputCompanion = new class Uint8ArrayInputCompanion implements InputCompanion<Uint8Array, number> {
-	from(inputElements: number[]): Uint8Array {
-		return new Uint8Array(inputElements);
+	from(elements: number[]): Uint8Array {
+		return new Uint8Array(elements);
 	}
 
-	length(inputChunk: Uint8Array): number {
-		return inputChunk.length;
+	length(sequence: Uint8Array): number {
+		return sequence.length;
 	}
 
-	at(inputChunk: Uint8Array, index: number): number | undefined {
-		return inputChunk.at(index);
+	at(sequence: Uint8Array, index: number): number | undefined {
+		return sequence.at(index);
 	}
 }();

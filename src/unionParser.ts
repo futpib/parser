@@ -7,10 +7,10 @@ import { parserParsingInvariant } from './parserParsingInvariant.js';
 
 export const createUnionParser = <
 	Output,
-	InputChunk,
+	Sequence,
 >(
-	childParsers: Parser<any, InputChunk, any>[],
-): Parser<Output, InputChunk, unknown> => {
+	childParsers: Parser<any, Sequence, any>[],
+): Parser<Output, Sequence, unknown> => {
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
 	return async parserContext => {
