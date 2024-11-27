@@ -13,21 +13,21 @@ const buffer1Parser = createFixedLengthBufferParser(1);
 const buffer4Parser = createFixedLengthBufferParser(4);
 const buffer8Parser = createFixedLengthBufferParser(8);
 
-const cstringParser: Parser<string, Uint8Array> = async inputContext => {
+const cstringParser: Parser<string, Uint8Array> = async parserContext => {
 	let string = '';
 
 	while (true) {
-		const character = await inputContext.peek(0);
+		const character = await parserContext.peek(0);
 
 		invariant(character !== undefined, 'Unexpected end of input');
 
 		if (character === 0) {
-			inputContext.skip(1);
+			parserContext.skip(1);
 			break;
 		}
 
 		string += String.fromCharCode(character);
-		inputContext.skip(1);
+		parserContext.skip(1);
 	}
 
 	return string;
@@ -37,32 +37,32 @@ const doubleParser: Parser<number, Uint8Array> = promiseCompose(buffer8Parser, b
 const int32Parser: Parser<number, Uint8Array> = promiseCompose(buffer4Parser, buffer => buffer.readInt32LE(0));
 const uint32Parser: Parser<number, Uint8Array> = promiseCompose(buffer4Parser, buffer => buffer.readUInt32LE(0));
 
-const bsonStringParser: Parser<string, Uint8Array> = async inputContext => {
-	const stringSize = await uint32Parser(inputContext);
+const bsonStringParser: Parser<string, Uint8Array> = async parserContext => {
+	const stringSize = await uint32Parser(parserContext);
 
 	let string = '';
 
 	for (let i = 0; i < stringSize - 1; i++) {
-		const character = await inputContext.peek(0);
+		const character = await parserContext.peek(0);
 
 		invariant(character !== undefined, 'Unexpected end of input');
 
-		inputContext.skip(1);
+		parserContext.skip(1);
 
 		string += String.fromCharCode(character);
 	}
 
-	const nullCharacter = await inputContext.peek(0);
+	const nullCharacter = await parserContext.peek(0);
 
 	invariant(nullCharacter === 0, 'Expected null character');
 
-	inputContext.skip(1);
+	parserContext.skip(1);
 
 	return string;
 };
 
-const createRecursiveParser = <Output, Sequence>(getParser: () => Parser<Output, Sequence>): Parser<Output, Sequence> => (inputContext) => {
-	return getParser()(inputContext);
+const createRecursiveParser = <Output, Sequence>(getParser: () => Parser<Output, Sequence>): Parser<Output, Sequence> => (parserContext) => {
+	return getParser()(parserContext);
 }
 
 const bsonArrayParser = promiseCompose(
@@ -73,44 +73,44 @@ const bsonArrayParser = promiseCompose(
 	([ _, elements ]) => elements.map(([ _, value ]) => value),
 );
 
-const bsonBooleanParser: Parser<boolean, Uint8Array> = async inputContext => {
-	const booleanValue = invariantDefined(await inputContext.read(0), 'Unexpected end of input');
+const bsonBooleanParser: Parser<boolean, Uint8Array> = async parserContext => {
+	const booleanValue = invariantDefined(await parserContext.read(0), 'Unexpected end of input');
 
 	return booleanValue === 1;
 };
 
 const int8Parser: Parser<number, Uint8Array> = promiseCompose(buffer1Parser, buffer => buffer.readInt8(0));
 
-const bsonElementParser: Parser<[ string, JsonValue ], Uint8Array> = async inputContext => {
-	const elementType = await int8Parser(inputContext);
-	const elementName = await cstringParser(inputContext);
+const bsonElementParser: Parser<[ string, JsonValue ], Uint8Array> = async parserContext => {
+	const elementType = await int8Parser(parserContext);
+	const elementName = await cstringParser(parserContext);
 
 	if (elementType === 1) {
-		const elementValue = await doubleParser(inputContext);
+		const elementValue = await doubleParser(parserContext);
 
 		return [ elementName, elementValue ];
 	}
 
 	if (elementType === 2) {
-		const elementValue = await bsonStringParser(inputContext);
+		const elementValue = await bsonStringParser(parserContext);
 
 		return [ elementName, elementValue ];
 	}
 
 	if (elementType === 3) {
-		const elementValue = await bsonDocumentParser(inputContext);
+		const elementValue = await bsonDocumentParser(parserContext);
 
 		return [ elementName, elementValue ];
 	}
 
 	if (elementType === 4) {
-		const elementValue = await bsonArrayParser(inputContext);
+		const elementValue = await bsonArrayParser(parserContext);
 
 		return [ elementName, elementValue ];
 	}
 
 	if (elementType === 8) {
-		const elementValue = await bsonBooleanParser(inputContext);
+		const elementValue = await bsonBooleanParser(parserContext);
 
 		return [ elementName, elementValue ];
 	}
@@ -120,7 +120,7 @@ const bsonElementParser: Parser<[ string, JsonValue ], Uint8Array> = async input
 	}
 
 	if (elementType === 16) {
-		const elementValue = await int32Parser(inputContext);
+		const elementValue = await int32Parser(parserContext);
 
 		return [ elementName, elementValue ];
 	}
@@ -128,22 +128,22 @@ const bsonElementParser: Parser<[ string, JsonValue ], Uint8Array> = async input
 	invariant(false, 'Not implemented %s', elementType);
 };
 
-const bsonElementListParser: Parser<Array<[ string, JsonValue ]>, Uint8Array> = async inputContext => {
+const bsonElementListParser: Parser<Array<[ string, JsonValue ]>, Uint8Array> = async parserContext => {
 	const elements: Array<[ string, JsonValue ]> = [];
 
 	while (true) {
 		const elementTypeBuffer = Buffer.alloc(1);
 
-		elementTypeBuffer[0] = invariantDefined(await inputContext.peek(0), 'Unexpected end of input');
+		elementTypeBuffer[0] = invariantDefined(await parserContext.peek(0), 'Unexpected end of input');
 
 		const elementType = elementTypeBuffer.readInt8(0);
 
 		if (elementType === 0) {
-			inputContext.skip(1);
+			parserContext.skip(1);
 			break;
 		}
 
-		const element = await bsonElementParser(inputContext);
+		const element = await bsonElementParser(parserContext);
 
 		elements.push(element);
 	}

@@ -38,26 +38,26 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser
 	jsonUnicodeEscapeSequenceParser,
 ]);
 
-const jsonStringParser: Parser<string, string> = async inputContext => {
+const jsonStringParser: Parser<string, string> = async parserContext => {
 	let quoteCount = 1;
 	let string = '';
 
-	const firstCharacter = await inputContext.read(0);
+	const firstCharacter = await parserContext.read(0);
 
 	parserParsingInvariant(firstCharacter === '"', 'Expected """, got "%s"', firstCharacter);
 
 	while (true) {
-		const character = parserParsingInvariant(await inputContext.peek(0), 'Unexpected end of input');
+		const character = parserParsingInvariant(await parserContext.peek(0), 'Unexpected end of input');
 
 		if (character === '\\') {
-			const escapeSequence = await jsonStringEscapeSequenceParser(inputContext);
+			const escapeSequence = await jsonStringEscapeSequenceParser(parserContext);
 
 			string += escapeSequence;
 
 			continue;
 		}
 
-		inputContext.skip(1);
+		parserContext.skip(1);
 
 		if (character === '"') {
 			quoteCount += 1;
@@ -73,8 +73,8 @@ const jsonStringParser: Parser<string, string> = async inputContext => {
 	return string;
 };
 
-const jsonNumberParser: Parser<number, string> = async inputContext => {
-	let numberString = await inputContext.read(0);
+const jsonNumberParser: Parser<number, string> = async parserContext => {
+	let numberString = await parserContext.read(0);
 
 	parserParsingInvariant(
 		numberString === '-' || (numberString >= '0' && numberString <= '9'),
@@ -83,7 +83,7 @@ const jsonNumberParser: Parser<number, string> = async inputContext => {
 	);
 
 	while (true) {
-		const character = await inputContext.peek(0);
+		const character = await parserContext.peek(0);
 
 		if (character === undefined) {
 			break;
@@ -98,7 +98,7 @@ const jsonNumberParser: Parser<number, string> = async inputContext => {
 				|| character === '+'
 		) {
 			numberString += character;
-			inputContext.skip(1);
+			parserContext.skip(1);
 		} else {
 			break;
 		}
@@ -129,35 +129,35 @@ const jsonPrimitiveParser: Parser<JsonPrimitive, string> = createUnionParser([
 
 Object.defineProperty(jsonPrimitiveParser, 'name', { value: 'jsonPrimitiveParser' });
 
-const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
+const jsonObjectParser: Parser<JsonObject, string> = async parserContext => {
 	const value: JsonObject = {};
 
-	const firstCharacter = await inputContext.read(0);
+	const firstCharacter = await parserContext.read(0);
 
 	parserParsingInvariant(firstCharacter === '{', 'Expected "{", got "%s"', firstCharacter);
 
 	while (true) {
-		const keyStartOrClosingBrace = await inputContext.peek(0);
+		const keyStartOrClosingBrace = await parserContext.peek(0);
 
 		if (keyStartOrClosingBrace === '}') {
-			inputContext.skip(1);
+			parserContext.skip(1);
 			break;
 		}
 
-		const key = await jsonStringParser(inputContext);
+		const key = await jsonStringParser(parserContext);
 
-		const colon = await inputContext.read(0);
+		const colon = await parserContext.read(0);
 
 		parserParsingInvariant(colon === ':', 'Expected ":", got "%s"', colon);
 
-		const keyValue = await jsonValueParser(inputContext);
+		const keyValue = await jsonValueParser(parserContext);
 
 		Object.defineProperty(value, key, {
 			value: keyValue,
 			enumerable: true,
 		});
 
-		const commaOrClosingBrace = await inputContext.peek(0);
+		const commaOrClosingBrace = await parserContext.peek(0);
 
 		parserParsingInvariant(
 			(
@@ -169,47 +169,47 @@ const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 		);
 
 		if (commaOrClosingBrace === '}') {
-			inputContext.skip(1);
+			parserContext.skip(1);
 			break;
 		}
 
 		parserParsingInvariant(commaOrClosingBrace === ',', 'Expected ",", got "%s"', commaOrClosingBrace);
 
-		inputContext.skip(1);
+		parserContext.skip(1);
 	}
 
 	return value;
 };
 
-const jsonArrayParser: Parser<JsonArray, string> = async inputContext => {
+const jsonArrayParser: Parser<JsonArray, string> = async parserContext => {
 	const value: Writable<JsonArray> = [];
 
-	const firstCharacter = await inputContext.read(0);
+	const firstCharacter = await parserContext.read(0);
 
 	parserParsingInvariant(firstCharacter === '[', 'Expected "[", got "%s"', firstCharacter);
 
 	while (true) {
-		const valueStartOrClosingBracket = await inputContext.peek(0);
+		const valueStartOrClosingBracket = await parserContext.peek(0);
 
 		if (valueStartOrClosingBracket === ']') {
-			inputContext.skip(1);
+			parserContext.skip(1);
 			break;
 		}
 
-		const elementValue = await jsonValueParser(inputContext);
+		const elementValue = await jsonValueParser(parserContext);
 
 		value.push(elementValue);
 
-		const commaOrClosingBracket = await inputContext.peek(0);
+		const commaOrClosingBracket = await parserContext.peek(0);
 
 		if (commaOrClosingBracket === ']') {
-			inputContext.skip(1);
+			parserContext.skip(1);
 			break;
 		}
 
 		parserParsingInvariant(commaOrClosingBracket === ',', 'Expected ",", got "%s"', commaOrClosingBracket);
 
-		inputContext.skip(1);
+		parserContext.skip(1);
 	}
 
 	return value;
