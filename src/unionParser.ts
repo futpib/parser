@@ -69,7 +69,13 @@ export const createUnionParser = <
 
 		parserImplementationInvariant(
 			successfulParserOutputs.length <= 1,
-			'Multiple union child parsers succeeded.',
+			[
+				'Multiple union child parsers succeeded.',
+				'Successful parser outputs, indented, separated by newlines:',
+				'%s',
+				'End of successful parser outputs.',
+			],
+			() => successfulParserOutputs.map(output => '  ' + JSON.stringify(output)).join('\n'),
 		);
 
 		parserParsingInvariant(
@@ -80,7 +86,8 @@ export const createUnionParser = <
 				'%s',
 				'End of parsing errors.',
 			],
-			parserParsingFailedErrors
+			// @ts-expect-error
+			() => 'too slow' || parserParsingFailedErrors
 				.flatMap(error => error.stack?.split('\n'))
 				.map(line => '  ' + line)
 				.join('\n'),

@@ -8,6 +8,8 @@ import { createUnionParser } from './unionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createSequenceParser } from './sequenceParser.js';
+import { ParserParsingFailedError } from './parserError.js';
+import { createDisjunctionParser } from './disjunctionParser.js';
 
 const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
 const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
@@ -38,40 +40,61 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser
 	jsonUnicodeEscapeSequenceParser,
 ]);
 
-const jsonStringParser: Parser<string, string> = async parserContext => {
-	let quoteCount = 1;
-	let string = '';
+const elementParser: Parser<string, string> = parserContext => {
+	return parserContext.read(0);
+}
 
-	const firstCharacter = await parserContext.read(0);
+class Terminated<T> {
+	constructor(
+		public readonly value: T,
+	) {}
+}
 
-	parserParsingInvariant(firstCharacter === '"', 'Expected """, got "%s"', firstCharacter);
+const createTerminatedSequenceParser = <ElementOutput, TerminatorOutput, Sequence>(
+	elementParser: Parser<ElementOutput, Sequence>,
+	terminatorParser: Parser<unknown, Sequence>,
+): Parser<[ElementOutput[], TerminatorOutput], Sequence> => {
+	const elementOrTerminatorParser = createUnionParser<ElementOutput | Terminated<TerminatorOutput>, Sequence>([
+		elementParser,
+		promiseCompose(terminatorParser, terminatorValue => new Terminated(terminatorValue)),
+	]);
 
-	while (true) {
-		const character = parserParsingInvariant(await parserContext.peek(0), 'Unexpected end of input');
+	return async parserContext => {
+		const elements: ElementOutput[] = [];
 
-		if (character === '\\') {
-			const escapeSequence = await jsonStringEscapeSequenceParser(parserContext);
+		while (true) {
+			const elementOrTerminator = await elementOrTerminatorParser(parserContext);
 
-			string += escapeSequence;
+			if (elementOrTerminator instanceof Terminated) {
+				return [elements, elementOrTerminator.value];
+			}
 
-			continue;
+			elements.push(elementOrTerminator);
 		}
+	};
+}
 
-		parserContext.skip(1);
+const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParser([
+	jsonStringEscapeSequenceParser,
+	promiseCompose(elementParser, character => {
+		parserParsingInvariant(character !== '"', 'Unexpected """');
+		return character;
+	}),
+]);
 
-		if (character === '"') {
-			quoteCount += 1;
-		} else {
-			string += character;
-		}
-
-		if (quoteCount === 2) {
-			break;
-		}
-	}
-
-	return string;
-};
+const jsonStringParser: Parser<string, string> = promiseCompose(
+	createSequenceParser([
+		createExactSequenceParser('"'),
+		promiseCompose(
+			createTerminatedSequenceParser(
+				jsonStringCharacterParser,
+				createExactSequenceParser('"'),
+			),
+			([characters]) => characters.join(''),
+		),
+	]),
+	([, string]) => string,
+);
 
 const jsonNumberParser: Parser<number, string> = async parserContext => {
 	let numberString = await parserContext.read(0);

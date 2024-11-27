@@ -1,19 +1,6 @@
-import invariant from 'invariant';
 import { ParserImplementationInvariantError } from './parserError.js';
+import { Falsy, parserInvariant, ValueOrAccessor } from './parserInvariant.js';
 
-type Falsy = '' | 0 | false | undefined ;
-
-export function parserImplementationInvariant<T>(value: T, formatOrFormatLines: string | string[], ...extra: any[]): Exclude<T, Falsy> {
-	const format = Array.isArray(formatOrFormatLines) ? formatOrFormatLines.join('\n') : formatOrFormatLines;
-
-	try {
-		invariant(value, format, ...extra);
-		return value as any;
-	} catch (error) {
-		if (error instanceof Error) {
-			throw new ParserImplementationInvariantError(error.message);
-		}
-
-		throw error;
-	}
+export function parserImplementationInvariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy> {
+	return parserInvariant(ParserImplementationInvariantError, value, format, ...formatArguments);
 }
