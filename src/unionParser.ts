@@ -5,6 +5,10 @@ import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { parserParsingInvariant } from './parserParsingInvariant.js';
 
+function getParserName(parser: Parser<any, any, any>): string {
+	return parser.name || 'anonymousUnionChild';
+}
+
 export const createUnionParser = <
 	Output,
 	Sequence,
@@ -13,11 +17,11 @@ export const createUnionParser = <
 ): Parser<Output, Sequence, unknown> => {
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
-	return async parserContext => {
+	const unionParser: Parser<Output, Sequence, unknown> = async parserContext => {
 		let runningChildParserContexts: ParserContext<unknown, unknown>[] = [];
 
 		const childParserResults = allSettledStream(childParsers.map(childParser => {
-			const childParserContext = parserContext.lookahead();
+			const childParserContext = parserContext.lookahead(getParserName(childParser));
 
 			runningChildParserContexts.push(childParserContext);
 
@@ -31,6 +35,7 @@ export const createUnionParser = <
 
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 		const successfulParserOutputs: Output[] = [];
+		const successfulParserContexts: ParserContext<unknown, unknown>[] = [];
 		let didUnlookahead = false;
 
 		for await (const childParserResult of childParserResults) {
@@ -40,6 +45,7 @@ export const createUnionParser = <
 
 			if (childParserResult.status === 'fulfilled') {
 				successfulParserOutputs.push(childParserResult.value);
+				successfulParserContexts.push(childParserResult.context);
 			} else {
 				const error = childParserResult.reason;
 
@@ -57,7 +63,7 @@ export const createUnionParser = <
 				parserImplementationInvariant(!didUnlookahead, 'Union parser unlookaheaded multiple times.');
 				didUnlookahead = true;
 				const [ runningChildParserContext ] = runningChildParserContexts;
-				runningChildParserContext.unlookahead(parserContext);
+				runningChildParserContext.unlookahead();
 			}
 		}
 
@@ -80,8 +86,26 @@ export const createUnionParser = <
 				.join('\n'),
 		);
 
+		const [ successfulParserContext ] = successfulParserContexts;
+
+		if (!didUnlookahead) {
+			successfulParserContext.unlookahead();
+		}
+
+		successfulParserContext.dispose();
+
 		const [ successfulParserOutput ] = successfulParserOutputs;
 
 		return successfulParserOutput
 	};
+
+	const name = [
+		'(',
+		...childParsers.map(getParserName).join('|'),
+		')',
+	].join('');
+
+	Object.defineProperty(unionParser, 'name', { value: name });
+
+	return unionParser;
 };

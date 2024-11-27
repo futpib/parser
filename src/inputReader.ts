@@ -2,6 +2,7 @@ import PromiseMutex from 'p-mutex';
 import { SequenceBuffer, SequenceBufferImplementation } from './sequenceBuffer.js';
 import { type InputCompanion } from './inputCompanion.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
+import invariant from 'invariant';
 
 export type InputReader<Sequence, Element> = {
 	get position(): number;
@@ -12,9 +13,13 @@ export type InputReader<Sequence, Element> = {
 	lookahead(): InputReader<Sequence, Element>;
 };
 
+let inputReaderId = 0;
+
 export class InputReaderImplementation<Sequence, Element> implements InputReader<Sequence, Element> {
+	private readonly _id = inputReaderId ++;
+
 	private _position = 0;
-	private _queuedSkipOffset = 0;
+	private _uncommitedSkipOffset = 0;
 
 	private readonly _promiseMutex = new PromiseMutex();
 
@@ -27,19 +32,27 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		this._sequenceBuffer = new SequenceBufferImplementation<Sequence, Element>(this._inputCompanion);
 	}
 
+	get [Symbol.toStringTag]() {
+		return [
+			'InputReader',
+			this._id,
+			this.position,
+		].join(' ');
+	}
+
 	get position() {
 		return this._position;
 	}
 
-	async peek(offset: number): Promise<Element | undefined> {
+	peek(offset: number): Promise<Element | undefined> {
 		parserImplementationInvariant(offset >= 0, 'offset >= 0');
 
-		offset += this._queuedSkipOffset;
+		offset += this._uncommitedSkipOffset;
 
 		const element = this._sequenceBuffer.peek(offset);
 
 		if (element !== undefined) {
-			return element;
+			return Promise.resolve(element);
 		}
 
 		return this._promiseMutex.withLock(async () => {
@@ -67,10 +80,10 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		this._position += offset;
 
 		if (this._promiseMutex.isLocked) {
-			this._queuedSkipOffset += offset;
+			this._uncommitedSkipOffset += offset;
 		} else {
-			this._sequenceBuffer.skip(offset + this._queuedSkipOffset);
-			this._queuedSkipOffset = 0;
+			this._sequenceBuffer.skip(offset + this._uncommitedSkipOffset);
+			this._uncommitedSkipOffset = 0;
 		}
 	}
 
@@ -87,6 +100,14 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 		private readonly _inputReader: InputReaderImplementation<Sequence, Element>,
 	) {
 		this._initialInputReaderPosition = this._inputReader.position;
+	}
+
+	get [Symbol.toStringTag]() {
+		return [
+			'InputReaderLookahead',
+			this._inputReader.toString(),
+			this.position,
+		].join(' ');
 	}
 
 	get position() {
@@ -111,7 +132,16 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 	lookahead(): InputReader<Sequence, Element> {
 		const lookahead = new InputReaderLookaheadImplementation(this._inputReader);
 
-		lookahead.skip(this._offset);
+		const offset = this.position - lookahead.position;
+
+		lookahead.skip(offset);
+
+		invariant(
+			this.position === lookahead.position,
+			'this.position (%s) === lookahead.position (%s)',
+			this.position,
+			lookahead.position,
+		);
 
 		return lookahead;
 	}

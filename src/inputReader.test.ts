@@ -207,3 +207,32 @@ test('inputReader.lookahead concurrent', async t => {
 	t.deepEqual(positions, [0, 0, 0]);
 	t.is(read, 1);
 });
+
+test('inputReader.lookahead skip position', async t => {
+	let read = 0;
+
+	const inputReader = new InputReaderImplementation(stringInputCompanion, (async function * () {
+		for (const character of 'abcdefgh') {
+			read++;
+			yield character;
+		}
+	})());
+
+	inputReader.skip(1);
+
+	const lookahead = inputReader.lookahead();
+
+	lookahead.skip(1);
+
+	const lookahead1 = lookahead.lookahead();
+
+	lookahead1.skip(1);
+
+	t.is(inputReader.position, 1);
+	t.is(lookahead.position, 2);
+	t.is(lookahead1.position, 3);
+
+	t.is(await inputReader.peek(0), 'b');
+	t.is(await lookahead.peek(0), 'c');
+	t.is(await lookahead1.peek(0), 'd');
+});

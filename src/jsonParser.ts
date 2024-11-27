@@ -1,73 +1,53 @@
 import {
 	type JsonArray, type JsonObject, type JsonPrimitive, type JsonValue, type Writable,
 } from 'type-fest';
-import invariant from 'invariant';
 import { type Parser } from './parser.js';
 import { createFixedLengthParser } from './fixedLengthParser.js';
 import { parserParsingInvariant } from './parserParsingInvariant.js';
 import { createUnionParser } from './unionParser.js';
+import { createExactSequenceParser } from './exactSequenceParser.js';
+import { promiseCompose } from './promiseCompose.js';
 
-const jsonStringEscapeSequenceParser: Parser<string, string> = async inputContext => {
+const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
+const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
+const jsonSlashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\/'), () => '/');
+const jsonBackspaceEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\b'), () => '\b');
+const jsonFormFeedEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\f'), () => '\f');
+const jsonNewLineEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\n'), () => '\n');
+const jsonCarriageReturnEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\r'), () => '\r');
+const jsonTabEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\t'), () => '\t');
+
+const jsonUnicodeEscapeSequenceParser: Parser<string, string> = async inputContext => {
 	const backslash = await inputContext.read(0);
 
 	parserParsingInvariant(backslash === '\\', 'Expected "\\", got "%s"', backslash);
 
-	const character = await inputContext.peek(0);
+	parserParsingInvariant(await inputContext.read(0) === 'u', 'Expected "u"');
 
-	if (character === '"') {
-		inputContext.skip(1);
-		return '"';
-	}
+	const hexCode = await createFixedLengthParser<string>(4)(inputContext);
 
-	if (character === '\\') {
-		inputContext.skip(1);
-		return '\\';
-	}
-
-	if (character === '/') {
-		inputContext.skip(1);
-		return '/';
-	}
-
-	if (character === 'b') {
-		inputContext.skip(1);
-		return '\b';
-	}
-
-	if (character === 'f') {
-		inputContext.skip(1);
-		return '\f';
-	}
-
-	if (character === 'n') {
-		inputContext.skip(1);
-		return '\n';
-	}
-
-	if (character === 'r') {
-		inputContext.skip(1);
-		return '\r';
-	}
-
-	if (character === 't') {
-		inputContext.skip(1);
-		return '\t';
-	}
-
-	if (character === 'u') {
-		inputContext.skip(1);
-
-		const hexCode = await createFixedLengthParser<string>(4)(inputContext);
-
-		return String.fromCharCode(Number.parseInt(hexCode, 16));
-	}
-
-	invariant(false, 'Not implemented %s', character);
+	return String.fromCharCode(Number.parseInt(hexCode, 16));
 };
 
+const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser([
+	jsonQuoteEscapeSequenceParser,
+	jsonBackslashEscapeSequenceParser,
+	jsonSlashEscapeSequenceParser,
+	jsonBackspaceEscapeSequenceParser,
+	jsonFormFeedEscapeSequenceParser,
+	jsonNewLineEscapeSequenceParser,
+	jsonCarriageReturnEscapeSequenceParser,
+	jsonTabEscapeSequenceParser,
+	jsonUnicodeEscapeSequenceParser,
+]);
+
 const jsonStringParser: Parser<string, string> = async inputContext => {
-	let quoteCount = 0;
+	let quoteCount = 1;
 	let string = '';
+
+	const firstCharacter = await inputContext.read(0);
+
+	parserParsingInvariant(firstCharacter === '"', 'Expected """, got "%s"', firstCharacter);
 
 	while (true) {
 		const character = parserParsingInvariant(await inputContext.peek(0), 'Unexpected end of input');
@@ -97,7 +77,13 @@ const jsonStringParser: Parser<string, string> = async inputContext => {
 };
 
 const jsonNumberParser: Parser<number, string> = async inputContext => {
-	let numberString = '';
+	let numberString = await inputContext.read(0);
+
+	parserParsingInvariant(
+		numberString === '-' || (numberString >= '0' && numberString <= '9'),
+		'Expected "-", "0" to "9", got "%s"',
+		numberString,
+	);
 
 	while (true) {
 		const character = await inputContext.peek(0);
@@ -124,43 +110,34 @@ const jsonNumberParser: Parser<number, string> = async inputContext => {
 	return Number(numberString);
 };
 
-const jsonPrimitiveParser: Parser<JsonPrimitive, string> = async inputContext => {
-	const character = parserParsingInvariant(await inputContext.peek(0), 'Unexpected end of input');
+const jsonTrueParser: Parser<true, string> = promiseCompose(createExactSequenceParser('true'), () => true);
 
-	if (character === '"') {
-		return jsonStringParser(inputContext);
-	}
+Object.defineProperty(jsonTrueParser, 'name', { value: 'jsonTrueParser' });
 
-	if (character === '-' || (character >= '0' && character <= '9')) {
-		return jsonNumberParser(inputContext);
-	}
+const jsonFalseParser: Parser<false, string> = promiseCompose(createExactSequenceParser('false'), () => false);
 
-	if (character === 't') {
-		inputContext.skip(4);
-		return true;
-	}
+Object.defineProperty(jsonFalseParser, 'name', { value: 'jsonFalseParser' });
 
-	if (character === 'f') {
-		inputContext.skip(5);
-		return false;
-	}
+const jsonNullParser: Parser<null, string> = promiseCompose(createExactSequenceParser('null'), () => null);
 
-	if (character === 'n') {
-		inputContext.skip(4);
-		return null;
-	}
+Object.defineProperty(jsonNullParser, 'name', { value: 'jsonNullParser' });
 
-	return parserParsingInvariant(false, 'Unexpected character "%s"', character);
-};
+const jsonPrimitiveParser: Parser<JsonPrimitive, string> = createUnionParser([
+	jsonStringParser,
+	jsonNumberParser,
+	jsonTrueParser,
+	jsonFalseParser,
+	jsonNullParser,
+]);
+
+Object.defineProperty(jsonPrimitiveParser, 'name', { value: 'jsonPrimitiveParser' });
 
 const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 	const value: JsonObject = {};
 
-	const firstCharacter = await inputContext.peek(0);
+	const firstCharacter = await inputContext.read(0);
 
 	parserParsingInvariant(firstCharacter === '{', 'Expected "{", got "%s"', firstCharacter);
-
-	inputContext.skip(1);
 
 	while (true) {
 		const keyStartOrClosingBrace = await inputContext.peek(0);
@@ -172,11 +149,9 @@ const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 
 		const key = await jsonStringParser(inputContext);
 
-		const colon = await inputContext.peek(0);
+		const colon = await inputContext.read(0);
 
 		parserParsingInvariant(colon === ':', 'Expected ":", got "%s"', colon);
-
-		inputContext.skip(1);
 
 		const keyValue = await jsonValueParser(inputContext);
 
@@ -186,6 +161,15 @@ const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 		});
 
 		const commaOrClosingBrace = await inputContext.peek(0);
+
+		parserParsingInvariant(
+			(
+				commaOrClosingBrace === ','
+					|| commaOrClosingBrace === '}'
+			),
+			'Expected "," or "}", got "%s"',
+			commaOrClosingBrace,
+		);
 
 		if (commaOrClosingBrace === '}') {
 			inputContext.skip(1);
@@ -241,3 +225,5 @@ export const jsonValueParser: Parser<JsonValue, string> = createUnionParser([
 	jsonArrayParser,
 	jsonPrimitiveParser,
 ]);
+
+Object.defineProperty(jsonValueParser, 'name', { value: 'jsonValueParser' });

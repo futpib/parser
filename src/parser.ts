@@ -28,7 +28,7 @@ export async function runParser<
 	inputCompanion: InputCompanion<Sequence, Element>,
 ): Promise<Output> {
 	const inputReader = new InputReaderImplementation<Sequence, Element>(inputCompanion, inputAsyncIterator);
-	const parserContext = new ParserContextImplementation<Sequence, Element>(inputCompanion, inputReader);
+	const parserContext = new ParserContextImplementation<Sequence, Element>(inputCompanion, inputReader, undefined, 'root');
 
 	return parser(parserContext);
 }

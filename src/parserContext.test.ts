@@ -56,7 +56,7 @@ test('parserContext.unlookahead', async t => {
 	t.is(await parserContext.peek(0), 'a');
 	t.is(await lookaheadContext.peek(0), 'b');
 
-	lookaheadContext.unlookahead(parserContext);
+	lookaheadContext.unlookahead();
 
 	t.is(await lookaheadContext.read(0), 'b');
 	t.is(await lookaheadContext.read(0), 'c');
@@ -74,7 +74,52 @@ test('parserContext.unlookahead while peeking', async t => {
 
 	const peekPromise = lookaheadContext.peek(0);
 
-	lookaheadContext.unlookahead(parserContext);
+	lookaheadContext.unlookahead();
 
 	t.is(await peekPromise, 'c');
+});
+
+test('parserContext deep unlookahead normal order', async t => {
+	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+		yield * 'abcdefgh';
+	})()));
+
+	const child = parserContext.lookahead();
+
+	t.is(await child.read(0), 'a');
+
+	const grandchild = child.lookahead();
+
+	t.is(await grandchild.read(0), 'b');
+
+	grandchild.unlookahead();
+
+	t.is(await child.read(0), 'c');
+
+	child.unlookahead();
+
+	t.is(await parserContext.read(0), 'd');
+});
+
+test('parserContext deep unlookahead weird order', async t => {
+	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+		yield * 'abcdefgh';
+	})()), undefined, 'root');
+
+	const child = parserContext.lookahead('child');
+	const grandchild = child.lookahead('grandchild');
+	const greatGrandchild = grandchild.lookahead('greatGrandchild');
+
+	t.is(await greatGrandchild.read(0), 'a');
+
+	grandchild.unlookahead();
+
+	child.unlookahead();
+
+	greatGrandchild.unlookahead();
+
+	t.is(await greatGrandchild.read(0), 'b');
+	t.is(await grandchild.read(0), 'c');
+	t.is(await child.read(0), 'd');
+	t.is(await parserContext.read(0), 'e');
 });
