@@ -7,6 +7,7 @@ import { parserParsingInvariant } from './parserParsingInvariant.js';
 import { createUnionParser } from './unionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
+import { createSequenceParser } from './sequenceParser.js';
 
 const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
 const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
@@ -17,17 +18,13 @@ const jsonNewLineEscapeSequenceParser: Parser<string, string> = promiseCompose(c
 const jsonCarriageReturnEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\r'), () => '\r');
 const jsonTabEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\t'), () => '\t');
 
-const jsonUnicodeEscapeSequenceParser: Parser<string, string> = async inputContext => {
-	const backslash = await inputContext.read(0);
-
-	parserParsingInvariant(backslash === '\\', 'Expected "\\", got "%s"', backslash);
-
-	parserParsingInvariant(await inputContext.read(0) === 'u', 'Expected "u"');
-
-	const hexCode = await createFixedLengthParser<string>(4)(inputContext);
-
-	return String.fromCharCode(Number.parseInt(hexCode, 16));
-};
+const jsonUnicodeEscapeSequenceParser: Parser<string, string> = promiseCompose(
+	createSequenceParser([
+		createExactSequenceParser('\\u'),
+		createFixedLengthParser<string>(4),
+	]),
+	([, hexCode]) => String.fromCharCode(Number.parseInt(hexCode, 16)),
+);
 
 const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser([
 	jsonQuoteEscapeSequenceParser,
@@ -187,11 +184,9 @@ const jsonObjectParser: Parser<JsonObject, string> = async inputContext => {
 const jsonArrayParser: Parser<JsonArray, string> = async inputContext => {
 	const value: Writable<JsonArray> = [];
 
-	const firstCharacter = await inputContext.peek(0);
+	const firstCharacter = await inputContext.read(0);
 
 	parserParsingInvariant(firstCharacter === '[', 'Expected "[", got "%s"', firstCharacter);
-
-	inputContext.skip(1);
 
 	while (true) {
 		const valueStartOrClosingBracket = await inputContext.peek(0);
