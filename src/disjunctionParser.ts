@@ -11,7 +11,7 @@ export const createDisjunctionParser = <
 	Output,
 	Sequence,
 >(
-	childParsers: Parser<any, Sequence, any>[],
+	childParsers: Array<Parser<any, Sequence, any>>,
 ): Parser<Output, Sequence, unknown> => {
 	parserImplementationInvariant(childParsers.length > 0, 'Disjunction parser must have at least one child parser.');
 
@@ -30,14 +30,14 @@ export const createDisjunctionParser = <
 				childParserContext.dispose();
 
 				return successfulParserOutput;
-			} else {
-				const error = childParserResult.reason;
+			}
 
-				if (error instanceof ParserParsingFailedError) {
-					parserParsingFailedErrors.push(error);
-				} else {
-					throw error;
-				}
+			const error = childParserResult.reason;
+
+			if (error instanceof ParserParsingFailedError) {
+				parserParsingFailedErrors.push(error);
+			} else {
+				throw error;
 			}
 		}
 

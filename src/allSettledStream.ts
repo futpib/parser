@@ -1,14 +1,14 @@
-interface AllSettledStreamFulfilledResult<T, Context> {
-	status: "fulfilled";
+type AllSettledStreamFulfilledResult<T, Context> = {
+	status: 'fulfilled';
 	value: T;
 	context: Context;
-}
+};
 
-interface AllSettledStreamRejectedResult<T, Context> {
-	status: "rejected";
+type AllSettledStreamRejectedResult<T, Context> = {
+	status: 'rejected';
 	reason: unknown;
 	context: Context;
-}
+};
 
 type AllSettedStreamResult<T, Context> = AllSettledStreamFulfilledResult<T, Context> | AllSettledStreamRejectedResult<T, Context>;
 
@@ -17,7 +17,7 @@ type AllSettledStreamTask<T, Context> = {
 	context: Context;
 };
 
-export function allSettledStream<T, Context>(tasks: AllSettledStreamTask<T, Context>[]): ReadableStream<AllSettedStreamResult<T, Context>> {
+export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T, Context>>): ReadableStream<AllSettedStreamResult<T, Context>> {
 	return new ReadableStream({
 		async start(controller) {
 			let settledCount = 0;

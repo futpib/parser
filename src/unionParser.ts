@@ -1,6 +1,6 @@
 import { allSettledStream } from './allSettledStream.js';
 import { type Parser } from './parser.js';
-import { ParserContext } from './parserContext.js';
+import { type ParserContext } from './parserContext.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { parserParsingInvariant } from './parserParsingInvariant.js';
@@ -13,12 +13,12 @@ export const createUnionParser = <
 	Output,
 	Sequence,
 >(
-	childParsers: Parser<any, Sequence, any>[],
+	childParsers: Array<Parser<any, Sequence, any>>,
 ): Parser<Output, Sequence, unknown> => {
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
 	const unionParser: Parser<Output, Sequence, unknown> = async parserContext => {
-		let runningChildParserContexts: ParserContext<unknown, unknown>[] = [];
+		let runningChildParserContexts: Array<ParserContext<unknown, unknown>> = [];
 
 		const childParserResults = allSettledStream(childParsers.map(childParser => {
 			const childParserContext = parserContext.lookahead(getParserName(childParser));
@@ -35,7 +35,7 @@ export const createUnionParser = <
 
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 		const successfulParserOutputs: Output[] = [];
-		const successfulParserContexts: ParserContext<unknown, unknown>[] = [];
+		const successfulParserContexts: Array<ParserContext<unknown, unknown>> = [];
 		let didUnlookahead = false;
 
 		for await (const childParserResult of childParserResults) {
@@ -103,7 +103,7 @@ export const createUnionParser = <
 
 		const [ successfulParserOutput ] = successfulParserOutputs;
 
-		return successfulParserOutput
+		return successfulParserOutput;
 	};
 
 	const name = [

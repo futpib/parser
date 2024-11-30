@@ -22,7 +22,7 @@ export type ParserContext<Sequence, Element> = {
 let parserContextId = 0;
 
 export class ParserContextImplementation<Sequence, Element> implements ParserContext<Sequence, Element> {
-	private readonly _id = parserContextId ++;
+	private readonly _id = parserContextId++;
 
 	private _exclusiveChildParserContext: ParserContext<Sequence, Element> | undefined = undefined;
 
@@ -62,7 +62,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		return this._inputReader.position;
 	}
 
-	peek(offset: number): Promise<Element | undefined> {
+	async peek(offset: number): Promise<Element | undefined> {
 		return this._inputReader.peek(offset);
 	}
 

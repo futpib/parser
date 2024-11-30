@@ -1,4 +1,4 @@
-import { Constructor } from 'type-fest';
+import { type Constructor } from 'type-fest';
 
 export type Falsy = '' | 0 | false | undefined;
 
@@ -18,7 +18,7 @@ export function parserInvariant<T>(
 	format = Array.isArray(format) ? format.join('\n') : format;
 
 	throw new ErrorConstructor(
-		format.replaceAll(/%s/g, () => {
+		format.replaceAll('%s', () => {
 			const argumentOrAccessor = formatArguments.shift();
 			return typeof argumentOrAccessor === 'function' ? argumentOrAccessor() : argumentOrAccessor;
 		}),

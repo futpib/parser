@@ -61,9 +61,7 @@ const bsonStringParser: Parser<string, Uint8Array> = async parserContext => {
 	return string;
 };
 
-const createRecursiveParser = <Output, Sequence>(getParser: () => Parser<Output, Sequence>): Parser<Output, Sequence> => (parserContext) => {
-	return getParser()(parserContext);
-}
+const createRecursiveParser = <Output, Sequence>(getParser: () => Parser<Output, Sequence>): Parser<Output, Sequence> => async parserContext => getParser()(parserContext);
 
 const bsonArrayParser = promiseCompose(
 	createSequenceParser([

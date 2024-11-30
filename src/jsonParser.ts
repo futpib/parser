@@ -25,7 +25,7 @@ const jsonUnicodeEscapeSequenceParser: Parser<string, string> = promiseCompose(
 		createExactSequenceParser('\\u'),
 		createFixedLengthParser<string>(4),
 	]),
-	([, hexCode]) => String.fromCharCode(Number.parseInt(hexCode, 16)),
+	([ , hexCode ]) => String.fromCharCode(Number.parseInt(hexCode, 16)),
 );
 
 const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser([
@@ -40,9 +40,7 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser
 	jsonUnicodeEscapeSequenceParser,
 ]);
 
-const elementParser: Parser<string, string> = parserContext => {
-	return parserContext.read(0);
-}
+const elementParser: Parser<string, string> = async parserContext => parserContext.read(0);
 
 class Terminated<T> {
 	constructor(
@@ -66,13 +64,13 @@ const createTerminatedSequenceParser = <ElementOutput, TerminatorOutput, Sequenc
 			const elementOrTerminator = await elementOrTerminatorParser(parserContext);
 
 			if (elementOrTerminator instanceof Terminated) {
-				return [elements, elementOrTerminator.value];
+				return [ elements, elementOrTerminator.value ];
 			}
 
 			elements.push(elementOrTerminator);
 		}
 	};
-}
+};
 
 const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParser([
 	jsonStringEscapeSequenceParser,
@@ -90,10 +88,10 @@ const jsonStringParser: Parser<string, string> = promiseCompose(
 				jsonStringCharacterParser,
 				createExactSequenceParser('"'),
 			),
-			([characters]) => characters.join(''),
+			([ characters ]) => characters.join(''),
 		),
 	]),
-	([, string]) => string,
+	([ , string ]) => string,
 );
 
 const jsonNumberParser: Parser<number, string> = async parserContext => {

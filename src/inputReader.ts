@@ -1,8 +1,8 @@
 import PromiseMutex from 'p-mutex';
-import { SequenceBuffer, SequenceBufferImplementation } from './sequenceBuffer.js';
+import invariant from 'invariant';
+import { type SequenceBuffer, SequenceBufferImplementation } from './sequenceBuffer.js';
 import { type InputCompanion } from './inputCompanion.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-import invariant from 'invariant';
 
 export type InputReader<Sequence, Element> = {
 	get position(): number;
@@ -16,7 +16,7 @@ export type InputReader<Sequence, Element> = {
 let inputReaderId = 0;
 
 export class InputReaderImplementation<Sequence, Element> implements InputReader<Sequence, Element> {
-	private readonly _id = inputReaderId ++;
+	private readonly _id = inputReaderId++;
 
 	private _position = 0;
 	private _uncommitedSkipOffset = 0;
@@ -44,7 +44,7 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		return this._position;
 	}
 
-	peek(offset: number): Promise<Element | undefined> {
+	async peek(offset: number): Promise<Element | undefined> {
 		parserImplementationInvariant(offset >= 0, 'offset >= 0');
 
 		offset += this._uncommitedSkipOffset;
@@ -52,7 +52,7 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		const element = this._sequenceBuffer.peek(offset);
 
 		if (element !== undefined) {
-			return Promise.resolve(element);
+			return element;
 		}
 
 		return this._promiseMutex.withLock(async () => {

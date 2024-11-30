@@ -1,11 +1,11 @@
 import invariant from 'invariant';
 import { type InputCompanion } from './inputCompanion.js';
 
-export interface SequenceBuffer<Sequence, Element> {
+export type SequenceBuffer<Sequence, Element> = {
 	push(sequence: Sequence): void;
 	peek(offset: number): Element | undefined;
 	skip(offset: number): void;
-}
+};
 
 export class SequenceBufferImplementation<Sequence, Element> implements SequenceBuffer<Sequence, Element> {
 	private readonly _sequences: Sequence[] = [];

@@ -17,7 +17,7 @@ test('parserContext.read', async t => {
 	t.is(await parserContext.read(0), 'b');
 	t.is(await parserContext.read(5), 'h');
 
-	await t.throwsAsync(() => parserContext.read(0), {
+	await t.throwsAsync(async () => parserContext.read(0), {
 		instanceOf: ParserUnexpectedEndOfInputError,
 	});
 });

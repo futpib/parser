@@ -65,7 +65,7 @@ test('inputReader.peek concurrent', async t => {
 		inputReader.peek(7),
 	]);
 
-	t.deepEqual(peeks, ['a', 'a', 'a', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+	t.deepEqual(peeks, [ 'a', 'a', 'a', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' ]);
 });
 
 test('inputReader skip while peeking', async t => {
@@ -114,11 +114,11 @@ test('inputReader.lookahead', async t => {
 
 	inputReader.skip(1);
 
-	await t.throwsAsync(() => lookahead0a.peek(0), {
+	await t.throwsAsync(async () => lookahead0a.peek(0), {
 		instanceOf: ParserImplementationError,
 	});
-	await t.throwsAsync(() => lookahead0b.peek(0));
-	await t.throwsAsync(() => lookahead0c.peek(0));
+	await t.throwsAsync(async () => lookahead0b.peek(0));
+	await t.throwsAsync(async () => lookahead0c.peek(0));
 
 	const lookahead1a = inputReader.lookahead();
 	const lookahead1b = inputReader.lookahead();
@@ -160,11 +160,11 @@ test('inputReader.lookahead', async t => {
 
 	t.is(inputReader.position, 2);
 
-	await t.throwsAsync(() => lookahead0a.peek(0));
-	await t.throwsAsync(() => lookahead0b.peek(0));
-	await t.throwsAsync(() => lookahead0c.peek(0));
+	await t.throwsAsync(async () => lookahead0a.peek(0));
+	await t.throwsAsync(async () => lookahead0b.peek(0));
+	await t.throwsAsync(async () => lookahead0c.peek(0));
 	t.is(await lookahead1a.peek(0), 'c');
-	await t.throwsAsync(() => lookahead1b.peek(0));
+	await t.throwsAsync(async () => lookahead1b.peek(0));
 	t.is(await lookahead2a.peek(0), 'd');
 	t.is(await lookahead2b.peek(0), 'c');
 
@@ -203,8 +203,8 @@ test('inputReader.lookahead concurrent', async t => {
 		lookahead3.position,
 	];
 
-	t.deepEqual(peeks, ['a', 'a', 'a']);
-	t.deepEqual(positions, [0, 0, 0]);
+	t.deepEqual(peeks, [ 'a', 'a', 'a' ]);
+	t.deepEqual(positions, [ 0, 0, 0 ]);
 	t.is(read, 1);
 });
 
