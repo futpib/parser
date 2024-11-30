@@ -1,7 +1,7 @@
 import {
 	type JsonArray, type JsonObject, type JsonPrimitive, type JsonValue, type Writable,
 } from 'type-fest';
-import { type Parser } from './parser.js';
+import { setParserName, type Parser } from './parser.js';
 import { createFixedLengthParser } from './fixedLengthParser.js';
 import { parserParsingInvariant } from './parserParsingInvariant.js';
 import { createUnionParser } from './unionParser.js';
@@ -98,15 +98,15 @@ const jsonNumberParser: Parser<number, string> = promiseCompose(
 
 const jsonTrueParser: Parser<true, string> = promiseCompose(createExactSequenceParser('true'), () => true);
 
-Object.defineProperty(jsonTrueParser, 'name', { value: 'jsonTrueParser' });
+setParserName(jsonTrueParser, 'jsonTrueParser');
 
 const jsonFalseParser: Parser<false, string> = promiseCompose(createExactSequenceParser('false'), () => false);
 
-Object.defineProperty(jsonFalseParser, 'name', { value: 'jsonFalseParser' });
+setParserName(jsonFalseParser, 'jsonFalseParser');
 
 const jsonNullParser: Parser<null, string> = promiseCompose(createExactSequenceParser('null'), () => null);
 
-Object.defineProperty(jsonNullParser, 'name', { value: 'jsonNullParser' });
+setParserName(jsonNullParser, 'jsonNullParser');
 
 const jsonPrimitiveParser: Parser<JsonPrimitive, string> = createUnionParser([
 	jsonStringParser,
@@ -116,7 +116,7 @@ const jsonPrimitiveParser: Parser<JsonPrimitive, string> = createUnionParser([
 	jsonNullParser,
 ]);
 
-Object.defineProperty(jsonPrimitiveParser, 'name', { value: 'jsonPrimitiveParser' });
+setParserName(jsonPrimitiveParser, 'jsonPrimitiveParser');
 
 const jsonObjectEntryParser: Parser<[string, JsonValue], string> = promiseCompose(
 	createTupleParser([
@@ -190,4 +190,4 @@ export const jsonValueParser: Parser<JsonValue, string> = createUnionParser([
 	jsonPrimitiveParser,
 ]);
 
-Object.defineProperty(jsonValueParser, 'name', { value: 'jsonValueParser' });
+setParserName(jsonValueParser, 'jsonValueParser');
