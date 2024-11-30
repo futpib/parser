@@ -12,6 +12,7 @@ import { createDisjunctionParser } from './disjunctionParser.js';
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
+import { createElementParser } from './elementParser.js';
 
 const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
 const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
@@ -42,7 +43,7 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser
 	jsonUnicodeEscapeSequenceParser,
 ]);
 
-const elementParser: Parser<string, string> = async parserContext => parserContext.read(0);
+const elementParser: Parser<string, string> = createElementParser();
 
 const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParser([
 	jsonStringEscapeSequenceParser,

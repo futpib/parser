@@ -25,8 +25,9 @@ testProp(
 		),
 	],
 	async (t, [ bsonUint8Array, bsonUint8ArrayChunkIterator ]) => {
-		const actual = await runParser(bsonDocumentParser, bsonUint8ArrayChunkIterator, uint8ArrayInputCompanion);
 		const expected = BSON.deserialize(bsonUint8Array);
+
+		const actual = await runParser(bsonDocumentParser, bsonUint8ArrayChunkIterator, uint8ArrayInputCompanion);
 
 		t.deepEqual(actual, expected);
 	},

@@ -2,7 +2,7 @@ import { type Parser } from './parser.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 
 export const createFixedLengthParser = <Sequence>(length: number): Parser<Sequence, Sequence, unknown> => {
-	parserImplementationInvariant(length > 0, 'Length must be positive.');
+	parserImplementationInvariant(length >= 0, 'Length must be non-negative got %s.', length);
 
 	return async parserContext => {
 		const elements = [];

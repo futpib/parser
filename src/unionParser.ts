@@ -1,13 +1,9 @@
 import { allSettledStream } from './allSettledStream.js';
-import { type Parser } from './parser.js';
+import { getParserName, setParserName, type Parser } from './parser.js';
 import { type ParserContext } from './parserContext.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { parserParsingInvariant } from './parserParsingInvariant.js';
-
-function getParserName(parser: Parser<any, any, any>): string {
-	return parser.name || 'anonymousUnionChild';
-}
 
 export const createUnionParser = <
 	Output,
@@ -21,7 +17,7 @@ export const createUnionParser = <
 		let runningChildParserContexts: Array<ParserContext<unknown, unknown>> = [];
 
 		const childParserResults = allSettledStream(childParsers.map(childParser => {
-			const childParserContext = parserContext.lookahead(getParserName(childParser));
+			const childParserContext = parserContext.lookahead(getParserName(childParser, 'anonymousUnionChild'));
 
 			runningChildParserContexts.push(childParserContext);
 
@@ -108,11 +104,9 @@ export const createUnionParser = <
 
 	const name = [
 		'(',
-		...childParsers.map(getParserName).join('|'),
+		...childParsers.map(childParser => getParserName(childParser, 'anonymousUnionChild')).join('|'),
 		')',
 	].join('');
 
-	Object.defineProperty(unionParser, 'name', { value: name });
-
-	return unionParser;
+	return setParserName(unionParser, name);
 };

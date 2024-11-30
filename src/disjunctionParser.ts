@@ -1,11 +1,7 @@
-import { type Parser } from './parser.js';
+import { getParserName, setParserName, type Parser } from './parser.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { parserParsingInvariant } from './parserParsingInvariant.js';
-
-function getParserName(parser: Parser<any, any, any>): string {
-	return parser.name || 'anonymousDisjunctionChild';
-}
 
 export const createDisjunctionParser = <
 	Output,
@@ -19,7 +15,7 @@ export const createDisjunctionParser = <
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 
 		for (const childParser of childParsers) {
-			const childParserContext = parserContext.lookahead(getParserName(childParser));
+			const childParserContext = parserContext.lookahead(getParserName(childParser, 'anonymousDisjunctionChild'));
 
 			const [ childParserResult ] = await Promise.allSettled([ childParser(childParserContext) ]);
 
@@ -59,11 +55,9 @@ export const createDisjunctionParser = <
 
 	const name = [
 		'(',
-		...childParsers.map(getParserName).join('|'),
+		...childParsers.map(childParser => getParserName(childParser, 'anonymousDiscjunctionChild')).join('|'),
 		')',
 	].join('');
 
-	Object.defineProperty(disjunctionParser, 'name', { value: name });
-
-	return disjunctionParser;
+	return setParserName(disjunctionParser, name);
 };

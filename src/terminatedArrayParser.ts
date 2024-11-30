@@ -1,4 +1,4 @@
-import { Parser } from "./parser.js";
+import { getParserName, Parser, setParserName } from "./parser.js";
 import { promiseCompose } from "./promiseCompose.js";
 import { createUnionParser } from "./unionParser.js";
 
@@ -12,6 +12,13 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 	elementParser: Parser<ElementOutput, Sequence>,
 	terminatorParser: Parser<unknown, Sequence>,
 ): Parser<[ElementOutput[], TerminatorOutput], Sequence> => {
+	const wrappedTerminatorParser = promiseCompose(terminatorParser, terminatorValue => new Terminated(terminatorValue));
+
+	setParserName(
+		wrappedTerminatorParser,
+		getParserName(terminatorParser, 'anonymousTerminator'),
+	);
+
 	const elementOrTerminatorParser = createUnionParser<ElementOutput | Terminated<TerminatorOutput>, Sequence>([
 		elementParser,
 		promiseCompose(terminatorParser, terminatorValue => new Terminated(terminatorValue)),
