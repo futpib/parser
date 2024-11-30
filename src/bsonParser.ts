@@ -4,7 +4,7 @@ import { type Parser } from './parser.js';
 import { invariantDefined } from './invariantDefined.js';
 import { createFixedLengthParser } from './fixedLengthParser.js';
 import { promiseCompose } from './promiseCompose.js';
-import { createSequenceParser } from './sequenceParser.js';
+import { createTupleParser } from './tupleParser.js';
 import { createSkipParser } from './skipParser.js';
 
 const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => promiseCompose(createFixedLengthParser<Uint8Array>(length), sequence => Buffer.from(sequence));
@@ -64,7 +64,7 @@ const bsonStringParser: Parser<string, Uint8Array> = async parserContext => {
 const createRecursiveParser = <Output, Sequence>(getParser: () => Parser<Output, Sequence>): Parser<Output, Sequence> => async parserContext => getParser()(parserContext);
 
 const bsonArrayParser = promiseCompose(
-	createSequenceParser([
+	createTupleParser([
 		createSkipParser(4),
 		createRecursiveParser(() => bsonElementListParser),
 	]),
@@ -150,7 +150,7 @@ const bsonElementListParser: Parser<Array<[ string, JsonValue ]>, Uint8Array> = 
 };
 
 export const bsonDocumentParser: Parser<JsonObject, Uint8Array> = promiseCompose(
-	createSequenceParser([
+	createTupleParser([
 		createSkipParser(4),
 		bsonElementListParser,
 	]),

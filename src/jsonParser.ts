@@ -7,9 +7,10 @@ import { parserParsingInvariant } from './parserParsingInvariant.js';
 import { createUnionParser } from './unionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
-import { createSequenceParser } from './sequenceParser.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { createTupleParser } from './tupleParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
+import { createTerminatedArrayParser } from './terminatedArrayParser.js';
+import { createArrayParser } from './arrayParser.js';
 
 const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
 const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
@@ -21,7 +22,7 @@ const jsonCarriageReturnEscapeSequenceParser: Parser<string, string> = promiseCo
 const jsonTabEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\t'), () => '\t');
 
 const jsonUnicodeEscapeSequenceParser: Parser<string, string> = promiseCompose(
-	createSequenceParser([
+	createTupleParser([
 		createExactSequenceParser('\\u'),
 		createFixedLengthParser<string>(4),
 	]),
@@ -42,36 +43,6 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser
 
 const elementParser: Parser<string, string> = async parserContext => parserContext.read(0);
 
-class Terminated<T> {
-	constructor(
-		public readonly value: T,
-	) {}
-}
-
-const createTerminatedSequenceParser = <ElementOutput, TerminatorOutput, Sequence>(
-	elementParser: Parser<ElementOutput, Sequence>,
-	terminatorParser: Parser<unknown, Sequence>,
-): Parser<[ElementOutput[], TerminatorOutput], Sequence> => {
-	const elementOrTerminatorParser = createUnionParser<ElementOutput | Terminated<TerminatorOutput>, Sequence>([
-		elementParser,
-		promiseCompose(terminatorParser, terminatorValue => new Terminated(terminatorValue)),
-	]);
-
-	return async parserContext => {
-		const elements: ElementOutput[] = [];
-
-		while (true) {
-			const elementOrTerminator = await elementOrTerminatorParser(parserContext);
-
-			if (elementOrTerminator instanceof Terminated) {
-				return [ elements, elementOrTerminator.value ];
-			}
-
-			elements.push(elementOrTerminator);
-		}
-	};
-};
-
 const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParser([
 	jsonStringEscapeSequenceParser,
 	promiseCompose(elementParser, character => {
@@ -81,10 +52,10 @@ const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParse
 ]);
 
 const jsonStringParser: Parser<string, string> = promiseCompose(
-	createSequenceParser([
+	createTupleParser([
 		createExactSequenceParser('"'),
 		promiseCompose(
-			createTerminatedSequenceParser(
+			createTerminatedArrayParser(
 				jsonStringCharacterParser,
 				createExactSequenceParser('"'),
 			),
@@ -94,39 +65,34 @@ const jsonStringParser: Parser<string, string> = promiseCompose(
 	([ , string ]) => string,
 );
 
-const jsonNumberParser: Parser<number, string> = async parserContext => {
-	let numberString = await parserContext.read(0);
+const jsonNumberParser: Parser<number, string> = promiseCompose(
+	createArrayParser(
+		promiseCompose(
+			elementParser,
+			(character) => {
+				parserParsingInvariant(
+					(
+						character === '-'
+							|| (character >= '0' && character <= '9')
+							|| character === '.'
+							|| character === 'e'
+							|| character === 'E'
+							|| character === '+'
+					),
+					'Expected "-", "0" to "9", ".", "e", "E", "+", got "%s"',
+					character,
+				);
 
-	parserParsingInvariant(
-		numberString === '-' || (numberString >= '0' && numberString <= '9'),
-		'Expected "-", "0" to "9", got "%s"',
-		numberString,
-	);
+				return character;
+			},
+		),
+	),
+	(characters) => {
+		parserParsingInvariant(characters.length > 0, 'Expected at least one character');
 
-	while (true) {
-		const character = await parserContext.peek(0);
-
-		if (character === undefined) {
-			break;
-		}
-
-		if (
-			character === '-'
-				|| (character >= '0' && character <= '9')
-				|| character === '.'
-				|| character === 'e'
-				|| character === 'E'
-				|| character === '+'
-		) {
-			numberString += character;
-			parserContext.skip(1);
-		} else {
-			break;
-		}
-	}
-
-	return Number(numberString);
-};
+		return Number(characters.join(''));
+	},
+);
 
 const jsonTrueParser: Parser<true, string> = promiseCompose(createExactSequenceParser('true'), () => true);
 
