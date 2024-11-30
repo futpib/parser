@@ -356,7 +356,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/invariant@npm:^2":
+"@types/invariant@npm:^2.2.37":
   version: 2.2.37
   resolution: "@types/invariant@npm:2.2.37"
   checksum: 10/dd6ee07af8516d21c868f95fd96c601c50a231e69c2df69360cb491b5858c76cf9b5a646df166cb4197b5078ca824da3dd90d6142d01a3cefc1176c57278b129
@@ -384,12 +384,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^22.9.0":
-  version: 22.9.0
-  resolution: "@types/node@npm:22.9.0"
+"@types/node@npm:^22.10.1":
+  version: 22.10.1
+  resolution: "@types/node@npm:22.10.1"
   dependencies:
-    undici-types: "npm:~6.19.8"
-  checksum: 10/a7df3426891868b0f5fb03e46aeddd8446178233521c624a44531c92a040cf08a82d8235f7e1e02af731fd16984665d4d71f3418caf9c2788313b10f040d615d
+    undici-types: "npm:~6.20.0"
+  checksum: 10/c802a526da2f3fa3ccefd00a71244e7cb825329951719e79e8fec62b1dbc2855388c830489770611584665ce10be23c05ed585982038b24924e1ba2c2cce03fd
   languageName: node
   linkType: hard
 
@@ -553,18 +553,18 @@ __metadata:
   dependencies:
     "@ava/typescript": "npm:^5.0.0"
     "@fast-check/ava": "npm:^2.0.1"
-    "@types/invariant": "npm:^2"
-    "@types/node": "npm:^22.9.0"
+    "@types/invariant": "npm:^2.2.37"
+    "@types/node": "npm:^22.10.1"
     ava: "npm:^6.2.0"
-    bson: "npm:^6.9.0"
+    bson: "npm:^6.10.0"
     c8: "npm:^10.1.2"
     coveralls: "npm:^3.1.1"
-    eslint-config-xo-typescript-overrides: "npm:^1.5.0"
+    eslint-config-xo-typescript-overrides: "npm:^1.6.1"
     fast-check: "npm:^3.23.1"
     invariant: "npm:^2.2.4"
     p-mutex: "npm:^0.1.0"
-    type-fest: "npm:^4.26.1"
-    typescript: "npm:^5.6.3"
+    type-fest: "npm:^4.29.0"
+    typescript: "npm:^5.7.2"
     xo: "npm:^0.59.3"
   languageName: unknown
   linkType: soft
@@ -1054,10 +1054,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bson@npm:^6.9.0":
-  version: 6.9.0
-  resolution: "bson@npm:6.9.0"
-  checksum: 10/98d95a53b3567a800a3211d681ca6a8da669dcb4e9ee607b4d711ca36857c96a8870ff9b9ee9f9e581b7567fa71bb4ef5b63c8fc25df098d5017cb7a95b8ff1f
+"bson@npm:^6.10.0":
+  version: 6.10.0
+  resolution: "bson@npm:6.10.0"
+  checksum: 10/b2fe00192d830749df0b4a5afc675ccb1d48d4eaf518e607319332288652a5168e429f0d77697929d1e0359caee422a7df7f66f85e6821e2905bef4e49998dc7
   languageName: node
   linkType: hard
 
@@ -1917,12 +1917,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-config-xo-typescript-overrides@npm:^1.5.0":
+"eslint-config-xo-overrides@npm:^1.6.0":
   version: 1.6.0
-  resolution: "eslint-config-xo-typescript-overrides@npm:1.6.0"
+  resolution: "eslint-config-xo-overrides@npm:1.6.0"
+  bin:
+    eslint-config-xo-overrides: cli.js
+  checksum: 10/87f3db646013f658b08ca77a6df8277f5277a73e7ae10f4dfb3cea466a102b8654fbe29e081b8e2beef1de81205fbf3bef15b042bf4d85c3eab0dd67a414d917
+  languageName: node
+  linkType: hard
+
+"eslint-config-xo-typescript-overrides@npm:^1.6.1":
+  version: 1.6.1
+  resolution: "eslint-config-xo-typescript-overrides@npm:1.6.1"
+  dependencies:
+    eslint-config-xo-overrides: "npm:^1.6.0"
   bin:
     eslint-config-xo-typescript-overrides: cli.js
-  checksum: 10/55b0bbc3c13ad2078d3da76e6790ba611d455e0264fa5e8422d9903e9ab1061ec6b93455f27b4e19e8b83a560bd8506c63ea8a3b75ab78be2e1eabffffcc4a06
+  checksum: 10/006e87fcc7ac285ef3c16ab60534859b4812a9d93c484cf9a1ca248162810085ced29bc62a46bfdc566a6fac6c14183c8f88f307663b4064fc2fe2b0dffee32e
   languageName: node
   linkType: hard
 
@@ -5848,10 +5859,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"type-fest@npm:^4.26.1":
-  version: 4.26.1
-  resolution: "type-fest@npm:4.26.1"
-  checksum: 10/b82676194f80af228cb852e320d2ea8381c89d667d2e4d9f2bdfc8f254bccc039c7741a90c53617a4de0c9fdca8265ed18eb0888cd628f391c5c381c33a9f94b
+"type-fest@npm:^4.29.0":
+  version: 4.29.0
+  resolution: "type-fest@npm:4.29.0"
+  checksum: 10/e13757fcbad2c7ee2418c4a888eb4de8f44ecabdc67f8a00b6d5c7af5f39c605154382f99f8f134f31c1f81bfbe3bf8d7e72e5129373afdb41b6b9199e74d062
   languageName: node
   linkType: hard
 
@@ -5907,7 +5918,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.5.3, typescript@npm:^5.6.3":
+"typescript@npm:^5.5.3":
   version: 5.6.3
   resolution: "typescript@npm:5.6.3"
   bin:
@@ -5917,13 +5928,33 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.5.3#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^5.6.3#optional!builtin<compat/typescript>":
+"typescript@npm:^5.7.2":
+  version: 5.7.2
+  resolution: "typescript@npm:5.7.2"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/4caa3904df69db9d4a8bedc31bafc1e19ffb7b24fbde2997a1633ae1398d0de5bdbf8daf602ccf3b23faddf1aeeb9b795223a2ed9c9a4fdcaf07bfde114a401a
+  languageName: node
+  linkType: hard
+
+"typescript@patch:typescript@npm%3A^5.5.3#optional!builtin<compat/typescript>":
   version: 5.6.3
   resolution: "typescript@patch:typescript@npm%3A5.6.3#optional!builtin<compat/typescript>::version=5.6.3&hash=8c6c40"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10/00504c01ee42d470c23495426af07512e25e6546bce7e24572e72a9ca2e6b2e9bea63de4286c3cfea644874da1467dcfca23f4f98f7caf20f8b03c0213bb6837
+  languageName: node
+  linkType: hard
+
+"typescript@patch:typescript@npm%3A^5.7.2#optional!builtin<compat/typescript>":
+  version: 5.7.2
+  resolution: "typescript@patch:typescript@npm%3A5.7.2#optional!builtin<compat/typescript>::version=5.7.2&hash=cef18b"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/ff27fc124bceb8969be722baa38af945b2505767cf794de3e2715e58f61b43780284060287d651fcbbdfb6f917f4653b20f4751991f17e0706db389b9bb3f75d
   languageName: node
   linkType: hard
 
@@ -5946,10 +5977,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici-types@npm:~6.19.8":
-  version: 6.19.8
-  resolution: "undici-types@npm:6.19.8"
-  checksum: 10/cf0b48ed4fc99baf56584afa91aaffa5010c268b8842f62e02f752df209e3dea138b372a60a963b3b2576ed932f32329ce7ddb9cb5f27a6c83040d8cd74b7a70
+"undici-types@npm:~6.20.0":
+  version: 6.20.0
+  resolution: "undici-types@npm:6.20.0"
+  checksum: 10/583ac7bbf4ff69931d3985f4762cde2690bb607844c16a5e2fbb92ed312fe4fa1b365e953032d469fa28ba8b224e88a595f0b10a449332f83fa77c695e567dbe
   languageName: node
   linkType: hard
 

@@ -23,17 +23,17 @@
   "devDependencies": {
     "@ava/typescript": "^5.0.0",
     "@fast-check/ava": "^2.0.1",
-    "@types/invariant": "^2",
-    "@types/node": "^22.9.0",
+    "@types/invariant": "^2.2.37",
+    "@types/node": "^22.10.1",
     "ava": "^6.2.0",
-    "bson": "^6.9.0",
+    "bson": "^6.10.0",
     "c8": "^10.1.2",
     "coveralls": "^3.1.1",
-    "eslint-config-xo-typescript-overrides": "^1.5.0",
+    "eslint-config-xo-typescript-overrides": "^1.6.1",
     "fast-check": "^3.23.1",
     "invariant": "^2.2.4",
-    "type-fest": "^4.26.1",
-    "typescript": "^5.6.3",
+    "type-fest": "^4.29.0",
+    "typescript": "^5.7.2",
     "xo": "^0.59.3"
   },
   "xo": {
@@ -44,7 +44,7 @@
       "ava/no-ignored-test-files": "off"
     }
   },
-  "packageManager": "yarn@4.5.1",
+  "packageManager": "yarn@4.5.3",
   "dependencies": {
     "p-mutex": "^0.1.0"
   }
