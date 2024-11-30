@@ -10,7 +10,7 @@ import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createElementParser } from './elementParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createUnionParser } from './unionParser.js';
-import { parserParsingInvariant } from './parserParsingInvariant.js';
+import { parserCreatorCompose } from './parserCreatorCompose.js';
 
 const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => promiseCompose(createFixedLengthParser<Uint8Array>(length), sequence => Buffer.from(sequence));
 
@@ -24,10 +24,10 @@ const nullByteParser: Parser<number, Uint8Array> = createExactElementParser(0);
 
 const cstringParser: Parser<string, Uint8Array> = promiseCompose(
 	createTerminatedArrayParser(
-		promiseCompose(
-			elementParser,
-			(byte: number) => parserParsingInvariant(byte, 'Expected non-null byte'),
-		),
+		parserCreatorCompose(
+			() => elementParser,
+			(byte: number) => async parserContext => parserContext.invariant(byte, 'Expected non-null byte'),
+		)(),
 		nullByteParser,
 	),
 	([sequence]) => Buffer.from(sequence).toString('utf8'),
@@ -72,14 +72,14 @@ const bsonBooleanParser: Parser<boolean, Uint8Array> = async parserContext => {
 
 const int8Parser: Parser<number, Uint8Array> = promiseCompose(buffer1Parser, buffer => buffer.readInt8(0));
 
-const createExactInt8Parser = (value: number): Parser<number, Uint8Array> => promiseCompose(
-	int8Parser,
-	actualValue => {
-		parserParsingInvariant(actualValue === value, 'Expected %s, got %s', value, actualValue);
+const createExactInt8Parser = (value: number): Parser<number, Uint8Array> => parserCreatorCompose(
+	() => int8Parser,
+	actualValue => async parserContext => {
+		parserContext.invariant(actualValue === value, 'Expected %s, got %s', value, actualValue);
 
 		return actualValue;
 	},
-);
+)();
 
 const createBsonElementParser = <ValueOutput>(
 	elementType: number,

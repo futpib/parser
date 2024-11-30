@@ -1,5 +1,4 @@
 import { type Parser } from './parser.js';
-import { parserParsingInvariant } from './parserParsingInvariant.js';
 
 export const createExactSequenceParser = <Sequence>(sequence: Sequence): Parser<Sequence, Sequence, unknown> => async parserContext => {
 	const length = parserContext.length(sequence);
@@ -8,7 +7,7 @@ export const createExactSequenceParser = <Sequence>(sequence: Sequence): Parser<
 		const element = await parserContext.read(0);
 		const expectedElement = parserContext.at(sequence, index);
 
-		parserParsingInvariant(
+		parserContext.invariant(
 			element === expectedElement,
 			'Expected "%s", got "%s", at index %s',
 			expectedElement,

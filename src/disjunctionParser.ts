@@ -1,7 +1,6 @@
 import { getParserName, setParserName, type Parser } from './parser.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-import { parserParsingInvariant } from './parserParsingInvariant.js';
 
 export const createDisjunctionParser = <
 	Output,
@@ -37,19 +36,10 @@ export const createDisjunctionParser = <
 			}
 		}
 
-		parserParsingInvariant(
+		parserContext.invariantJoin(
 			false,
-			[
-				'No disjunction child parser succeeded.',
-				'Parsing errors, indented, separated by newlines:',
-				'%s',
-				'End of parsing errors.',
-			],
-			// @ts-expect-error
-			() => 'too slow' || parserParsingFailedErrors
-				.flatMap(error => error.stack?.split('\n'))
-				.map(line => '  ' + line)
-				.join('\n'),
+			parserParsingFailedErrors,
+			'No disjunction child parser succeeded.',
 		);
 	};
 

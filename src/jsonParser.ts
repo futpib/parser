@@ -3,7 +3,6 @@ import {
 } from 'type-fest';
 import { setParserName, type Parser } from './parser.js';
 import { createFixedLengthParser } from './fixedLengthParser.js';
-import { parserParsingInvariant } from './parserParsingInvariant.js';
 import { createUnionParser } from './unionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -13,6 +12,7 @@ import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createElementParser } from './elementParser.js';
+import { parserCreatorCompose } from './parserCreatorCompose.js';
 
 const whitespaceParser: Parser<unknown, string> = createArrayParser(
 	createUnionParser([
@@ -56,10 +56,13 @@ const elementParser: Parser<string, string> = createElementParser();
 
 const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParser([
 	jsonStringEscapeSequenceParser,
-	promiseCompose(elementParser, character => {
-		parserParsingInvariant(character !== '"', 'Unexpected """');
-		return character;
-	}),
+	parserCreatorCompose(
+		() => elementParser,
+		character => async parserContext => {
+			parserContext.invariant(character !== '"', 'Unexpected """');
+			return character;
+		},
+	)(),
 ]);
 
 const jsonStringParser: Parser<string, string> = promiseCompose(
@@ -76,12 +79,12 @@ const jsonStringParser: Parser<string, string> = promiseCompose(
 	([ , string ]) => string,
 );
 
-const jsonNumberParser: Parser<number, string> = promiseCompose(
-	createArrayParser(
-		promiseCompose(
-			elementParser,
-			(character) => {
-				parserParsingInvariant(
+const jsonNumberParser: Parser<number, string> = parserCreatorCompose(
+	() => createArrayParser(
+		parserCreatorCompose(
+			() => elementParser,
+			(character) => async parserContext => {
+				parserContext.invariant(
 					(
 						character === '-'
 							|| (character >= '0' && character <= '9')
@@ -96,14 +99,14 @@ const jsonNumberParser: Parser<number, string> = promiseCompose(
 
 				return character;
 			},
-		),
+		)(),
 	),
-	(characters) => {
-		parserParsingInvariant(characters.length > 0, 'Expected at least one character');
+	(characters) => async parserContext => {
+		parserContext.invariant(characters.length > 0, 'Expected at least one character');
 
 		return Number(characters.join(''));
 	},
-);
+)();
 
 const jsonTrueParser: Parser<true, string> = promiseCompose(createExactSequenceParser('true'), () => true);
 

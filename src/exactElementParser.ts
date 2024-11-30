@@ -1,5 +1,4 @@
 import { type Parser } from './parser.js';
-import { parserParsingInvariant } from './parserParsingInvariant.js';
 import { DeriveSequenceElement } from './sequence.js';
 
 export const createExactElementParser = <
@@ -8,7 +7,7 @@ export const createExactElementParser = <
 >(element: Element): Parser<Element, Sequence, Element> => async parserContext => {
 	const actualElement = await parserContext.peek(0);
 
-	parserParsingInvariant(
+	parserContext.invariant(
 		actualElement === element,
 		'Expected %s, got %s',
 		element,

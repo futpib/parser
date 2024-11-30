@@ -5,7 +5,7 @@ export type Falsy = '' | 0 | false | undefined;
 export type ValueOrAccessor<T> = T | (() => T);
 
 export function parserInvariant<T>(
-	ErrorConstructor: Constructor<Error>,
+	ErrorConstructor: Constructor<Error, [message: string]> | ((message: string) => Error),
 	value: T,
 	formatOrFormatLines: ValueOrAccessor<string | string[]>,
 	...formatArguments: any[]
@@ -17,7 +17,7 @@ export function parserInvariant<T>(
 	let format = typeof formatOrFormatLines === 'function' ? formatOrFormatLines() : formatOrFormatLines;
 	format = Array.isArray(format) ? format.join('\n') : format;
 
-	throw new ErrorConstructor(
+	throw new (ErrorConstructor as Constructor<Error>)(
 		format.replaceAll('%s', () => {
 			const argumentOrAccessor = formatArguments.shift();
 			return typeof argumentOrAccessor === 'function' ? argumentOrAccessor() : argumentOrAccessor;

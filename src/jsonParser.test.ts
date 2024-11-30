@@ -13,7 +13,9 @@ testProp(
 		),
 	],
 	async (t, [ jsonString, jsonStringChunkIterator ]) => {
-		const actual = await runParser(jsonValueParser, jsonStringChunkIterator, stringInputCompanion);
+		const actual = await runParser(jsonValueParser, jsonStringChunkIterator, stringInputCompanion, {
+			errorJoinMode: 'none',
+		});
 		const expected = JSON.parse(jsonString);
 
 		t.deepEqual(actual, expected);

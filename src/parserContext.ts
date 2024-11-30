@@ -1,8 +1,9 @@
 import invariant from 'invariant';
 import { type InputCompanion } from './inputCompanion.js';
 import { type InputReader } from './inputReader.js';
-import { ParserParsingFailedError, ParserParsingChildrenError, ParserUnexpectedEndOfInputError } from './parserError.js';
+import { ParserParsingFailedError, ParserUnexpectedEndOfInputError, ParserParsingInvariantError, ParserParsingJoinNoneError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinFurthestError } from './parserError.js';
 import { RunParserOptions } from './parser.js';
+import { Falsy, parserInvariant, ValueOrAccessor } from './parserInvariant.js';
 
 export type ParserContext<Sequence, Element> = {
 	from(elements: Element[]): Sequence;
@@ -19,13 +20,15 @@ export type ParserContext<Sequence, Element> = {
 	unlookahead(): void;
 	dispose(): void;
 
-	joinErrors(errors: ParserParsingFailedError[]): ParserParsingFailedError;
+	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy>;
+	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy>;
 };
 
 let parserContextId = 0;
 
 export class ParserContextImplementation<Sequence, Element> implements ParserContext<Sequence, Element> {
 	private readonly _id = parserContextId++;
+	private readonly _depth: number;
 
 	private _exclusiveChildParserContext: ParserContext<Sequence, Element> | undefined = undefined;
 
@@ -35,7 +38,9 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		private _parentParserContext: ParserContextImplementation<Sequence, Element> | undefined = undefined,
 		private readonly _debugName = '',
 		private readonly _options: RunParserOptions<unknown, Sequence, Element>,
-	) {}
+	) {
+		this._depth = _parentParserContext ? _parentParserContext._depth + 1 : 0;
+	}
 
 	get [Symbol.toStringTag]() {
 		return [
@@ -78,7 +83,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const element = await this.peek(offset);
 
 		if (element === undefined) {
-			throw new ParserUnexpectedEndOfInputError();
+			throw new ParserUnexpectedEndOfInputError('', this._depth, this.position);
 		}
 
 		this.skip(offset + 1);
@@ -194,7 +199,99 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		this._parentParserContext = undefined;
 	}
 
-	joinErrors(errors: ParserParsingFailedError[]): ParserParsingChildrenError {
-		return errors[0]; // TODO
+	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy> {
+		const parserContext = this;
+
+		return parserInvariant(function (message: string) {
+			return new ParserParsingInvariantError(message, parserContext._depth, parserContext.position);
+		}, value, format, ...formatArguments);
+	}
+
+	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy> {
+		invariant(childErrors.length > 0, 'childErrors.length > 0');
+
+		const errorJoinMode = this._options.errorJoinMode ?? 'none';
+		const parserContext = this;
+
+		if (errorJoinMode === 'none') {
+			return parserInvariant(function (message: string) {
+				return new ParserParsingJoinNoneError(message, parserContext._depth, parserContext.position);
+			}, value, format, ...formatArguments);
+		}
+
+		if (errorJoinMode === 'furthest') {
+			return parserInvariant(function (message: string) {
+				let furthestPosition = 0;
+				let furthestChildErrors: ParserParsingFailedError[] = [];
+
+				for (const childError of childErrors) {
+					if (childError.position < furthestPosition) {
+						continue;
+					}
+
+					if (childError.position > furthestPosition) {
+						furthestPosition = childError.position;
+						furthestChildErrors = [ childError ];
+						continue;
+					}
+
+					furthestChildErrors.push(childError);
+				}
+
+				message += [
+					'',
+					'Furthest child error stacks, indented:',
+					...furthestChildErrors.flatMap(furthestChildError => furthestChildError.stack?.split('\n').map(line => '  ' + line)),
+					'End of furthest child error stacks',
+				].join('\n');
+
+				return new ParserParsingJoinFurthestError(message, parserContext._depth, furthestPosition, furthestChildErrors);
+			}, value, format, ...formatArguments);
+		}
+
+		if (errorJoinMode === 'deepest') {
+			return parserInvariant(function (message: string) {
+				let deepestDepth = 0;
+				let deepestChildErrors: ParserParsingFailedError[] = [];
+
+				for (const childError of childErrors) {
+					if (childError.depth < deepestDepth) {
+						continue;
+					}
+
+					if (childError.depth > deepestDepth) {
+						deepestDepth = childError.depth;
+						deepestChildErrors = [ childError ];
+						continue;
+					}
+
+					deepestChildErrors.push(childError);
+				}
+
+				message += [
+					'',
+					'Deepest child error stacks, indented:',
+					...deepestChildErrors.flatMap(deepestChildError => deepestChildError.stack?.split('\n').map(line => '  ' + line)),
+					'End of deepest child error stacks',
+				].join('\n');
+
+				return new ParserParsingJoinDeepestError(message, deepestDepth, parserContext.position, deepestChildErrors);
+			}, value, format, ...formatArguments);
+		}
+
+		if (errorJoinMode === 'all') {
+			return parserInvariant(function (message: string) {
+				message += [
+					'',
+					'Child error stacks, indented:',
+					...childErrors.flatMap(childError => childError.stack?.split('\n').map(line => '  ' + line)),
+					'End of child error stacks',
+				].join('\n');
+
+				return new ParserParsingJoinAllError(message, parserContext._depth, parserContext.position, childErrors);
+			}, value, format, ...formatArguments);
+		}
+
+		invariant(false, 'Unsupported errorJoinMode: %s', errorJoinMode);
 	}
 }

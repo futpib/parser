@@ -3,7 +3,6 @@ import { getParserName, setParserName, type Parser } from './parser.js';
 import { type ParserContext } from './parserContext.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-import { parserParsingInvariant } from './parserParsingInvariant.js';
 
 export const createUnionParser = <
 	Output,
@@ -74,19 +73,10 @@ export const createUnionParser = <
 			() => successfulParserOutputs.map(output => '  ' + JSON.stringify(output)).join('\n'),
 		);
 
-		parserParsingInvariant(
+		parserContext.invariantJoin(
 			successfulParserOutputs.length === 1,
-			[
-				'No union child parser succeeded.',
-				'Parsing errors, indented, separated by newlines:',
-				'%s',
-				'End of parsing errors.',
-			],
-			// @ts-expect-error
-			() => 'too slow' || parserParsingFailedErrors
-				.flatMap(error => error.stack?.split('\n'))
-				.map(line => '  ' + line)
-				.join('\n'),
+			parserParsingFailedErrors,
+			'No union child parser succeeded.',
 		);
 
 		const [ successfulParserContext ] = successfulParserContexts;
