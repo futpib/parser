@@ -11,6 +11,7 @@ import { createTupleParser } from './tupleParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createArrayParser } from './arrayParser.js';
+import { createParserAccessorParser } from './parserAccessorParser.js';
 
 const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
 const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
@@ -116,91 +117,71 @@ const jsonPrimitiveParser: Parser<JsonPrimitive, string> = createUnionParser([
 
 Object.defineProperty(jsonPrimitiveParser, 'name', { value: 'jsonPrimitiveParser' });
 
-const jsonObjectParser: Parser<JsonObject, string> = async parserContext => {
-	const value: JsonObject = {};
+const jsonObjectEntryParser: Parser<[string, JsonValue], string> = promiseCompose(
+	createTupleParser([
+		jsonStringParser,
+		createExactSequenceParser(':'),
+		createParserAccessorParser(() => jsonValueParser),
+	]),
+	([key, , value]) => [key, value],
+);
 
-	const firstCharacter = await parserContext.read(0);
-
-	parserParsingInvariant(firstCharacter === '{', 'Expected "{", got "%s"', firstCharacter);
-
-	while (true) {
-		const keyStartOrClosingBrace = await parserContext.peek(0);
-
-		if (keyStartOrClosingBrace === '}') {
-			parserContext.skip(1);
-			break;
-		}
-
-		const key = await jsonStringParser(parserContext);
-
-		const colon = await parserContext.read(0);
-
-		parserParsingInvariant(colon === ':', 'Expected ":", got "%s"', colon);
-
-		const keyValue = await jsonValueParser(parserContext);
-
-		Object.defineProperty(value, key, {
-			value: keyValue,
-			enumerable: true,
-		});
-
-		const commaOrClosingBrace = await parserContext.peek(0);
-
-		parserParsingInvariant(
-			(
-				commaOrClosingBrace === ','
-					|| commaOrClosingBrace === '}'
+const jsonObjectParser: Parser<JsonObject, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('{'),
+		promiseCompose(
+			createTerminatedArrayParser(
+				createDisjunctionParser<[string, JsonValue], string>([
+					promiseCompose(
+						createTupleParser([
+							createParserAccessorParser(() => jsonObjectEntryParser),
+							createExactSequenceParser(','),
+						]),
+						([entry]) => entry,
+					),
+					createParserAccessorParser(() => jsonObjectEntryParser),
+				]),
+				createExactSequenceParser('}'),
 			),
-			'Expected "," or "}", got "%s"',
-			commaOrClosingBrace,
-		);
+			([entries]) => entries,
+		),
+	]),
+	([, entries]) => {
+		const object: Writable<JsonObject> = {};
 
-		if (commaOrClosingBrace === '}') {
-			parserContext.skip(1);
-			break;
+		for (const [key, value] of entries) {
+			Object.defineProperty(object, key, {
+				value,
+				enumerable: true,
+			});
 		}
 
-		parserParsingInvariant(commaOrClosingBrace === ',', 'Expected ",", got "%s"', commaOrClosingBrace);
+		return object;
+	},
+);
 
-		parserContext.skip(1);
-	}
-
-	return value;
-};
-
-const jsonArrayParser: Parser<JsonArray, string> = async parserContext => {
-	const value: Writable<JsonArray> = [];
-
-	const firstCharacter = await parserContext.read(0);
-
-	parserParsingInvariant(firstCharacter === '[', 'Expected "[", got "%s"', firstCharacter);
-
-	while (true) {
-		const valueStartOrClosingBracket = await parserContext.peek(0);
-
-		if (valueStartOrClosingBracket === ']') {
-			parserContext.skip(1);
-			break;
-		}
-
-		const elementValue = await jsonValueParser(parserContext);
-
-		value.push(elementValue);
-
-		const commaOrClosingBracket = await parserContext.peek(0);
-
-		if (commaOrClosingBracket === ']') {
-			parserContext.skip(1);
-			break;
-		}
-
-		parserParsingInvariant(commaOrClosingBracket === ',', 'Expected ",", got "%s"', commaOrClosingBracket);
-
-		parserContext.skip(1);
-	}
-
-	return value;
-};
+const jsonArrayParser: Parser<JsonArray, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('['),
+		promiseCompose(
+			createTerminatedArrayParser(
+				createDisjunctionParser<JsonValue, string>([
+					promiseCompose(
+						createTupleParser([
+							createParserAccessorParser(() => jsonValueParser),
+							createExactSequenceParser(','),
+						]),
+						([value]) => value,
+					),
+					createParserAccessorParser(() => jsonValueParser),
+				]),
+				createExactSequenceParser(']'),
+			),
+			([values]) => values,
+		),
+	]),
+	([, values]) => values,
+);
 
 export const jsonValueParser: Parser<JsonValue, string> = createUnionParser([
 	jsonObjectParser,
