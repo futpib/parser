@@ -25,6 +25,14 @@ export function setParserName<
 	return parser;
 }
 
+export type RunParserOptions<
+	Output,
+	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
+> = {
+	errorJoinMode?: 'none' | 'deepest' | 'furthest' | 'all';
+}
+
 export async function runParser<
 	Output,
 	Sequence,
@@ -33,9 +41,10 @@ export async function runParser<
 	parser: Parser<Output, Sequence, Element>,
 	inputAsyncIterator: AsyncIterator<Sequence>,
 	inputCompanion: InputCompanion<Sequence, Element>,
+	options: RunParserOptions<Output, Sequence, Element> = {},
 ): Promise<Output> {
 	const inputReader = new InputReaderImplementation<Sequence, Element>(inputCompanion, inputAsyncIterator);
-	const parserContext = new ParserContextImplementation<Sequence, Element>(inputCompanion, inputReader, undefined, 'root');
+	const parserContext = new ParserContextImplementation<Sequence, Element>(inputCompanion, inputReader, undefined, 'root', options);
 
 	return parser(parserContext);
 }

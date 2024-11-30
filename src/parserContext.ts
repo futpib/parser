@@ -1,7 +1,8 @@
 import invariant from 'invariant';
 import { type InputCompanion } from './inputCompanion.js';
 import { type InputReader } from './inputReader.js';
-import { ParserUnexpectedEndOfInputError } from './parserError.js';
+import { ParserParsingFailedError, ParserParsingChildrenError, ParserUnexpectedEndOfInputError } from './parserError.js';
+import { RunParserOptions } from './parser.js';
 
 export type ParserContext<Sequence, Element> = {
 	from(elements: Element[]): Sequence;
@@ -17,6 +18,8 @@ export type ParserContext<Sequence, Element> = {
 	lookahead(debugName?: string): ParserContext<Sequence, Element>;
 	unlookahead(): void;
 	dispose(): void;
+
+	joinErrors(errors: ParserParsingFailedError[]): ParserParsingFailedError;
 };
 
 let parserContextId = 0;
@@ -31,6 +34,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		private _inputReader: InputReader<Sequence, Element>,
 		private _parentParserContext: ParserContextImplementation<Sequence, Element> | undefined = undefined,
 		private readonly _debugName = '',
+		private readonly _options: RunParserOptions<unknown, Sequence, Element>,
 	) {}
 
 	get [Symbol.toStringTag]() {
@@ -108,6 +112,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 				'/',
 				debugName,
 			].join(''),
+			this._options,
 		);
 
 		if (this.position !== lookaheadParserContext.position) {
@@ -187,5 +192,9 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 		this._parentParserContext._exclusiveChildParserContext = undefined;
 		this._parentParserContext = undefined;
+	}
+
+	joinErrors(errors: ParserParsingFailedError[]): ParserParsingChildrenError {
+		return errors[0]; // TODO
 	}
 }

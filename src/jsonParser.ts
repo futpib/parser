@@ -14,6 +14,15 @@ import { createArrayParser } from './arrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createElementParser } from './elementParser.js';
 
+const whitespaceParser: Parser<unknown, string> = createArrayParser(
+	createUnionParser([
+		createExactSequenceParser(' '),
+		createExactSequenceParser('\t'),
+		createExactSequenceParser('\r'),
+		createExactSequenceParser('\n'),
+	]),
+);
+
 const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
 const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
 const jsonSlashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\/'), () => '/');
@@ -121,33 +130,44 @@ setParserName(jsonPrimitiveParser, 'jsonPrimitiveParser');
 const jsonObjectEntryParser: Parser<[string, JsonValue], string> = promiseCompose(
 	createTupleParser([
 		jsonStringParser,
+		whitespaceParser,
 		createExactSequenceParser(':'),
+		whitespaceParser,
 		createParserAccessorParser(() => jsonValueParser),
 	]),
-	([key, , value]) => [key, value],
+	([key, _whitespace1, _colon, _whitespace2, value]) => [key, value],
 );
 
 const jsonObjectParser: Parser<JsonObject, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('{'),
+		whitespaceParser,
 		promiseCompose(
 			createTerminatedArrayParser(
 				createDisjunctionParser<[string, JsonValue], string>([
 					promiseCompose(
 						createTupleParser([
 							createParserAccessorParser(() => jsonObjectEntryParser),
+							whitespaceParser,
 							createExactSequenceParser(','),
+							whitespaceParser,
 						]),
 						([entry]) => entry,
 					),
-					createParserAccessorParser(() => jsonObjectEntryParser),
+					promiseCompose(
+						createTupleParser([
+							createParserAccessorParser(() => jsonObjectEntryParser),
+							whitespaceParser,
+						]),
+						([value]) => value,
+					),
 				]),
 				createExactSequenceParser('}'),
 			),
 			([entries]) => entries,
 		),
 	]),
-	([, entries]) => {
+	([ _brace, _whitespace, entries]) => {
 		const object: Writable<JsonObject> = {};
 
 		for (const [key, value] of entries) {
@@ -164,24 +184,33 @@ const jsonObjectParser: Parser<JsonObject, string> = promiseCompose(
 const jsonArrayParser: Parser<JsonArray, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('['),
+		whitespaceParser,
 		promiseCompose(
 			createTerminatedArrayParser(
 				createDisjunctionParser<JsonValue, string>([
 					promiseCompose(
 						createTupleParser([
 							createParserAccessorParser(() => jsonValueParser),
+							whitespaceParser,
 							createExactSequenceParser(','),
+							whitespaceParser,
 						]),
 						([value]) => value,
 					),
-					createParserAccessorParser(() => jsonValueParser),
+					promiseCompose(
+						createTupleParser([
+							createParserAccessorParser(() => jsonValueParser),
+							whitespaceParser,
+						]),
+						([value]) => value,
+					),
 				]),
 				createExactSequenceParser(']'),
 			),
 			([values]) => values,
 		),
 	]),
-	([, values]) => values,
+	([_bracket, _whitespace, values]) => values,
 );
 
 export const jsonValueParser: Parser<JsonValue, string> = createUnionParser([
