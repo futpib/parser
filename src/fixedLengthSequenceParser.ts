@@ -1,10 +1,10 @@
-import { type Parser } from './parser.js';
+import { setParserName, type Parser } from './parser.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 
-export const createFixedLengthParser = <Sequence>(length: number): Parser<Sequence, Sequence, unknown> => {
+export const createFixedLengthSequenceParser = <Sequence>(length: number) => {
 	parserImplementationInvariant(length >= 0, 'Length must be non-negative got %s.', length);
 
-	return async parserContext => {
+	const fixedLengthSequenceParser: Parser<Sequence, Sequence, unknown> = async parserContext => {
 		const elements = [];
 
 		for (let i = 0; i < length; i++) {
@@ -15,4 +15,8 @@ export const createFixedLengthParser = <Sequence>(length: number): Parser<Sequen
 
 		return parserContext.from(elements);
 	};
+
+	setParserName(fixedLengthSequenceParser, `.{${length}}`);
+
+	return fixedLengthSequenceParser;
 };

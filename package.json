@@ -32,6 +32,7 @@
     "eslint-config-xo-typescript-overrides": "^1.6.1",
     "fast-check": "^3.23.1",
     "invariant": "^2.2.4",
+    "jszip": "^3.10.1",
     "type-fest": "^4.29.0",
     "typescript": "^5.7.2",
     "xo": "^0.59.3"

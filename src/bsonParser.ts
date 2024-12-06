@@ -1,7 +1,7 @@
 import { type JsonObject, type JsonValue } from 'type-fest';
 import { getParserName, setParserName, type Parser } from './parser.js';
 import { invariantDefined } from './invariantDefined.js';
-import { createFixedLengthParser } from './fixedLengthParser.js';
+import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
 import { createSkipParser } from './skipParser.js';
@@ -12,7 +12,7 @@ import { createExactElementParser } from './exactElementParser.js';
 import { createUnionParser } from './unionParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 
-const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => promiseCompose(createFixedLengthParser<Uint8Array>(length), sequence => Buffer.from(sequence));
+const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => promiseCompose(createFixedLengthSequenceParser<Uint8Array>(length), sequence => Buffer.from(sequence));
 
 const buffer1Parser = createFixedLengthBufferParser(1);
 const buffer4Parser = createFixedLengthBufferParser(4);

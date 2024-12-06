@@ -2,7 +2,7 @@ import {
 	type JsonArray, type JsonObject, type JsonPrimitive, type JsonValue, type Writable,
 } from 'type-fest';
 import { setParserName, type Parser } from './parser.js';
-import { createFixedLengthParser } from './fixedLengthParser.js';
+import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 import { createUnionParser } from './unionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -35,7 +35,7 @@ const jsonTabEscapeSequenceParser: Parser<string, string> = promiseCompose(creat
 const jsonUnicodeEscapeSequenceParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('\\u'),
-		createFixedLengthParser<string>(4),
+		createFixedLengthSequenceParser<string>(4),
 	]),
 	([ , hexCode ]) => String.fromCharCode(Number.parseInt(hexCode, 16)),
 );

@@ -1,10 +1,10 @@
-import { Parser } from "./parser.js";
+import { getParserName, Parser, setParserName } from "./parser.js";
 import { ParserParsingFailedError } from "./parserError.js";
 
 export const createArrayParser = <ElementOutput, Sequence>(
 	elementParser: Parser<ElementOutput, Sequence>,
 ): Parser<ElementOutput[], Sequence> => {
-	return async parserContext => {
+	const arrayParser: Parser<ElementOutput[], Sequence> = async parserContext => {
 		const elements: ElementOutput[] = [];
 
 		while (true) {
@@ -23,4 +23,8 @@ export const createArrayParser = <ElementOutput, Sequence>(
 			}
 		}
 	};
+
+	setParserName(arrayParser, getParserName(elementParser, 'anonymousArrayChild') + '*');
+
+	return arrayParser;
 };
