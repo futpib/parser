@@ -7,7 +7,9 @@ export const createOptionalParser = <Output, Sequence>(
 	const optionalParser: Parser<undefined | Output, Sequence> = async parserContext => {
 		const childParserContext = parserContext.lookahead();
 		try {
-			return await childParser(childParserContext);
+			const value = await childParser(childParserContext);
+			childParserContext.unlookahead();
+			return value;
 		} catch (error) {
 			if (error instanceof ParserParsingFailedError) {
 				return undefined;

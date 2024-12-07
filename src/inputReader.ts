@@ -69,6 +69,17 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 					return undefined;
 				}
 
+				parserImplementationInvariant(
+					this._inputCompanion.is(inputIteratorResult.value),
+					[
+						'Input iterator result value (%s) is of unexpected type.',
+						'Expected a sequence (a chunk of input) recognized by the input companion (%s).',
+						'You may have provided a wrong input companion for the input.',
+					],
+					inputIteratorResult.value,
+					this._inputCompanion.constructor.name,
+				);
+
 				this._sequenceBuffer.push(inputIteratorResult.value);
 			}
 		});

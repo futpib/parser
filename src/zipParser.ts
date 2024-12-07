@@ -9,9 +9,10 @@ import { createFixedLengthSequenceParser } from "./fixedLengthSequenceParser.js"
 import { createOptionalParser } from "./optionalParser.js";
 import { parserCreatorCompose } from "./parserCreatorCompose.js";
 import { Zip, ZipCompression, ZipDirectoryEntry, ZipEntry, ZipFileEntry, ZipPermissions } from "./zip.js";
-import { endOfInputParser } from "./endOfInputParser.js";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+
+// https://pkwaredownloads.blob.core.windows.net/pem/APPNOTE.txt
 
 const uint16LEParser: Parser<number, Uint8Array> = promiseCompose(
 	createFixedLengthSequenceParser(2),
@@ -126,7 +127,9 @@ const zipEncryptionHeaderParser: Parser<unknown, Uint8Array> = async parserConte
 };
 
 const zipDataDescriptorParser: Parser<unknown, Uint8Array> = createTupleParser([
-	createOptionalParser(createExactSequenceParser<Uint8Array>(Buffer.from('504b0708', 'hex'))),
+	// FIXME: optional in spec
+	// createOptionalParser(createExactSequenceParser<Uint8Array>(Buffer.from('504b0708', 'hex'))),
+	createExactSequenceParser<Uint8Array>(Buffer.from('504b0708', 'hex')),
 	uint32LEParser,
 	uint32LEParser,
 	uint32LEParser,
@@ -139,7 +142,7 @@ type ZipLocalFile = {
 	zipDataDescriptor: unknown;
 };
 
-const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompose(
+export const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompose(
 	parserCreatorCompose(
 		() => zipLocalFileHeaderParser,
 		(zipLocalFileHeader) => createTupleParser([
@@ -164,11 +167,11 @@ const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompose(
 
 setParserName(zipLocalFileParser, 'zipEntryParser');
 
-const archiveDecryptionHeaderParser: Parser<unknown, Uint8Array> = async parserContext => {
+export const zipArchiveDecryptionHeaderParser: Parser<unknown, Uint8Array> = async parserContext => {
 	parserContext.invariant(false, 'Not implemented %s', await parserContext.peek(0));
 };
 
-const archiveExtraDataRecordParser: Parser<unknown, Uint8Array> = async parserContext => {
+export const zipArchiveExtraDataRecordParser: Parser<unknown, Uint8Array> = async parserContext => {
 	parserContext.invariant(false, 'Not implemented');
 };
 
@@ -180,7 +183,6 @@ type ZipVersionMadeBy = {
 const zipVersionMadeByParser: Parser<ZipVersionMadeBy, Uint8Array> = promiseCompose(
 	createFixedLengthSequenceParser(2),
 	async ([
-		// JSZip has the byte order mixed up?
 		zipSpecificationVersion,
 		hostSystem,
 	]) => ({
@@ -208,7 +210,7 @@ type ZipCentralDirectoryHeader = {
 	fileComment: string;
 };
 
-const centralDirectoryHeaderParser_ = createTupleParser([
+const zipCentralDirectoryHeaderParser_ = createTupleParser([
 	createExactSequenceParser<Uint8Array>(Buffer.from('504b0102', 'hex')),
 	zipVersionMadeByParser,
 	uint16LEParser,
@@ -250,10 +252,10 @@ const centralDirectoryHeaderParser_ = createTupleParser([
 	)(),
 ]);
 
-setParserName(centralDirectoryHeaderParser_, 'centralDirectoryHeaderParser_');
+setParserName(zipCentralDirectoryHeaderParser_, 'centralDirectoryHeaderParser_');
 
-const centralDirectoryHeaderParser: Parser<ZipCentralDirectoryHeader, Uint8Array> = promiseCompose(
-	centralDirectoryHeaderParser_,
+export const zipCentralDirectoryHeaderParser: Parser<ZipCentralDirectoryHeader, Uint8Array> = promiseCompose(
+	zipCentralDirectoryHeaderParser_,
 	([
 		_centralDirectoryHeaderSignature,
 		versionMadeBy,
@@ -293,11 +295,11 @@ const centralDirectoryHeaderParser: Parser<ZipCentralDirectoryHeader, Uint8Array
 	}),
 );
 
-const zip64EndOfCentralDirectoryRecordParser: Parser<unknown, Uint8Array> = async parserContext => {
+export const zip64EndOfCentralDirectoryRecordParser: Parser<unknown, Uint8Array> = async parserContext => {
 	parserContext.invariant(false, 'Not implemented');
 };
 
-const zip64EndOfCentralDirectoryLocatorParser: Parser<unknown, Uint8Array> = async parserContext => {
+export const zip64EndOfCentralDirectoryLocatorParser: Parser<unknown, Uint8Array> = async parserContext => {
 	parserContext.invariant(false, 'Not implemented');
 };
 
@@ -319,7 +321,7 @@ type ZipEndOfCentralDirectoryRecord = {
 	zipFileComment: string,
 };
 
-const endOfCentralDirectoryRecordParser_ = createTupleParser([
+const zipEndOfCentralDirectoryRecordParser_ = createTupleParser([
 	createExactSequenceParser<Uint8Array>(Buffer.from('504b0506', 'hex')),
 	uint16LEParser,
 	uint16LEParser,
@@ -330,10 +332,10 @@ const endOfCentralDirectoryRecordParser_ = createTupleParser([
 	zipFileCommentParser,
 ]);
 
-setParserName(endOfCentralDirectoryRecordParser_, 'endOfCentralDirectoryRecordParser_');
+setParserName(zipEndOfCentralDirectoryRecordParser_, 'endOfCentralDirectoryRecordParser_');
 
-const endOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirectoryRecord, Uint8Array> = promiseCompose(
-	endOfCentralDirectoryRecordParser_,
+export const zipEndOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirectoryRecord, Uint8Array> = promiseCompose(
+	zipEndOfCentralDirectoryRecordParser_,
 	([
 		_endOfCentralDirectoryRecordSignature,
 		numberOfThisDisk,
@@ -356,117 +358,144 @@ const endOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirectoryRecord, 
 
 const zipParser_ = createTupleParser([
 	createArrayParser(zipLocalFileParser),
-	createOptionalParser(archiveDecryptionHeaderParser),
-	createOptionalParser(archiveExtraDataRecordParser),
-	createArrayParser(centralDirectoryHeaderParser),
+	createOptionalParser(zipArchiveDecryptionHeaderParser),
+	createOptionalParser(zipArchiveExtraDataRecordParser),
+	createArrayParser(zipCentralDirectoryHeaderParser),
 	createOptionalParser(zip64EndOfCentralDirectoryRecordParser),
 	createOptionalParser(zip64EndOfCentralDirectoryLocatorParser),
-	endOfCentralDirectoryRecordParser,
-	endOfInputParser,
+	zipEndOfCentralDirectoryRecordParser,
 ]);
 
 setParserName(zipParser_, 'zipParser_');
+
+export async function zipEntriesFromZipSegments({
+	zipLocalFiles,
+	zipCentralDirectoryHeaders,
+}: {
+	zipLocalFiles: ZipLocalFile[],
+	zipCentralDirectoryHeaders: ZipCentralDirectoryHeader[],
+}) {
+	const decompressPromises: Promise<void>[] = [];
+
+	const entries: ZipEntry[] = await Promise.all(zipLocalFiles.map(async (zipLocalFile, index) => {
+		const {
+			zipLocalFileHeader,
+			compressedData,
+			zipDataDescriptor,
+			zipEncryptionHeader,
+		} = zipLocalFile;
+
+		const centralDirectoryHeader = zipCentralDirectoryHeaders.at(index);
+
+		invariant(centralDirectoryHeader, 'Central directory header not found for local file %s', index);
+
+		let isDosDirectory = false;
+		let permissions: ZipPermissions = {
+			type: 'unix',
+			unixPermissions: 0,
+		};
+
+		if (centralDirectoryHeader.versionMadeBy.hostSystem === 0) {
+			isDosDirectory = (centralDirectoryHeader.externalFileAttributes & 0b00010000) !== 0;
+			permissions = {
+				type: 'dos',
+				dosPermissions: centralDirectoryHeader.externalFileAttributes & 0b00111111,
+			};
+		}
+
+		if (centralDirectoryHeader.versionMadeBy.hostSystem === 3) {
+			permissions = {
+				type: 'unix',
+				unixPermissions: (centralDirectoryHeader.externalFileAttributes >> 16) & 0b111111111,
+			};
+		}
+
+		const commonFields: Omit<ZipFileEntry | ZipDirectoryEntry, 'type'> = {
+			path: zipLocalFileHeader.fileName,
+			comment: centralDirectoryHeader.fileComment,
+			date: zipLocalFileHeader.lastModFile,
+			permissions,
+		};
+
+		const isDirectory = isDosDirectory || commonFields.path.endsWith('/');
+
+		if (isDirectory) {
+			return {
+				...commonFields,
+				type: 'directory',
+				path: commonFields.path.slice(0, -1),
+			};
+		}
+
+		const fileEntry: ZipFileEntry = {
+			...commonFields,
+			type: 'file',
+			content: compressedData,
+			compression: zipLocalFileHeader.compressionMethod,
+		};
+
+		if (fileEntry.content.length && fileEntry.compression === 'deflate') {
+			const deflate = zlib.createInflateRaw();
+			const input = Readable.from(Buffer.from(compressedData));
+			const [ _, buffer ] = await Promise.all([
+				pipeline(input, deflate),
+				(async () => {
+					const chunks: Buffer[] = [];
+					for await (const chunk of deflate) {
+						chunks.push(chunk);
+					}
+					return Buffer.concat(chunks);
+				})(),
+			]);
+
+			fileEntry.content = Uint8Array.from(buffer);
+		}
+
+		return fileEntry;
+	}));
+
+	await Promise.all(decompressPromises);
+
+	return entries;
+}
+
+export async function zipFromZipSegments({
+	zipLocalFiles,
+	zipCentralDirectoryHeaders,
+
+	zipEndOfCentralDirectoryRecord,
+}: {
+	zipLocalFiles: ZipLocalFile[],
+	zipCentralDirectoryHeaders: ZipCentralDirectoryHeader[],
+
+	zipEndOfCentralDirectoryRecord: ZipEndOfCentralDirectoryRecord,
+}) {
+	const entries = await zipEntriesFromZipSegments({
+		zipLocalFiles,
+		zipCentralDirectoryHeaders,
+	});
+
+	return {
+		comment: zipEndOfCentralDirectoryRecord.zipFileComment,
+		entries,
+	};
+}
 
 export const zipParser: Parser<Zip, Uint8Array> = promiseCompose(
 	zipParser_,
 	async ([
 		zipLocalFiles,
-		archiveDecryptionHeader,
-		archiveExtraDataRecords,
-		centralDirectoryHeaders,
+		zipArchiveDecryptionHeader,
+		zipArchiveExtraDataRecords,
+		zipCentralDirectoryHeaders,
 		zip64EndOfCentralDirectoryRecord,
 		zip64EndOfCentralDirectoryLocator,
-		endOfCentralDirectoryRecord,
-	]) => {
-		const entries: ZipEntry[] = [];
-		const decompressPromises: Promise<void>[] = [];
-
-		for (const [ index, zipLocalFile ] of zipLocalFiles.entries()) {
-			const {
-				zipLocalFileHeader,
-				compressedData,
-				zipDataDescriptor,
-				zipEncryptionHeader,
-			} = zipLocalFile;
-
-			const centralDirectoryHeader = centralDirectoryHeaders.at(index);
-
-			invariant(centralDirectoryHeader, 'Central directory header not found for local file %s', index);
-
-			let isDosDirectory = false;
-			let permissions: ZipPermissions = {
-				type: 'unix',
-				unixPermissions: 0,
-			};
-
-			if (centralDirectoryHeader.versionMadeBy.hostSystem === 0) {
-				isDosDirectory = (centralDirectoryHeader.externalFileAttributes & 0b00010000) !== 0;
-				permissions = {
-					type: 'dos',
-					dosPermissions: centralDirectoryHeader.externalFileAttributes & 0b00111111,
-				};
-			}
-
-			if (centralDirectoryHeader.versionMadeBy.hostSystem === 3) {
-				permissions = {
-					type: 'unix',
-					unixPermissions: (centralDirectoryHeader.externalFileAttributes >> 16) & 0b111111111,
-				};
-			}
-
-			const commonFields: Omit<ZipFileEntry | ZipDirectoryEntry, 'type'> = {
-				path: zipLocalFileHeader.fileName,
-				comment: centralDirectoryHeader.fileComment,
-				date: zipLocalFileHeader.lastModFile,
-				permissions,
-			};
-
-			const isDirectory = isDosDirectory || commonFields.path.endsWith('/');
-
-			if (isDirectory) {
-				entries.push({
-					...commonFields,
-					type: 'directory',
-					path: commonFields.path.slice(0, -1),
-				});
-			} else {
-				const fileEntry: ZipFileEntry = {
-					...commonFields,
-					type: 'file',
-					content: compressedData,
-					compression: zipLocalFileHeader.compressionMethod,
-				};
-
-				entries.push(fileEntry);
-
-				if (fileEntry.content.length && fileEntry.compression === 'deflate') {
-					decompressPromises.push((async () => {
-						const deflate = zlib.createInflateRaw();
-						const input = Readable.from(Buffer.from(compressedData));
-						const [ _, buffer ] = await Promise.all([
-							pipeline(input, deflate),
-							(async () => {
-								const chunks: Buffer[] = [];
-								for await (const chunk of deflate) {
-									chunks.push(chunk);
-								}
-								return Buffer.concat(chunks);
-							})(),
-						]);
-
-						fileEntry.content = Uint8Array.from(buffer);
-					})());
-				}
-			}
-		}
-
-		await Promise.all(decompressPromises);
-
-		return {
-			comment: endOfCentralDirectoryRecord.zipFileComment,
-			entries,
-		};
-	},
+		zipEndOfCentralDirectoryRecord,
+	]) => zipFromZipSegments({
+		zipLocalFiles,
+		zipCentralDirectoryHeaders,
+		zipEndOfCentralDirectoryRecord,
+	}),
 );
 
 setParserName(zipParser, 'zipParser');

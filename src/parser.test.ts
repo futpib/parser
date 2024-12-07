@@ -1,13 +1,15 @@
 import test from 'ava';
 import { createUnionParser } from './unionParser.js';
-import { runParser } from './parser.js';
-import { stringInputCompanion } from './inputCompanion.js';
+import { Parser, runParser } from './parser.js';
+import { stringInputCompanion, uint8ArrayInputCompanion } from './inputCompanion.js';
 import { ParserParsingInvariantError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinError, ParserParsingJoinFurthestError, ParserParsingJoinNoneError } from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import invariant from 'invariant';
 import { createExactSequenceParser } from './exactSequenceParser.js';
+import { createArrayParser } from './arrayParser.js';
+import { createElementParser } from './elementParser.js';
 
 const aUnionParser = createUnionParser<string, string>([
 	createExactSequenceParser('1'),
@@ -158,4 +160,17 @@ test('errorJoinMode: furthest', async t => {
 	invariant(error1 instanceof ParserParsingInvariantError, 'error1 instanceof ParserParsingInvariantError');
 
 	t.is(error1.position, 12);
+});
+
+test('throws on inputCompanion type mismatch', async t => {
+	const anythingParser: Parser<any, any> = createArrayParser(createElementParser());
+
+	await runParser(anythingParser, asyncIteratorFromString('anything'), stringInputCompanion);
+	await runParser(anythingParser, 'anything', stringInputCompanion);
+	await runParser(anythingParser, Buffer.from('anything'), uint8ArrayInputCompanion);
+	await runParser(anythingParser, new Uint8Array([ 1, 2, 3 ]), uint8ArrayInputCompanion);
+
+	await t.throwsAsync(runParser(anythingParser, asyncIteratorFromString('anything'), uint8ArrayInputCompanion), {
+		message: /input companion/,
+	});
 });
