@@ -67,11 +67,11 @@ const apkSigningBlockParser: Parser<ApkSigningBlock, Uint8Array> = createUint64L
 				&& pair !== signatureV2Pair
 			));
 
-			let signatureV2: undefined | ApkSignatureSchemeV2Block;
+			let signatureV2: undefined | ApkSignatureSchemeV2Signer[];
 
 			if (signatureV2Pair?.value) {
 				signatureV2 = await runParser(
-					apkSignatureSchemeV2BlockParser,
+					apkSignatureSchemeV2SignersParser,
 					signatureV2Pair.value,
 					uint8ArrayInputCompanion,
 				);
@@ -198,13 +198,13 @@ const apkSignatureSchemeV2PublicKeyParser = createUint32LengthPrefixedParser(
 
 setParserName(apkSignatureSchemeV2PublicKeyParser, 'apkSignatureSchemeV2PublicKeyParser');
 
-type ApkSignatureSchemeV2Block = {
+type ApkSignatureSchemeV2Signer = {
 	signedData: ApkSignatureSchemeV2SignedData[],
 	signatures: ApkSignatureSchemeV2Signature[],
 	publicKey?: Uint8Array,
 };
 
-const apkSignatureSchemeV2BlockParser = createUint32LengthPrefixedParser(
+const apkSignatureSchemeV2SignerParser = createUint32LengthPrefixedParser(
 	blockLength => promiseCompose(
 		createTupleParser([
 			createArrayParser(apkSignatureSchemeV2SignedDataParser),
@@ -215,7 +215,7 @@ const apkSignatureSchemeV2BlockParser = createUint32LengthPrefixedParser(
 			signedData,
 			signatures = [],
 			publicKey
-		]): ApkSignatureSchemeV2Block => ({
+		]): ApkSignatureSchemeV2Signer => ({
 			signedData: signedData.filter(data => (
 				data.digests.length
 					|| data.certificates.length
@@ -225,6 +225,10 @@ const apkSignatureSchemeV2BlockParser = createUint32LengthPrefixedParser(
 			publicKey,
 		}),
 	),
+);
+
+const apkSignatureSchemeV2SignersParser = createUint32LengthPrefixedParser(
+	signersLength => createSliceBoundedParser(createArrayParser(apkSignatureSchemeV2SignerParser), signersLength),
 );
 
 const apkParser_ = createTupleParser([
