@@ -16,7 +16,9 @@ export const createUnionParser = <
 		let runningChildParserContexts: Array<ParserContext<unknown, unknown>> = [];
 
 		const childParserResults = allSettledStream(childParsers.map(childParser => {
-			const childParserContext = parserContext.lookahead(getParserName(childParser, 'anonymousUnionChild'));
+			const childParserContext = parserContext.lookahead({
+				debugName: getParserName(childParser, 'anonymousUnionChild'),
+			});
 
 			runningChildParserContexts.push(childParserContext);
 

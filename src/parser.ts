@@ -94,7 +94,10 @@ export async function runParser<
 	const inputAsyncIterator = toAsyncIterator(input);
 
 	const inputReader = new InputReaderImplementation<Sequence, Element>(inputCompanion, inputAsyncIterator);
-	const parserContext = new ParserContextImplementation<Sequence, Element>(inputCompanion, inputReader, undefined, 'root', options);
+	const parserContext = new ParserContextImplementation<Sequence, Element>(inputCompanion, inputReader, undefined, {
+		...options,
+		debugName: 'root',
+	});
 
 	return parser(parserContext);
 }

@@ -6,6 +6,8 @@ export type ApkSigningBlockPair = {
 };
 
 export type ApkSigningBlock = {
+	zeroPaddingLength?: number;
+	signatureV2?: unknown;
 	pairs: ApkSigningBlockPair[];
 };
 

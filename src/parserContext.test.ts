@@ -6,8 +6,8 @@ import { ParserUnexpectedEndOfInputError } from './parserError.js';
 
 const commonParserContextArguments = [
 	undefined,
-	'root',
 	{
+		debugName: 'root',
 		errorJoinMode: 'all',
 	},
 ] as const;
@@ -37,6 +37,16 @@ test('parserContext.lookahead', async t => {
 
 	const lookaheadContext1 = parserContext.lookahead();
 	const lookaheadContext2 = parserContext.lookahead();
+	const lookaheadContext3 = parserContext.lookahead({
+		sliceEnd: 3,
+	});
+
+	t.is(await lookaheadContext3.peek(2), 'c');
+	t.is(await lookaheadContext3.peek(3), undefined);
+	t.is(await lookaheadContext3.read(0), 'a');
+	t.is(await lookaheadContext3.read(0), 'b');
+	t.is(await lookaheadContext3.read(0), 'c');
+	t.is(await lookaheadContext3.peek(0), undefined);
 
 	t.is(await parserContext.peek(0), 'a');
 	t.is(await lookaheadContext1.peek(0), 'a');
@@ -114,9 +124,15 @@ test('parserContext deep unlookahead weird order', async t => {
 		yield * 'abcdefgh';
 	})()), ...commonParserContextArguments);
 
-	const child = parserContext.lookahead('child');
-	const grandchild = child.lookahead('grandchild');
-	const greatGrandchild = grandchild.lookahead('greatGrandchild');
+	const child = parserContext.lookahead({
+		debugName: 'child',
+	});
+	const grandchild = child.lookahead({
+		debugName: 'grandchild',
+	});
+	const greatGrandchild = grandchild.lookahead({
+		debugName: 'greatGrandchild',
+	});
 
 	t.is(await greatGrandchild.read(0), 'a');
 

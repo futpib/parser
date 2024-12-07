@@ -5,6 +5,16 @@ import { ParserParsingFailedError, ParserUnexpectedEndOfInputError, ParserParsin
 import { RunParserOptions } from './parser.js';
 import { Falsy, parserInvariant, ValueOrAccessor } from './parserInvariant.js';
 
+type LookaheadOptions = {
+	debugName?: string;
+	sliceEnd?: number;
+};
+
+type ParserContextOptions<Sequence, Element> =
+	& RunParserOptions<unknown, Sequence, Element>
+	& LookaheadOptions
+;
+
 export type ParserContext<Sequence, Element> = {
 	from(elements: Element[]): Sequence;
 	length(sequence: Sequence): number;
@@ -16,7 +26,7 @@ export type ParserContext<Sequence, Element> = {
 
 	read(offset: number): Promise<Element>;
 
-	lookahead(debugName?: string): ParserContext<Sequence, Element>;
+	lookahead(options?: LookaheadOptions): ParserContext<Sequence, Element>;
 	unlookahead(): void;
 	dispose(): void;
 
@@ -36,8 +46,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		private readonly _inputCompanion: InputCompanion<Sequence, Element>,
 		private _inputReader: InputReader<Sequence, Element>,
 		private _parentParserContext: ParserContextImplementation<Sequence, Element> | undefined = undefined,
-		private readonly _debugName = '',
-		private readonly _options: RunParserOptions<unknown, Sequence, Element>,
+		private readonly _options: ParserContextOptions<Sequence, Element>,
 	) {
 		this._depth = _parentParserContext ? _parentParserContext._depth + 1 : 0;
 	}
@@ -46,7 +55,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		return [
 			'ParserContext',
 			[
-				this._debugName,
+				this._options.debugName,
 				'(',
 				this._id,
 				')',
@@ -72,6 +81,13 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	}
 
 	async peek(offset: number): Promise<Element | undefined> {
+		if (
+			this._options.sliceEnd !== undefined
+				&& (this.position + offset) >= this._options.sliceEnd
+		) {
+			return undefined;
+		}
+
 		return this._inputReader.peek(offset);
 	}
 
@@ -91,7 +107,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		return element;
 	}
 
-	lookahead(debugName?: string): ParserContext<Sequence, Element> {
+	lookahead(options: LookaheadOptions = {}): ParserContext<Sequence, Element> {
 		const lookaheadInputReader = this._inputReader.lookahead();
 
 		if (this.position !== lookaheadInputReader.position) {
@@ -109,15 +125,18 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 			this._inputCompanion,
 			lookaheadInputReader,
 			this,
-			[
-				this._debugName,
-				'(',
-				this._id,
-				')',
-				'/',
-				debugName,
-			].join(''),
-			this._options,
+			{
+				...this._options,
+				...options,
+				debugName: [
+					this._options.debugName,
+					'(',
+					this._id,
+					')',
+					'/',
+					options.debugName,
+				].join(''),
+			},
 		);
 
 		if (this.position !== lookaheadParserContext.position) {

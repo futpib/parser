@@ -14,7 +14,9 @@ export const createDisjunctionParser = <
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 
 		for (const childParser of childParsers) {
-			const childParserContext = parserContext.lookahead(getParserName(childParser, 'anonymousDisjunctionChild'));
+			const childParserContext = parserContext.lookahead({
+				debugName: getParserName(childParser, 'anonymousDisjunctionChild'),
+			});
 
 			const [ childParserResult ] = await Promise.allSettled([ childParser(childParserContext) ]);
 
