@@ -1,8 +1,8 @@
 {
-  "name": "TODO",
+  "name": "@futpib/parser",
   "version": "1.0.0",
   "main": "build/index.js",
-  "license": "TODO",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "tsc --watch",
@@ -10,7 +10,7 @@
     "test": "xo && c8 ava",
     "prepack": "yarn build"
   },
-  "homepage": "https://github.com/futpib/TODO",
+  "homepage": "https://github.com/futpib/parser",
   "ava": {
     "typescript": {
       "rewritePaths": {

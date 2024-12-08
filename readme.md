@@ -1,17 +1,17 @@
-# TODO
+# parser
 
-> TODO
+> parser
 
-[![Coverage Status](https://coveralls.io/repos/github/futpib/TODO/badge.svg?branch=master)](https://coveralls.io/github/futpib/TODO?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/futpib/parser/badge.svg?branch=master)](https://coveralls.io/github/futpib/parser?branch=master)
 
 ## Example
 
 ```js
-// TODO
+// parser
 ```
 
 ## Install
 
 ```
-yarn add --dev TODO
+yarn add --dev @futpib/parser
 ```

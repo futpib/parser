@@ -137,6 +137,29 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@futpib/parser@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@futpib/parser@workspace:."
+  dependencies:
+    "@ava/typescript": "npm:^5.0.0"
+    "@fast-check/ava": "npm:^2.0.1"
+    "@types/invariant": "npm:^2.2.37"
+    "@types/node": "npm:^22.10.1"
+    ava: "npm:^6.2.0"
+    bson: "npm:^6.10.0"
+    c8: "npm:^10.1.2"
+    coveralls: "npm:^3.1.1"
+    eslint-config-xo-typescript-overrides: "npm:^1.6.1"
+    fast-check: "npm:^3.23.1"
+    invariant: "npm:^2.2.4"
+    jszip: "npm:^3.10.1"
+    p-mutex: "npm:^0.1.0"
+    type-fest: "npm:^4.29.0"
+    typescript: "npm:^5.7.2"
+    xo: "npm:^0.59.3"
+  languageName: unknown
+  linkType: soft
+
 "@humanwhocodes/config-array@npm:^0.13.0":
   version: 0.13.0
   resolution: "@humanwhocodes/config-array@npm:0.13.0"
@@ -546,29 +569,6 @@ __metadata:
   checksum: 10/f95c2c60cbf6001417db302f8cc8cf8c15beba22db2551c13a53b835bd31c5591f2d25643bbd014a69c39d0bad2ef191249e0f56d2dc15c194009f7de4f58f1e
   languageName: node
   linkType: hard
-
-"TODO@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "TODO@workspace:."
-  dependencies:
-    "@ava/typescript": "npm:^5.0.0"
-    "@fast-check/ava": "npm:^2.0.1"
-    "@types/invariant": "npm:^2.2.37"
-    "@types/node": "npm:^22.10.1"
-    ava: "npm:^6.2.0"
-    bson: "npm:^6.10.0"
-    c8: "npm:^10.1.2"
-    coveralls: "npm:^3.1.1"
-    eslint-config-xo-typescript-overrides: "npm:^1.6.1"
-    fast-check: "npm:^3.23.1"
-    invariant: "npm:^2.2.4"
-    jszip: "npm:^3.10.1"
-    p-mutex: "npm:^0.1.0"
-    type-fest: "npm:^4.29.0"
-    typescript: "npm:^5.7.2"
-    xo: "npm:^0.59.3"
-  languageName: unknown
-  linkType: soft
 
 "abbrev@npm:1":
   version: 1.1.1
