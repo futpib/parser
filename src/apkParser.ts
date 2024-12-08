@@ -14,13 +14,14 @@ import {
 	zipFromZipSegments,
 	zipLocalFileParser,
 } from './zipParser.js';
-import { type Apk, type ApkSigningBlock, type ApkSigningBlockPair } from './apk.js';
+import { ApkSignatureV2AdditionalAttribute, ApkSignatureV2Digest, ApkSignatureV2Signature, ApkSignatureV2SignedData, ApkSignatureV2Signer, type Apk, type ApkSigningBlock, type ApkSigningBlockPair } from './apk.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createSliceBoundedParser } from './sliceBoundedParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createExactElementParser } from './exactElementParser.js';
+import { createParserConsumedSequenceParser } from './parserConsumedSequenceParser.js';
 
 // https://source.android.com/docs/security/features/apksigning/v2#apk-signing-block
 
@@ -69,14 +70,14 @@ const createApkSigningBlockZeroPaddingPairInnerParser = (length: number): Parser
 
 type ApkSigningBlockSignatureV2Pair = {
 	type: 'signatureV2';
-	signers: ApkSignatureSchemeV2Signer[];
+	signers: ApkSignatureV2Signer[];
 };
 
 const createApkSigningBlockSignatureV2PairInnerParser = (length: number): Parser<ApkSigningBlockSignatureV2Pair, Uint8Array> => {
 	const apkSigningBlockSignatureV2PairInnerParser = promiseCompose(
 		createTupleParser([
 			createExactSequenceParser<Uint8Array>(Buffer.from('1a870971', 'hex')),
-			apkSignatureSchemeV2SignersParser,
+			apkSignatureV2SignersParser,
 		]),
 		([ _magic, signers = [] ]) => ({ type: 'signatureV2' as const, signers }),
 	);
@@ -124,7 +125,7 @@ const apkSigningBlockParser: Parser<ApkSigningBlock, Uint8Array> = createUint64L
 			uint64LEParser,
 			createExactSequenceParser<Uint8Array>(Buffer.from('APK Sig Block 42', 'utf8')),
 		]),
-		async ([ pairs, sizeOfBlockRepeated, _magic ]) => {
+		async ([ pairs, sizeOfBlockRepeated, _magic ]): Promise<ApkSigningBlock> => {
 			invariant(sizeOfBlock === sizeOfBlockRepeated, 'Size of block mismatch: %s !== %s.', sizeOfBlock, sizeOfBlockRepeated);
 
 			const zeroPaddingPair = pairs.find(pair => pair.type === 'zeroPadding');
@@ -144,19 +145,16 @@ const apkSigningBlockParser: Parser<ApkSigningBlock, Uint8Array> = createUint64L
 
 			return {
 				zeroPaddingLength: zeroPaddingPair?.length,
-				signatureV2: signatureV2Pair?.signers,
+				signatureV2: signatureV2Pair ? {
+					signers: signatureV2Pair?.signers,
+				} : undefined,
 				pairs: genericPairs,
 			};
 		},
 	),
 );
 
-type ApkSignatureSchemeV2Digest = {
-	signatureAlgorithmId: number;
-	digest: Uint8Array;
-};
-
-const apkSignatureSchemeV2DigestParser = createUint32LengthPrefixedParser<ApkSignatureSchemeV2Digest>(
+const apkSignatureV2DigestParser = createUint32LengthPrefixedParser<ApkSignatureV2Digest>(
 	pairLength => promiseCompose(
 		createTupleParser([
 			uint32LEParser,
@@ -168,24 +166,19 @@ const apkSignatureSchemeV2DigestParser = createUint32LengthPrefixedParser<ApkSig
 	),
 );
 
-const apkSignatureSchemeV2DigestsParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	apkSignatureSchemeV2DigestParser,
+const apkSignatureV2DigestsParser = createUint32LengthPrefixedSliceBoundedArrayParser(
+	apkSignatureV2DigestParser,
 );
 
-const apkSignatureSchemeV2CertificateParser = createUint32LengthPrefixedParser(
+const apkSignatureV2CertificateParser = createUint32LengthPrefixedParser(
 	certificateLength => createFixedLengthSequenceParser(certificateLength),
 );
 
-const apkSignatureSchemeV2CertificatesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	apkSignatureSchemeV2CertificateParser,
+const apkSignatureV2CertificatesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
+	apkSignatureV2CertificateParser,
 );
 
-type ApkSignatureSchemeV2AdditionalAttribute = {
-	id: number;
-	value: Uint8Array;
-};
-
-const apkSignatureSchemeV2AdditionalAttributeParser = createUint32LengthPrefixedParser<ApkSignatureSchemeV2AdditionalAttribute>(
+const apkSignatureV2AdditionalAttributeParser = createUint32LengthPrefixedParser<ApkSignatureV2AdditionalAttribute>(
 	pairLength => promiseCompose(
 		createTupleParser([
 			uint32LEParser,
@@ -195,29 +188,23 @@ const apkSignatureSchemeV2AdditionalAttributeParser = createUint32LengthPrefixed
 	),
 );
 
-const apkSignatureSchemeV2AdditionalAttributesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	apkSignatureSchemeV2AdditionalAttributeParser,
+const apkSignatureV2AdditionalAttributesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
+	apkSignatureV2AdditionalAttributeParser,
 );
 
-type ApkSignatureSchemeV2SignedData = {
-	digests: ApkSignatureSchemeV2Digest[];
-	certificates: Uint8Array[];
-	additionalAttributes: ApkSignatureSchemeV2AdditionalAttribute[];
-};
-
-const apkSignatureSchemeV2SignedDataParser = createUint32LengthPrefixedSliceBoundedParser(
+const apkSignatureV2SignedDataParser = createUint32LengthPrefixedSliceBoundedParser(
 	promiseCompose(
 		createTupleParser([
-			apkSignatureSchemeV2DigestsParser,
-			apkSignatureSchemeV2CertificatesParser,
-			createOptionalParser(apkSignatureSchemeV2AdditionalAttributesParser),
+			apkSignatureV2DigestsParser,
+			apkSignatureV2CertificatesParser,
+			createOptionalParser(apkSignatureV2AdditionalAttributesParser),
 			createArrayParser(createExactElementParser(0)),
 		]),
 		([
 			digests = [],
 			certificates = [],
 			additionalAttributes = [],
-		]): ApkSignatureSchemeV2SignedData => ({
+		]): ApkSignatureV2SignedData => ({
 			digests,
 			certificates,
 			additionalAttributes,
@@ -225,14 +212,9 @@ const apkSignatureSchemeV2SignedDataParser = createUint32LengthPrefixedSliceBoun
 	),
 );
 
-setParserName(apkSignatureSchemeV2SignedDataParser, 'apkSignatureSchemeV2SignedDataParser');
+setParserName(apkSignatureV2SignedDataParser, 'apkSignatureV2SignedDataParser');
 
-type ApkSignatureSchemeV2Signature = {
-	signatureAlgorithmId: number;
-	signature: Uint8Array;
-};
-
-const apkSignatureSchemeV2SignatureParser = createUint32LengthPrefixedParser(
+const apkSignatureV2SignatureParser = createUint32LengthPrefixedParser(
 	signatureLength => promiseCompose(
 		createTupleParser([
 			uint32LEParser,
@@ -243,43 +225,37 @@ const apkSignatureSchemeV2SignatureParser = createUint32LengthPrefixedParser(
 		([
 			signatureAlgorithmId,
 			signature,
-		]): ApkSignatureSchemeV2Signature => ({
+		]): ApkSignatureV2Signature => ({
 			signatureAlgorithmId,
 			signature,
 		}),
 	),
 );
 
-const apkSignatureSchemeV2SignaturesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	apkSignatureSchemeV2SignatureParser,
+const apkSignatureV2SignaturesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
+	apkSignatureV2SignatureParser,
 );
 
-setParserName(apkSignatureSchemeV2SignaturesParser, 'apkSignatureSchemeV2SignaturesParser');
+setParserName(apkSignatureV2SignaturesParser, 'apkSignatureV2SignaturesParser');
 
-const apkSignatureSchemeV2PublicKeyParser = createUint32LengthPrefixedParser(
+const apkSignatureV2PublicKeyParser = createUint32LengthPrefixedParser(
 	publicKeyLength => createFixedLengthSequenceParser(publicKeyLength),
 );
 
-setParserName(apkSignatureSchemeV2PublicKeyParser, 'apkSignatureSchemeV2PublicKeyParser');
+setParserName(apkSignatureV2PublicKeyParser, 'apkSignatureV2PublicKeyParser');
 
-type ApkSignatureSchemeV2Signer = {
-	signedData: ApkSignatureSchemeV2SignedData;
-	signatures: ApkSignatureSchemeV2Signature[];
-	publicKey?: Uint8Array;
-};
-
-const apkSignatureSchemeV2SignerParser = createUint32LengthPrefixedSliceBoundedParser(
+const apkSignatureV2SignerParser = createUint32LengthPrefixedSliceBoundedParser(
 	promiseCompose(
 		createTupleParser([
-			apkSignatureSchemeV2SignedDataParser,
-			apkSignatureSchemeV2SignaturesParser,
-			apkSignatureSchemeV2PublicKeyParser,
+			apkSignatureV2SignedDataParser,
+			apkSignatureV2SignaturesParser,
+			apkSignatureV2PublicKeyParser,
 		]),
 		([
 			signedData,
 			signatures = [],
 			publicKey,
-		]): ApkSignatureSchemeV2Signer => ({
+		]): ApkSignatureV2Signer => ({
 			signedData,
 			signatures,
 			publicKey,
@@ -287,13 +263,13 @@ const apkSignatureSchemeV2SignerParser = createUint32LengthPrefixedSliceBoundedP
 	),
 );
 
-setParserName(apkSignatureSchemeV2SignerParser, 'apkSignatureSchemeV2SignerParser');
+setParserName(apkSignatureV2SignerParser, 'apkSignatureV2SignerParser');
 
-const apkSignatureSchemeV2SignersParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	apkSignatureSchemeV2SignerParser,
+const apkSignatureV2SignersParser = createUint32LengthPrefixedSliceBoundedArrayParser(
+	apkSignatureV2SignerParser,
 );
 
-setParserName(apkSignatureSchemeV2SignersParser, 'apkSignatureSchemeV2SignersParser');
+setParserName(apkSignatureV2SignersParser, 'apkSignatureV2SignersParser');
 
 const apkParser_ = createTupleParser([
 	createArrayParser(zipLocalFileParser),
@@ -334,3 +310,45 @@ export const apkParser: Parser<Apk, Uint8Array> = promiseCompose(
 );
 
 setParserName(apkParser, 'apkParser');
+
+export const apkSignableSectionsParser: Parser<Uint8Array[], Uint8Array> = promiseCompose(
+	createTupleParser([
+		createParserConsumedSequenceParser(
+			createTupleParser([
+				createArrayParser(zipLocalFileParser),
+				createOptionalParser(zipArchiveDecryptionHeaderParser),
+				createOptionalParser(zipArchiveExtraDataRecordParser),
+			]),
+		),
+		createOptionalParser(apkSigningBlockParser),
+		createParserConsumedSequenceParser(
+			createTupleParser([
+				createArrayParser(zipCentralDirectoryHeaderParser),
+				createOptionalParser(zip64EndOfCentralDirectoryRecordParser),
+				createOptionalParser(zip64EndOfCentralDirectoryLocatorParser),
+			]),
+		),
+		createParserConsumedSequenceParser(
+			zipEndOfCentralDirectoryRecordParser,
+		),
+	]),
+	async ([
+		[
+			_zipEntries,
+			zipEntriesUint8Array,
+		],
+		_apkSigningBlock,
+		[
+			_zipCentralDirectory,
+			zipCentralDirectoryUint8Array,
+		],
+		[
+			_zipEndOfCentralDirectory,
+			zipEndOfCentralDirectoryUint8Array,
+		],
+	]) => [
+		zipEntriesUint8Array,
+		zipCentralDirectoryUint8Array,
+		zipEndOfCentralDirectoryUint8Array,
+	],
+);
