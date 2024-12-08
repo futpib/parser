@@ -1,9 +1,9 @@
 import test from 'ava';
 import { SequenceBufferImplementation } from './sequenceBuffer.js';
-import { stringInputCompanion } from './inputCompanion.js';
+import { stringParserInputCompanion } from './parserInputCompanion.js';
 
 test('sequenceBuffer', t => {
-	const sequenceBuffer = new SequenceBufferImplementation(stringInputCompanion);
+	const sequenceBuffer = new SequenceBufferImplementation(stringParserInputCompanion);
 
 	t.is(sequenceBuffer.peek(0), undefined);
 

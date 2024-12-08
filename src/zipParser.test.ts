@@ -1,7 +1,7 @@
 import { testProp } from '@fast-check/ava';
 import { arbitraryZipStream } from './arbitraryZipStream.js';
 import { zipParser } from './zipParser.js';
-import { uint8ArrayInputCompanion } from './inputCompanion.js';
+import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
 
 async function * readableStreamToUint8ArrayAsyncIterator(stream: ReadableStream<Uint8Array>) {
@@ -16,7 +16,7 @@ testProp(
 		arbitraryZipStream,
 	],
 	async (t, [ zip, zipStream ]) => {
-		const actual = await runParser(zipParser, readableStreamToUint8ArrayAsyncIterator(zipStream), uint8ArrayInputCompanion, {
+		const actual = await runParser(zipParser, readableStreamToUint8ArrayAsyncIterator(zipStream), uint8ArrayParserInputCompanion, {
 			errorJoinMode: 'all',
 		});
 

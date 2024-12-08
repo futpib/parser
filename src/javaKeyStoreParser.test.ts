@@ -1,5 +1,5 @@
 import test from 'ava';
-import { uint8ArrayInputCompanion } from './inputCompanion.js';
+import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
 import { javaKeyStoreParser } from './javaKeyStoreParser.js';
 
@@ -13,7 +13,7 @@ for (const javaKeyStoreCid of [
 
 			const javaKeyStoreStream = javaKeyStoreResponse.body!;
 
-			const actual = await runParser(javaKeyStoreParser, javaKeyStoreStream, uint8ArrayInputCompanion, {
+			const actual = await runParser(javaKeyStoreParser, javaKeyStoreStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',
 			});
 

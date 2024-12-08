@@ -1,5 +1,5 @@
 import invariant from 'invariant';
-import { type InputCompanion } from './inputCompanion.js';
+import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
 import { type DeriveSequenceElement } from './sequence.js';
@@ -88,13 +88,13 @@ export async function runParser<
 >(
 	parser: Parser<Output, Sequence, Element>,
 	input: AsyncIterator<Sequence> | AsyncIterable<Sequence> | Iterable<Sequence> | Sequence,
-	inputCompanion: InputCompanion<Sequence, Element>,
+	parserInputCompanion: ParserInputCompanion<Sequence, Element>,
 	options: RunParserOptions<Output, Sequence, Element> = {},
 ): Promise<Output> {
 	const inputAsyncIterator = toAsyncIterator(input);
 
-	const inputReader = new InputReaderImplementation<Sequence, Element>(inputCompanion, inputAsyncIterator);
-	const parserContext = new ParserContextImplementation<Sequence, Element>(inputCompanion, inputReader, undefined, {
+	const inputReader = new InputReaderImplementation<Sequence, Element>(parserInputCompanion, inputAsyncIterator);
+	const parserContext = new ParserContextImplementation<Sequence, Element>(parserInputCompanion, inputReader, undefined, {
 		...options,
 		debugName: 'root',
 	});

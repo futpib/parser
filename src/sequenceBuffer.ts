@@ -1,5 +1,5 @@
 import invariant from 'invariant';
-import { type InputCompanion } from './inputCompanion.js';
+import { type ParserInputCompanion } from './parserInputCompanion.js';
 
 export type SequenceBuffer<Sequence, Element> = {
 	push(sequence: Sequence): void;
@@ -11,14 +11,14 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 	private readonly _sequences: Sequence[] = [];
 	private _indexInFirstSequence = 0;
 
-	constructor(private readonly _inputCompanion: InputCompanion<Sequence, Element>) {}
+	constructor(private readonly _parserInputCompanion: ParserInputCompanion<Sequence, Element>) {}
 
 	push(sequence: Sequence) {
 		this._sequences.push(sequence);
 
 		while (this._sequences.length > 0) {
 			const firstSequence = this._sequences[0];
-			const firstSequenceLength = this._inputCompanion.length(firstSequence);
+			const firstSequenceLength = this._parserInputCompanion.length(firstSequence);
 
 			if (firstSequenceLength === 0) {
 				this._sequences.shift();
@@ -40,10 +40,10 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 		let index = this._indexInFirstSequence + offset;
 
 		for (const sequence of this._sequences) {
-			const sequenceLength = this._inputCompanion.length(sequence);
+			const sequenceLength = this._parserInputCompanion.length(sequence);
 
 			if (index < sequenceLength) {
-				return this._inputCompanion.at(sequence, index);
+				return this._parserInputCompanion.at(sequence, index);
 			}
 
 			index -= sequenceLength;

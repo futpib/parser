@@ -4,7 +4,7 @@ import { createElementParser } from './elementParser.js';
 import { createTupleParser } from './tupleParser.js';
 import { createSliceBoundedParser } from './sliceBoundedParser.js';
 import { runParser } from './parser.js';
-import { stringInputCompanion } from './inputCompanion.js';
+import { stringParserInputCompanion } from './parserInputCompanion.js';
 
 const anythingParser = createArrayParser(createElementParser<string>());
 
@@ -15,7 +15,7 @@ test('sliceBoundedParser', async t => {
 		createElementParser(),
 	]);
 
-	const result = await runParser(parser, 'abba', stringInputCompanion);
+	const result = await runParser(parser, 'abba', stringParserInputCompanion);
 
 	t.deepEqual(result, [
 		'a',

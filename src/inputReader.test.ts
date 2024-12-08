@@ -1,10 +1,10 @@
 import test from 'ava';
 import { InputReaderImplementation } from './inputReader.js';
-import { stringInputCompanion } from './inputCompanion.js';
+import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { ParserImplementationError } from './parserError.js';
 
 test('inputReader', async t => {
-	const inputReader = new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield '';
 		yield 'abc';
 		yield 'def';
@@ -47,7 +47,7 @@ test('inputReader', async t => {
 });
 
 test('inputReader.peek concurrent', async t => {
-	const inputReader = new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
 	})());
 
@@ -69,7 +69,7 @@ test('inputReader.peek concurrent', async t => {
 });
 
 test('inputReader skip while peeking', async t => {
-	const inputReader = new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
 	})());
 
@@ -84,7 +84,7 @@ test('inputReader skip while peeking', async t => {
 test('inputReader.lookahead', async t => {
 	let read = 0;
 
-	const inputReader = new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		for (const character of 'abcdefgh') {
 			read++;
 			yield character;
@@ -180,7 +180,7 @@ test('inputReader.lookahead', async t => {
 test('inputReader.lookahead concurrent', async t => {
 	let read = 0;
 
-	const inputReader = new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		for (const character of 'abcdefgh') {
 			read++;
 			yield character;
@@ -211,7 +211,7 @@ test('inputReader.lookahead concurrent', async t => {
 test('inputReader.lookahead skip position', async t => {
 	let read = 0;
 
-	const inputReader = new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		for (const character of 'abcdefgh') {
 			read++;
 			yield character;

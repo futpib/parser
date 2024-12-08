@@ -2,7 +2,7 @@ import test from 'ava';
 import invariant from 'invariant';
 import { createUnionParser } from './unionParser.js';
 import { type Parser, runParser } from './parser.js';
-import { stringInputCompanion, uint8ArrayInputCompanion } from './inputCompanion.js';
+import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import {
 	ParserParsingInvariantError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinError, ParserParsingJoinFurthestError, ParserParsingJoinNoneError,
 } from './parserError.js';
@@ -61,7 +61,7 @@ function removeStackLocations(errorStack: string) {
 }
 
 test('errorJoinMode: none', async t => {
-	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringInputCompanion, {
+	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'none',
 	}), {
 		instanceOf: ParserParsingJoinNoneError,
@@ -74,7 +74,7 @@ test('errorJoinMode: none', async t => {
 });
 
 test('errorJoinMode: all', async t => {
-	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringInputCompanion, {
+	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'all',
 	}), {
 		instanceOf: ParserParsingJoinAllError,
@@ -109,7 +109,7 @@ test('errorJoinMode: all', async t => {
 });
 
 test('errorJoinMode: deepest', async t => {
-	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringInputCompanion, {
+	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'deepest',
 	}), {
 		instanceOf: ParserParsingJoinDeepestError,
@@ -144,7 +144,7 @@ test('errorJoinMode: deepest', async t => {
 });
 
 test('errorJoinMode: furthest', async t => {
-	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringInputCompanion, {
+	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'furthest',
 	}), {
 		instanceOf: ParserParsingJoinFurthestError,
@@ -164,15 +164,15 @@ test('errorJoinMode: furthest', async t => {
 	t.is(error1.position, 12);
 });
 
-test('throws on inputCompanion type mismatch', async t => {
+test('throws on parserInputCompanion type mismatch', async t => {
 	const anythingParser: Parser<any, any> = createArrayParser(createElementParser());
 
-	await runParser(anythingParser, asyncIteratorFromString('anything'), stringInputCompanion);
-	await runParser(anythingParser, 'anything', stringInputCompanion);
-	await runParser(anythingParser, Buffer.from('anything'), uint8ArrayInputCompanion);
-	await runParser(anythingParser, new Uint8Array([ 1, 2, 3 ]), uint8ArrayInputCompanion);
+	await runParser(anythingParser, asyncIteratorFromString('anything'), stringParserInputCompanion);
+	await runParser(anythingParser, 'anything', stringParserInputCompanion);
+	await runParser(anythingParser, Buffer.from('anything'), uint8ArrayParserInputCompanion);
+	await runParser(anythingParser, new Uint8Array([ 1, 2, 3 ]), uint8ArrayParserInputCompanion);
 
-	await t.throwsAsync(runParser(anythingParser, asyncIteratorFromString('anything'), uint8ArrayInputCompanion), {
+	await t.throwsAsync(runParser(anythingParser, asyncIteratorFromString('anything'), uint8ArrayParserInputCompanion), {
 		message: /input companion/,
 	});
 });

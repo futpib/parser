@@ -1,6 +1,6 @@
 import test from 'ava';
 import { ParserContextImplementation } from './parserContext.js';
-import { stringInputCompanion } from './inputCompanion.js';
+import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { ParserUnexpectedEndOfInputError } from './parserError.js';
 
@@ -13,7 +13,7 @@ const commonParserContextArguments = [
 ] as const;
 
 test('parserContext.read', async t => {
-	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield '';
 		yield 'abc';
 		yield 'def';
@@ -31,7 +31,7 @@ test('parserContext.read', async t => {
 });
 
 test('parserContext.lookahead', async t => {
-	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
 	})()), ...commonParserContextArguments);
 
@@ -66,7 +66,7 @@ test('parserContext.lookahead', async t => {
 });
 
 test('parserContext.unlookahead', async t => {
-	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
 	})()), ...commonParserContextArguments);
 
@@ -86,7 +86,7 @@ test('parserContext.unlookahead', async t => {
 });
 
 test('parserContext.unlookahead while peeking', async t => {
-	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
 	})()), ...commonParserContextArguments);
 
@@ -103,7 +103,7 @@ test('parserContext.unlookahead while peeking', async t => {
 });
 
 test('parserContext deep unlookahead normal order', async t => {
-	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
 	})()), ...commonParserContextArguments);
 
@@ -125,7 +125,7 @@ test('parserContext deep unlookahead normal order', async t => {
 });
 
 test('parserContext deep unlookahead weird order', async t => {
-	const parserContext = new ParserContextImplementation(stringInputCompanion, new InputReaderImplementation(stringInputCompanion, (async function * () {
+	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
 	})()), ...commonParserContextArguments);
 

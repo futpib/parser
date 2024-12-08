@@ -1,7 +1,7 @@
 /* eslint-disable prefer-arrow-callback */
 
 import invariant from 'invariant';
-import { type InputCompanion } from './inputCompanion.js';
+import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { type InputReader } from './inputReader.js';
 import {
 	type ParserParsingFailedError, ParserUnexpectedEndOfInputError, ParserParsingInvariantError, ParserParsingJoinNoneError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinFurthestError,
@@ -47,7 +47,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	private _exclusiveChildParserContext: ParserContext<Sequence, Element> | undefined = undefined;
 
 	constructor(
-		private readonly _inputCompanion: InputCompanion<Sequence, Element>,
+		private readonly _parserInputCompanion: ParserInputCompanion<Sequence, Element>,
 		private _inputReader: InputReader<Sequence, Element>,
 		private _parentParserContext: ParserContextImplementation<Sequence, Element> | undefined = undefined,
 		private readonly _options: ParserContextOptions<Sequence, Element>,
@@ -69,15 +69,15 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	}
 
 	from(elements: Element[]): Sequence {
-		return this._inputCompanion.from(elements);
+		return this._parserInputCompanion.from(elements);
 	}
 
 	length(sequence: Sequence): number {
-		return this._inputCompanion.length(sequence);
+		return this._parserInputCompanion.length(sequence);
 	}
 
 	at(sequence: Sequence, index: number): Element | undefined {
-		return this._inputCompanion.at(sequence, index);
+		return this._parserInputCompanion.at(sequence, index);
 	}
 
 	get position() {
@@ -126,7 +126,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		);
 
 		const lookaheadParserContext = new ParserContextImplementation(
-			this._inputCompanion,
+			this._parserInputCompanion,
 			lookaheadInputReader,
 			this,
 			{

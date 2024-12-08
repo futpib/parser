@@ -3,7 +3,7 @@ import { BSON } from 'bson';
 import { bsonDocumentParser } from './bsonParser.js';
 import { arbitrarilySlicedAsyncIterator } from './arbitrarilySlicedAsyncInterator.js';
 import { runParser } from './parser.js';
-import { uint8ArrayInputCompanion } from './inputCompanion.js';
+import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 
 testProp(
 	'bson',
@@ -27,7 +27,7 @@ testProp(
 	async (t, [ bsonUint8Array, bsonUint8ArrayChunkIterator ]) => {
 		const expected = BSON.deserialize(bsonUint8Array);
 
-		const actual = await runParser(bsonDocumentParser, bsonUint8ArrayChunkIterator, uint8ArrayInputCompanion);
+		const actual = await runParser(bsonDocumentParser, bsonUint8ArrayChunkIterator, uint8ArrayParserInputCompanion);
 
 		t.deepEqual(actual, expected);
 	},

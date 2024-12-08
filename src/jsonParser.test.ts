@@ -2,7 +2,7 @@ import { testProp, fc } from '@fast-check/ava';
 import { jsonValueParser } from './jsonParser.js';
 import { runParser } from './parser.js';
 import { arbitrarilySlicedAsyncIterator } from './arbitrarilySlicedAsyncInterator.js';
-import { stringInputCompanion } from './inputCompanion.js';
+import { stringParserInputCompanion } from './parserInputCompanion.js';
 
 testProp(
 	'json',
@@ -13,7 +13,7 @@ testProp(
 		),
 	],
 	async (t, [ jsonString, jsonStringChunkIterator ]) => {
-		const actual = await runParser(jsonValueParser, jsonStringChunkIterator, stringInputCompanion, {
+		const actual = await runParser(jsonValueParser, jsonStringChunkIterator, stringParserInputCompanion, {
 			errorJoinMode: 'none',
 		});
 		const expected = JSON.parse(jsonString);

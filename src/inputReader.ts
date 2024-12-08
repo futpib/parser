@@ -1,7 +1,7 @@
 import PromiseMutex from 'p-mutex';
 import invariant from 'invariant';
 import { type SequenceBuffer, SequenceBufferImplementation } from './sequenceBuffer.js';
-import { type InputCompanion } from './inputCompanion.js';
+import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 
 export type InputReader<Sequence, Element> = {
@@ -26,10 +26,10 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 	private readonly _sequenceBuffer: SequenceBuffer<Sequence, Element>;
 
 	constructor(
-		private readonly _inputCompanion: InputCompanion<Sequence, Element>,
+		private readonly _parserInputCompanion: ParserInputCompanion<Sequence, Element>,
 		private readonly _inputAsyncIterator: AsyncIterator<Sequence>,
 	) {
-		this._sequenceBuffer = new SequenceBufferImplementation<Sequence, Element>(this._inputCompanion);
+		this._sequenceBuffer = new SequenceBufferImplementation<Sequence, Element>(this._parserInputCompanion);
 	}
 
 	get [Symbol.toStringTag]() {
@@ -70,14 +70,14 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 				}
 
 				parserImplementationInvariant(
-					this._inputCompanion.is(inputIteratorResult.value),
+					this._parserInputCompanion.is(inputIteratorResult.value),
 					[
 						'Input iterator result value (%s) is of unexpected type.',
 						'Expected a sequence (a chunk of input) recognized by the input companion (%s).',
 						'You may have provided a wrong input companion for the input.',
 					],
 					inputIteratorResult.value,
-					this._inputCompanion.constructor.name,
+					this._parserInputCompanion.constructor.name,
 				);
 
 				this._sequenceBuffer.push(inputIteratorResult.value);

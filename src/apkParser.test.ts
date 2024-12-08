@@ -1,5 +1,5 @@
 import test from 'ava';
-import { uint8ArrayInputCompanion } from './inputCompanion.js';
+import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
 import { apkParser } from './apkParser.js';
 
@@ -14,7 +14,7 @@ for (const apkCid of [
 
 			const apkStream = apkResponse.body!;
 
-			const actual = await runParser(apkParser, apkStream, uint8ArrayInputCompanion, {
+			const actual = await runParser(apkParser, apkStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',
 			});
 
