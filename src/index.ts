@@ -1,13 +1,13 @@
 
 export {
-	Parser,
+	type Parser,
 	runParser,
 
 	setParserName,
 	getParserName,
 } from './parser.js';
 
-export {
+export type {
 	ParserContext,
 } from './parserContext.js';
 

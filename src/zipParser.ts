@@ -1,16 +1,18 @@
-import invariant from "invariant";
-import zlib from "node:zlib";
-import { createArrayParser } from "./arrayParser.js";
-import { createExactSequenceParser } from "./exactSequenceParser.js";
-import { Parser, setParserName } from "./parser.js";
-import { createTupleParser } from "./tupleParser.js";
-import { promiseCompose } from "./promiseCompose.js";
-import { createFixedLengthSequenceParser } from "./fixedLengthSequenceParser.js";
-import { createOptionalParser } from "./optionalParser.js";
-import { parserCreatorCompose } from "./parserCreatorCompose.js";
-import { Zip, ZipCompression, ZipDirectoryEntry, ZipEntry, ZipFileEntry, ZipPermissions } from "./zip.js";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import zlib from 'node:zlib';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import invariant from 'invariant';
+import { createArrayParser } from './arrayParser.js';
+import { createExactSequenceParser } from './exactSequenceParser.js';
+import { type Parser, setParserName } from './parser.js';
+import { createTupleParser } from './tupleParser.js';
+import { promiseCompose } from './promiseCompose.js';
+import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
+import { createOptionalParser } from './optionalParser.js';
+import { parserCreatorCompose } from './parserCreatorCompose.js';
+import {
+	type Zip, type ZipCompression, type ZipDirectoryEntry, type ZipEntry, type ZipFileEntry, type ZipPermissions,
+} from './zip.js';
 
 // https://pkwaredownloads.blob.core.windows.net/pem/APPNOTE.txt
 
@@ -34,12 +36,12 @@ const dosDateTimeParser: Parser<Date, Uint8Array> = promiseCompose(
 		uint16LEParser,
 	]),
 	([ time, date ]) => new Date(Date.UTC(
-		1980 + ((date >> 9) & 0x7f),
-		((date >> 5) & 0xf) - 1,
-		date & 0x1f,
-		(time >> 11) & 0x1f,
-		(time >> 5) & 0x3f,
-		(time & 0x1f) * 2,
+		1980 + ((date >> 9) & 0x7F),
+		((date >> 5) & 0xF) - 1,
+		date & 0x1F,
+		(time >> 11) & 0x1F,
+		(time >> 5) & 0x3F,
+		(time & 0x1F) * 2,
 	)),
 );
 
@@ -104,7 +106,7 @@ const zipLocalFileHeaderParser: Parser<ZipLocalFileHeader, Uint8Array> = promise
 		versionNeededToExtract,
 		generalPurposeBitFlag,
 		compressionMethod,
-		lastModFile,
+		lastModuleFile,
 		crc32,
 		compressedSize,
 		uncompressedSize,
@@ -113,7 +115,7 @@ const zipLocalFileHeaderParser: Parser<ZipLocalFileHeader, Uint8Array> = promise
 		versionNeededToExtract,
 		generalPurposeBitFlag,
 		compressionMethod,
-		lastModFile,
+		lastModFile: lastModuleFile,
 		crc32,
 		compressedSize,
 		uncompressedSize,
@@ -145,7 +147,7 @@ type ZipLocalFile = {
 export const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompose(
 	parserCreatorCompose(
 		() => zipLocalFileHeaderParser,
-		(zipLocalFileHeader) => createTupleParser([
+		zipLocalFileHeader => createTupleParser([
 			async () => zipLocalFileHeader,
 			createOptionalParser(zipEncryptionHeaderParser),
 			createFixedLengthSequenceParser(zipLocalFileHeader.compressedSize),
@@ -262,7 +264,7 @@ export const zipCentralDirectoryHeaderParser: Parser<ZipCentralDirectoryHeader, 
 		versionNeededToExtract,
 		generalPurposeBitFlag,
 		compressionMethod,
-		lastModFile,
+		lastModuleFile,
 		crc32,
 		compressedSize,
 		uncompressedSize,
@@ -281,7 +283,7 @@ export const zipCentralDirectoryHeaderParser: Parser<ZipCentralDirectoryHeader, 
 		versionNeededToExtract,
 		generalPurposeBitFlag,
 		compressionMethod,
-		lastModFile,
+		lastModFile: lastModuleFile,
 		crc32,
 		compressedSize,
 		uncompressedSize,
@@ -312,13 +314,13 @@ const zipFileCommentParser: Parser<string, Uint8Array> = promiseCompose(
 );
 
 type ZipEndOfCentralDirectoryRecord = {
-	numberOfThisDisk: number,
-	numberOfTheDiskWithTheStartOfTheCentralDirectory: number,
-	totalNumberOfEntriesInTheCentralDirectoryOnThisDisk: number,
-	totalNumberOfEntriesInTheCentralDirectory: number,
-	sizeOfTheCentralDirectory: number,
-	offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber: number,
-	zipFileComment: string,
+	numberOfThisDisk: number;
+	numberOfTheDiskWithTheStartOfTheCentralDirectory: number;
+	totalNumberOfEntriesInTheCentralDirectoryOnThisDisk: number;
+	totalNumberOfEntriesInTheCentralDirectory: number;
+	sizeOfTheCentralDirectory: number;
+	offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber: number;
+	zipFileComment: string;
 };
 
 const zipEndOfCentralDirectoryRecordParser_ = createTupleParser([
@@ -372,10 +374,10 @@ export async function zipEntriesFromZipSegments({
 	zipLocalFiles,
 	zipCentralDirectoryHeaders,
 }: {
-	zipLocalFiles: ZipLocalFile[],
-	zipCentralDirectoryHeaders: ZipCentralDirectoryHeader[],
+	zipLocalFiles: ZipLocalFile[];
+	zipCentralDirectoryHeaders: ZipCentralDirectoryHeader[];
 }) {
-	const decompressPromises: Promise<void>[] = [];
+	const decompressPromises: Array<Promise<void>> = [];
 
 	const entries: ZipEntry[] = await Promise.all(zipLocalFiles.map(async (zipLocalFile, index) => {
 		const {
@@ -396,17 +398,17 @@ export async function zipEntriesFromZipSegments({
 		};
 
 		if (centralDirectoryHeader.versionMadeBy.hostSystem === 0) {
-			isDosDirectory = (centralDirectoryHeader.externalFileAttributes & 0b00010000) !== 0;
+			isDosDirectory = (centralDirectoryHeader.externalFileAttributes & 0b0001_0000) !== 0;
 			permissions = {
 				type: 'dos',
-				dosPermissions: centralDirectoryHeader.externalFileAttributes & 0b00111111,
+				dosPermissions: centralDirectoryHeader.externalFileAttributes & 0b0011_1111,
 			};
 		}
 
 		if (centralDirectoryHeader.versionMadeBy.hostSystem === 3) {
 			permissions = {
 				type: 'unix',
-				unixPermissions: (centralDirectoryHeader.externalFileAttributes >> 16) & 0b111111111,
+				unixPermissions: (centralDirectoryHeader.externalFileAttributes >> 16) & 0b1_1111_1111,
 			};
 		}
 
@@ -434,7 +436,7 @@ export async function zipEntriesFromZipSegments({
 			compression: zipLocalFileHeader.compressionMethod,
 		};
 
-		if (fileEntry.content.length && fileEntry.compression === 'deflate') {
+		if (fileEntry.content.length > 0 && fileEntry.compression === 'deflate') {
 			const deflate = zlib.createInflateRaw();
 			const input = Readable.from(Buffer.from(compressedData));
 			const [ _, buffer ] = await Promise.all([
@@ -444,6 +446,7 @@ export async function zipEntriesFromZipSegments({
 					for await (const chunk of deflate) {
 						chunks.push(chunk);
 					}
+
 					return Buffer.concat(chunks);
 				})(),
 			]);
@@ -465,10 +468,10 @@ export async function zipFromZipSegments({
 
 	zipEndOfCentralDirectoryRecord,
 }: {
-	zipLocalFiles: ZipLocalFile[],
-	zipCentralDirectoryHeaders: ZipCentralDirectoryHeader[],
+	zipLocalFiles: ZipLocalFile[];
+	zipCentralDirectoryHeaders: ZipCentralDirectoryHeader[];
 
-	zipEndOfCentralDirectoryRecord: ZipEndOfCentralDirectoryRecord,
+	zipEndOfCentralDirectoryRecord: ZipEndOfCentralDirectoryRecord;
 }) {
 	const entries = await zipEntriesFromZipSegments({
 		zipLocalFiles,

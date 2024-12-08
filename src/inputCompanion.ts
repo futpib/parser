@@ -26,7 +26,7 @@ export const stringInputCompanion = new class StringInputCompanion implements In
 
 export const uint8ArrayInputCompanion = new class Uint8ArrayInputCompanion implements InputCompanion<Uint8Array, number> {
 	is(value: unknown): value is Uint8Array {
-		return value instanceof Uint8Array
+		return value instanceof Uint8Array;
 	}
 
 	from(elements: number[]): Uint8Array {

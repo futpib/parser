@@ -83,7 +83,7 @@ const jsonNumberParser: Parser<number, string> = parserCreatorCompose(
 	() => createArrayParser(
 		parserCreatorCompose(
 			() => elementParser,
-			(character) => async parserContext => {
+			character => async parserContext => {
 				parserContext.invariant(
 					(
 						character === '-'
@@ -101,7 +101,7 @@ const jsonNumberParser: Parser<number, string> = parserCreatorCompose(
 			},
 		)(),
 	),
-	(characters) => async parserContext => {
+	characters => async parserContext => {
 		parserContext.invariant(characters.length > 0, 'Expected at least one character');
 
 		return Number(characters.join(''));
@@ -116,6 +116,7 @@ const jsonFalseParser: Parser<false, string> = promiseCompose(createExactSequenc
 
 setParserName(jsonFalseParser, 'jsonFalseParser');
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 const jsonNullParser: Parser<null, string> = promiseCompose(createExactSequenceParser('null'), () => null);
 
 setParserName(jsonNullParser, 'jsonNullParser');
@@ -138,7 +139,7 @@ const jsonObjectEntryParser: Parser<[string, JsonValue], string> = promiseCompos
 		whitespaceParser,
 		createParserAccessorParser(() => jsonValueParser),
 	]),
-	([key, _whitespace1, _colon, _whitespace2, value]) => [key, value],
+	([ key, _whitespace1, _colon, _whitespace2, value ]) => [ key, value ],
 );
 
 const jsonObjectParser: Parser<JsonObject, string> = promiseCompose(
@@ -155,25 +156,25 @@ const jsonObjectParser: Parser<JsonObject, string> = promiseCompose(
 							createExactSequenceParser(','),
 							whitespaceParser,
 						]),
-						([entry]) => entry,
+						([ entry ]) => entry,
 					),
 					promiseCompose(
 						createTupleParser([
 							createParserAccessorParser(() => jsonObjectEntryParser),
 							whitespaceParser,
 						]),
-						([value]) => value,
+						([ value ]) => value,
 					),
 				]),
 				createExactSequenceParser('}'),
 			),
-			([entries]) => entries,
+			([ entries ]) => entries,
 		),
 	]),
-	([ _brace, _whitespace, entries]) => {
+	([ _brace, _whitespace, entries ]) => {
 		const object: Writable<JsonObject> = {};
 
-		for (const [key, value] of entries) {
+		for (const [ key, value ] of entries) {
 			Object.defineProperty(object, key, {
 				value,
 				enumerable: true,
@@ -198,22 +199,22 @@ const jsonArrayParser: Parser<JsonArray, string> = promiseCompose(
 							createExactSequenceParser(','),
 							whitespaceParser,
 						]),
-						([value]) => value,
+						([ value ]) => value,
 					),
 					promiseCompose(
 						createTupleParser([
 							createParserAccessorParser(() => jsonValueParser),
 							whitespaceParser,
 						]),
-						([value]) => value,
+						([ value ]) => value,
 					),
 				]),
 				createExactSequenceParser(']'),
 			),
-			([values]) => values,
+			([ values ]) => values,
 		),
 	]),
-	([_bracket, _whitespace, values]) => values,
+	([ _bracket, _whitespace, values ]) => values,
 );
 
 export const jsonValueParser: Parser<JsonValue, string> = createUnionParser([

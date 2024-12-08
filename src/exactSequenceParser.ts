@@ -1,4 +1,4 @@
-import { inspect } from 'util';
+import { inspect } from 'node:util';
 import { setParserName, type Parser } from './parser.js';
 
 export const createExactSequenceParser = <Sequence>(sequence: Sequence) => {
@@ -24,4 +24,4 @@ export const createExactSequenceParser = <Sequence>(sequence: Sequence) => {
 	setParserName(exactSequenceParser, inspect(sequence));
 
 	return exactSequenceParser;
-}
+};

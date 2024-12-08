@@ -14,10 +14,8 @@ type FileSystemFile = {
 
 export type FileSystemEntry =
 	| FileSystemFile
-	| FileSystemDirectory
-;
-
-export const arbitraryFileSystemEntry = fc.letrec((tie) => ({
+	| FileSystemDirectory;
+export const arbitraryFileSystemEntry = fc.letrec(tie => ({
 	entry: fc.oneof<[
 		fc.Arbitrary<FileSystemFile>,
 		fc.Arbitrary<FileSystemDirectory>,

@@ -1,4 +1,4 @@
-import { getParserName, Parser, setParserName } from "./parser.js";
+import { getParserName, type Parser, setParserName } from './parser.js';
 
 export const createSliceBoundedParser = <Output, Sequence>(
 	childParser: Parser<Output, Sequence>,
@@ -27,4 +27,4 @@ export const createSliceBoundedParser = <Output, Sequence>(
 	].join(''));
 
 	return sliceBoundedParser;
-}
+};

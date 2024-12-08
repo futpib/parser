@@ -1,10 +1,12 @@
 import * as fc from 'fast-check';
-import { Zip, ZipDirectoryEntry, ZipEntry, ZipFileEntry } from './zip.js';
+import invariant from 'invariant';
+import {
+	type Zip, type ZipDirectoryEntry, ZipEntry, type ZipFileEntry,
+} from './zip.js';
 import { arbitraryDosDateTime } from './arbitraryDosDateTime.js';
 import { createArbitraryZipPermissions } from './arbitraryZipPermissions.js';
-import invariant from 'invariant';
 
-const DOS_DIRECTORY_FLAG = 0b00010000;
+const DOS_DIRECTORY_FLAG = 0b0001_0000;
 
 const arbitraryPath = fc.string({ minLength: 1 }).filter(path => {
 	const pathSegments = path.split('/');

@@ -1,9 +1,9 @@
-import { createNegativeLookaheadParser } from "./negativeLookahead.js";
-import { Parser } from "./parser.js";
-import { createParserAccessorParser } from "./parserAccessorParser.js";
-import { promiseCompose } from "./promiseCompose.js";
-import { createTupleParser } from "./tupleParser.js";
-import { createUnionParser } from "./unionParser.js";
+import { createNegativeLookaheadParser } from './negativeLookahead.js';
+import { type Parser } from './parser.js';
+import { createParserAccessorParser } from './parserAccessorParser.js';
+import { promiseCompose } from './promiseCompose.js';
+import { createTupleParser } from './tupleParser.js';
+import { createUnionParser } from './unionParser.js';
 
 class Nil {}
 class Cons<Head, Tail> {

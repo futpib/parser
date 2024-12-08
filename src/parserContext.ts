@@ -1,9 +1,13 @@
+/* eslint-disable prefer-arrow-callback */
+
 import invariant from 'invariant';
 import { type InputCompanion } from './inputCompanion.js';
 import { type InputReader } from './inputReader.js';
-import { ParserParsingFailedError, ParserUnexpectedEndOfInputError, ParserParsingInvariantError, ParserParsingJoinNoneError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinFurthestError } from './parserError.js';
-import { RunParserOptions } from './parser.js';
-import { Falsy, parserInvariant, ValueOrAccessor } from './parserInvariant.js';
+import {
+	type ParserParsingFailedError, ParserUnexpectedEndOfInputError, ParserParsingInvariantError, ParserParsingJoinNoneError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinFurthestError,
+} from './parserError.js';
+import { type RunParserOptions } from './parser.js';
+import { type Falsy, parserInvariant, type ValueOrAccessor } from './parserInvariant.js';
 
 type LookaheadOptions = {
 	debugName?: string;

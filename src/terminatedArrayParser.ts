@@ -1,6 +1,6 @@
-import { getParserName, Parser, setParserName } from "./parser.js";
-import { promiseCompose } from "./promiseCompose.js";
-import { createUnionParser } from "./unionParser.js";
+import { getParserName, type Parser, setParserName } from './parser.js';
+import { promiseCompose } from './promiseCompose.js';
+import { createUnionParser } from './unionParser.js';
 
 class Terminated<T> {
 	constructor(

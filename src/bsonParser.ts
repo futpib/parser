@@ -30,7 +30,7 @@ const cstringParser: Parser<string, Uint8Array> = promiseCompose(
 		)(),
 		nullByteParser,
 	),
-	([sequence]) => Buffer.from(sequence).toString('utf8'),
+	([ sequence ]) => Buffer.from(sequence).toString('utf8'),
 );
 
 const doubleParser: Parser<number, Uint8Array> = promiseCompose(buffer8Parser, buffer => buffer.readDoubleLE(0));
@@ -47,7 +47,7 @@ const createFixedLengthNullTerminatedStringParser = (lengthWihoutNullTerminator:
 		createFixedLengthStringParser(lengthWihoutNullTerminator),
 		nullByteParser,
 	]),
-	([string]) => string,
+	([ string ]) => string,
 );
 
 const bsonStringParser: Parser<string, Uint8Array> = async parserContext => {
@@ -119,7 +119,7 @@ const bsonElementListParser: Parser<Array<[ string, JsonValue ]>, Uint8Array> = 
 		bsonElementParser,
 		nullByteParser,
 	),
-	([elements]) => elements,
+	([ elements ]) => elements,
 );
 
 export const bsonDocumentParser: Parser<JsonObject, Uint8Array> = promiseCompose(

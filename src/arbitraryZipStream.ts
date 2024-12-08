@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { ZipEntry } from './zip.js';
+import { type ZipEntry } from './zip.js';
 import { arbitraryZip } from './arbitraryZip.js';
 
 function addZipEntryToZip(zip: JSZip, zipEntry: ZipEntry) {

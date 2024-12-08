@@ -1,4 +1,4 @@
-import { getParserName, Parser, setParserName } from "./parser.js";
+import { getParserName, type Parser, setParserName } from './parser.js';
 
 export const createDebugLogParser = <Output, Sequence>(
 	childParser: Parser<Output, Sequence>,

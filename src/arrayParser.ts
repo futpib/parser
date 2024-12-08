@@ -1,5 +1,5 @@
-import { getParserName, Parser, setParserName } from "./parser.js";
-import { ParserParsingFailedError } from "./parserError.js";
+import { getParserName, type Parser, setParserName } from './parser.js';
+import { ParserParsingFailedError } from './parserError.js';
 
 export const createArrayParser = <ElementOutput, Sequence>(
 	elementParser: Parser<ElementOutput, Sequence>,
@@ -15,6 +15,7 @@ export const createArrayParser = <ElementOutput, Sequence>(
 				if (elementParserContext.position === initialPosition) {
 					return elements;
 				}
+
 				elements.push(element);
 				elementParserContext.unlookahead();
 			} catch (error) {

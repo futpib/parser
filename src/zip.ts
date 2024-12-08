@@ -1,9 +1,7 @@
 
 export type ZipCompression =
 	| 'store'
-	| 'deflate'
-;
-
+	| 'deflate';
 export type ZipUnixPermissions = {
 	type: 'unix';
 	unixPermissions: number;
@@ -16,9 +14,7 @@ export type ZipDosPermissions = {
 
 export type ZipPermissions =
 	| ZipUnixPermissions
-	| ZipDosPermissions
-;
-
+	| ZipDosPermissions;
 export type ZipFileEntry = {
 	type: 'file';
 	path: string;
@@ -39,10 +35,8 @@ export type ZipDirectoryEntry = {
 
 export type ZipEntry =
 	| ZipFileEntry
-	| ZipDirectoryEntry
-;
-
+	| ZipDirectoryEntry;
 export type Zip = {
 	comment: string;
 	entries: ZipEntry[];
-}
+};

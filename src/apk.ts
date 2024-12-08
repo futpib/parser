@@ -1,4 +1,4 @@
-import { Zip } from './zip.js';
+import { type Zip } from './zip.js';
 
 export type ApkSigningBlockPair = {
 	id: number;

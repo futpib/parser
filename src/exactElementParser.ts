@@ -1,5 +1,5 @@
 import { type Parser } from './parser.js';
-import { DeriveSequenceElement } from './sequence.js';
+import { type DeriveSequenceElement } from './sequence.js';
 
 export const createExactElementParser = <
 	Sequence,

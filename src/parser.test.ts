@@ -1,12 +1,14 @@
 import test from 'ava';
+import invariant from 'invariant';
 import { createUnionParser } from './unionParser.js';
-import { Parser, runParser } from './parser.js';
+import { type Parser, runParser } from './parser.js';
 import { stringInputCompanion, uint8ArrayInputCompanion } from './inputCompanion.js';
-import { ParserParsingInvariantError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinError, ParserParsingJoinFurthestError, ParserParsingJoinNoneError } from './parserError.js';
+import {
+	ParserParsingInvariantError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinError, ParserParsingJoinFurthestError, ParserParsingJoinNoneError,
+} from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
-import invariant from 'invariant';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createElementParser } from './elementParser.js';
@@ -55,14 +57,14 @@ function sortChildErrors(error: ParserParsingJoinNoneError) {
 }
 
 function removeStackLocations(errorStack: string) {
-	return errorStack.replace(/((at [^\n]+)[\s\n]+)+(at [^\n]+)/g, 'at [LOCATIONS]');
+	return errorStack.replaceAll(/((at [^\n]+)[\s\n]+)+(at [^\n]+)/g, 'at [LOCATIONS]');
 }
 
 test('errorJoinMode: none', async t => {
 	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringInputCompanion, {
 		errorJoinMode: 'none',
 	}), {
-		instanceOf: ParserParsingJoinNoneError
+		instanceOf: ParserParsingJoinNoneError,
 	});
 
 	t.is(error.position, 12);
@@ -75,7 +77,7 @@ test('errorJoinMode: all', async t => {
 	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringInputCompanion, {
 		errorJoinMode: 'all',
 	}), {
-		instanceOf: ParserParsingJoinAllError
+		instanceOf: ParserParsingJoinAllError,
 	});
 
 	sortChildErrors(error);

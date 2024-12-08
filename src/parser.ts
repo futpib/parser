@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type InputCompanion } from './inputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
-import { DeriveSequenceElement } from './sequence.js';
+import { type DeriveSequenceElement } from './sequence.js';
 
 export type Parser<
 	Output,
@@ -32,7 +32,7 @@ export type RunParserOptions<
 	Element = DeriveSequenceElement<Sequence>,
 > = {
 	errorJoinMode?: 'none' | 'deepest' | 'furthest' | 'all';
-}
+};
 
 function isAsyncIterable<T>(value: any): value is AsyncIterable<T> {
 	return value && typeof value[Symbol.asyncIterator] === 'function';
@@ -57,7 +57,7 @@ function toAsyncIterator<T>(value: AsyncIterator<T> | AsyncIterable<T> | Iterabl
 		typeof value === 'string'
 		|| value instanceof Uint8Array
 	) {
-		return (async function*() {
+		return (async function * () {
 			yield value as any;
 		})();
 	}
