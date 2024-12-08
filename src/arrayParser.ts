@@ -9,8 +9,13 @@ export const createArrayParser = <ElementOutput, Sequence>(
 
 		while (true) {
 			const elementParserContext = parserContext.lookahead();
+			const initialPosition = elementParserContext.position;
 			try {
-				elements.push(await elementParser(elementParserContext));
+				const element = await elementParser(elementParserContext);
+				if (elementParserContext.position === initialPosition) {
+					return elements;
+				}
+				elements.push(element);
 				elementParserContext.unlookahead();
 			} catch (error) {
 				if (error instanceof ParserParsingFailedError) {

@@ -1,11 +1,11 @@
-import { getParserName, Parser } from "./parser.js";
+import { getParserName, Parser, setParserName } from "./parser.js";
 
 export const createDebugLogParser = <Output, Sequence>(
 	childParser: Parser<Output, Sequence>,
 ): Parser<Output, Sequence> => {
 	let idCounter = 0;
 
-	return async parserContext => {
+	const debugLogParser: typeof childParser = async parserContext => {
 		const id = idCounter++;
 		const initialPosition = parserContext.position;
 
@@ -42,4 +42,10 @@ export const createDebugLogParser = <Output, Sequence>(
 			throw error;
 		}
 	};
+
+	return setParserName(debugLogParser, [
+		'debugLog(',
+		getParserName(childParser),
+		')',
+	].join(''));
 };

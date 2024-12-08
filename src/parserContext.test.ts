@@ -58,6 +58,11 @@ test('parserContext.lookahead', async t => {
 	t.is(await lookaheadContext2.peek(0), 'a');
 
 	t.is(await parserContext.read(0), 'a');
+
+	t.is(parserContext.position, 1);
+	t.is(lookaheadContext1.position, 1);
+	t.is(lookaheadContext2.position, 0);
+	t.is(lookaheadContext3.position, 3);
 });
 
 test('parserContext.unlookahead', async t => {

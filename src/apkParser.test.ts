@@ -24,10 +24,6 @@ for (const apkCid of [
 				}
 			}
 
-			for (const pair of actual.signingBlock?.pairs ?? []) {
-				pair.value = new Uint8Array([ pair.value.length ]);
-			}
-
 			t.snapshot(actual);
 		},
 	);
