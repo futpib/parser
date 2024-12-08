@@ -5,7 +5,14 @@ import { type Parser, setParserName } from './parser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
 import {
-	zip64EndOfCentralDirectoryLocatorParser, zip64EndOfCentralDirectoryRecordParser, zipArchiveDecryptionHeaderParser, zipArchiveExtraDataRecordParser, zipCentralDirectoryHeaderParser, zipEndOfCentralDirectoryRecordParser, zipFromZipSegments, zipLocalFileParser,
+	zip64EndOfCentralDirectoryLocatorParser,
+	zip64EndOfCentralDirectoryRecordParser,
+	zipArchiveDecryptionHeaderParser,
+	zipArchiveExtraDataRecordParser,
+	zipCentralDirectoryHeaderParser,
+	zipEndOfCentralDirectoryRecordParser,
+	zipFromZipSegments,
+	zipLocalFileParser,
 } from './zipParser.js';
 import { type Apk, type ApkSigningBlock, type ApkSigningBlockPair } from './apk.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
