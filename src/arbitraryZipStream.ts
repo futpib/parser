@@ -6,8 +6,8 @@ function addZipEntryToZip(zip: JSZip, zipEntry: ZipEntry) {
 	const options = {
 		comment: zipEntry.comment,
 		date: zipEntry.date,
-		unixPermissions: zipEntry.permissions.type === 'unix' ? zipEntry.permissions.unixPermissions : undefined,
-		dosPermissions: zipEntry.permissions.type === 'dos' ? zipEntry.permissions.dosPermissions : undefined,
+		// unixPermissions: zipEntry.permissions.type === 'unix' ? zipEntry.permissions.unixPermissions : undefined,
+		// dosPermissions: zipEntry.permissions.type === 'dos' ? zipEntry.permissions.dosPermissions : undefined,
 	};
 
 	if (zipEntry.type === 'file') {
@@ -35,7 +35,7 @@ export const arbitraryZipStream = arbitraryZip.map(zip => {
 	const zipInternalStream = jsZip.generateInternalStream({
 		type: 'uint8array',
 		comment: zip.comment,
-		platform: zip.entries.at(0)?.permissions.type.toUpperCase() as any,
+		platform: zip.entries.at(0)?.hostSystem.toUpperCase() as any,
 	});
 
 	const zipStream = new ReadableStream<Uint8Array>({

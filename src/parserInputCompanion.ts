@@ -6,7 +6,7 @@ export type ParserInputCompanion<Sequence, Element> = {
 	at(sequence: Sequence, index: number): Element | undefined;
 };
 
-export const stringParserInputCompanion = new class StringParserInputCompanion implements ParserInputCompanion<string, string> {
+export class StringParserInputCompanion implements ParserInputCompanion<string, string> {
 	is(value: unknown): value is string {
 		return typeof value === 'string';
 	}
@@ -22,9 +22,11 @@ export const stringParserInputCompanion = new class StringParserInputCompanion i
 	at(sequence: string, index: number): string | undefined {
 		return sequence.at(index);
 	}
-}();
+}
 
-export const uint8ArrayParserInputCompanion = new class Uint8ArrayParserInputCompanion implements ParserInputCompanion<Uint8Array, number> {
+export const stringParserInputCompanion = new StringParserInputCompanion();
+
+export class Uint8ArrayParserInputCompanion implements ParserInputCompanion<Uint8Array, number> {
 	is(value: unknown): value is Uint8Array {
 		return value instanceof Uint8Array;
 	}
@@ -40,4 +42,6 @@ export const uint8ArrayParserInputCompanion = new class Uint8ArrayParserInputCom
 	at(sequence: Uint8Array, index: number): number | undefined {
 		return sequence.at(index);
 	}
-}();
+}
+
+export const uint8ArrayParserInputCompanion = new Uint8ArrayParserInputCompanion();

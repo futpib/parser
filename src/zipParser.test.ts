@@ -4,19 +4,13 @@ import { zipParser } from './zipParser.js';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
 
-async function * readableStreamToUint8ArrayAsyncIterator(stream: ReadableStream<Uint8Array>) {
-	for await (const chunk of stream) {
-		yield chunk;
-	}
-}
-
 testProp(
 	'zip',
 	[
 		arbitraryZipStream,
 	],
 	async (t, [ zip, zipStream ]) => {
-		const actual = await runParser(zipParser, readableStreamToUint8ArrayAsyncIterator(zipStream), uint8ArrayParserInputCompanion, {
+		const actual = await runParser(zipParser, zipStream, uint8ArrayParserInputCompanion, {
 			errorJoinMode: 'all',
 		});
 

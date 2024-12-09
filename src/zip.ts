@@ -1,41 +1,35 @@
 
 export type ZipCompression =
 	| 'store'
-	| 'deflate';
-export type ZipUnixPermissions = {
-	type: 'unix';
-	unixPermissions: number;
+	| 'deflate'
+;
+
+export type ZipEntryAttributes = {
 };
 
-export type ZipDosPermissions = {
-	type: 'dos';
-	dosPermissions: number;
-};
-
-export type ZipPermissions =
-	| ZipUnixPermissions
-	| ZipDosPermissions;
-export type ZipFileEntry = {
-	type: 'file';
+type ZipEntryCommon = {
 	path: string;
 	date: Date;
 	comment: string;
-	permissions: ZipPermissions;
+	hostSystem: 'unix' | 'dos';
+	attributes: ZipEntryAttributes;
+};
+
+export type ZipFileEntry = ZipEntryCommon & {
+	type: 'file';
 	compression: ZipCompression;
 	content: Uint8Array;
 };
 
-export type ZipDirectoryEntry = {
+export type ZipDirectoryEntry = ZipEntryCommon & {
 	type: 'directory';
-	path: string;
-	date: Date;
-	comment: string;
-	permissions: ZipPermissions;
 };
 
 export type ZipEntry =
 	| ZipFileEntry
-	| ZipDirectoryEntry;
+	| ZipDirectoryEntry
+;
+
 export type Zip = {
 	comment: string;
 	entries: ZipEntry[];

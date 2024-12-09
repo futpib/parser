@@ -1,12 +1,13 @@
 import * as fc from 'fast-check';
 import invariant from 'invariant';
 import {
-	type Zip, type ZipDirectoryEntry, ZipEntry, type ZipFileEntry,
+	type Zip,
+	type ZipDirectoryEntry,
+	type ZipFileEntry,
+	type ZipEntry,
+	type ZipEntryAttributes,
 } from './zip.js';
 import { arbitraryDosDateTime } from './arbitraryDosDateTime.js';
-import { createArbitraryZipPermissions } from './arbitraryZipPermissions.js';
-
-const DOS_DIRECTORY_FLAG = 0b0001_0000;
 
 const arbitraryPath = fc.string({ minLength: 1 }).filter(path => {
 	const pathSegments = path.split('/');
@@ -28,7 +29,10 @@ const createArbitraryZipEntry = (platform: 'unix' | 'dos') => fc.oneof<[
 		path: arbitraryPath,
 		date: arbitraryDosDateTime,
 		comment: fc.string(),
-		permissions: createArbitraryZipPermissions(platform),
+		hostSystem: fc.constant(platform),
+		attributes: fc.record<ZipEntryAttributes>({
+			directory: fc.constant(false),
+		}),
 		compression: fc.oneof(
 			fc.constant('store' as const),
 			fc.constant('deflate' as const),
@@ -42,13 +46,6 @@ const createArbitraryZipEntry = (platform: 'unix' | 'dos') => fc.oneof<[
 			return false;
 		}
 
-		if (
-			zipFileEntry.permissions.type === 'dos'
-				&& zipFileEntry.permissions.dosPermissions & DOS_DIRECTORY_FLAG
-		) {
-			return false;
-		}
-
 		return true;
 	}),
 	fc.record<ZipDirectoryEntry>({
@@ -56,16 +53,10 @@ const createArbitraryZipEntry = (platform: 'unix' | 'dos') => fc.oneof<[
 		path: arbitraryPath,
 		date: arbitraryDosDateTime,
 		comment: fc.string(),
-		permissions: createArbitraryZipPermissions(platform),
-	}).filter(zipDirectoryEntry => {
-		if (
-			zipDirectoryEntry.permissions.type === 'dos'
-				&& !(zipDirectoryEntry.permissions.dosPermissions & DOS_DIRECTORY_FLAG)
-		) {
-			return false;
-		}
-
-		return true;
+		hostSystem: fc.constant(platform),
+		attributes: fc.record<ZipEntryAttributes>({
+			directory: fc.constant(false),
+		}),
 	}),
 );
 
@@ -108,10 +99,10 @@ const createArbitraryZipEntries = (platform: 'unix' | 'dos') => (
 							path: directoryPath,
 							date: entry.date,
 							comment: '',
-							permissions: entry.permissions.type === 'dos' ? {
-								type: 'dos',
-								dosPermissions: entry.permissions.dosPermissions | DOS_DIRECTORY_FLAG,
-							} : entry.permissions,
+							hostSystem: platform,
+							attributes: {
+								directory: true,
+							},
 						});
 
 						seenDirectoryPaths.add(directoryPath);
