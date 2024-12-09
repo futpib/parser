@@ -211,7 +211,7 @@ const dosExternalFileAttributesParser: Parser<ZipExternalFileAttributes, Uint8Ar
 const unixExternalFileAttributesParser: Parser<ZipExternalFileAttributes, Uint8Array> = promiseCompose(
 	uint32LEParser,
 	externalFileAttributes => ({
-		directory: (externalFileAttributes & 0b0100_0000_0000_0000_0000) !== 0,
+		directory: (externalFileAttributes & (0b0100_0000_0000_0000 << 16)) !== 0,
 	}),
 );
 
@@ -239,58 +239,65 @@ type ZipCentralDirectoryHeader = {
 	fileComment: string;
 };
 
-const zipCentralDirectoryHeaderParser_ = createTupleParser([
-	createExactSequenceParser<Uint8Array>(Buffer.from('504b0102', 'hex')),
-	zipVersionMadeByParser,
-	uint16LEParser,
-	uint16LEParser,
-	zipCompressionMethodParser,
-	dosDateTimeParser,
-	uint32LEParser,
-	uint32LEParser,
-	uint32LEParser,
-	parserCreatorCompose(
-		() => createTupleParser([
-			uint16LEParser,
-			uint16LEParser,
-			uint16LEParser,
+const zipCentralDirectoryHeaderParser_ = parserCreatorCompose(
+	() => createTupleParser([
+		createExactSequenceParser<Uint8Array>(Buffer.from('504b0102', 'hex')),
+		zipVersionMadeByParser,
+	]),
+	([
+		_centralDirectoryHeaderSignature,
+		versionMadeBy,
+	]) => createTupleParser([
+		async () => versionMadeBy,
+		uint16LEParser,
+		uint16LEParser,
+		zipCompressionMethodParser,
+		dosDateTimeParser,
+		uint32LEParser,
+		uint32LEParser,
+		uint32LEParser,
+		parserCreatorCompose(
+			() => createTupleParser([
+				uint16LEParser,
+				uint16LEParser,
+				uint16LEParser,
 
-			uint16LEParser,
-			uint16LEParser,
+				uint16LEParser,
+				uint16LEParser,
 
-			createExternalFileAttributesParser(0),
-			uint32LEParser,
-		]),
-		([
-			filePathLength,
-			extraFieldLength,
-			fileCommentLength,
+				createExternalFileAttributesParser(versionMadeBy.hostSystem),
+				uint32LEParser,
+			]),
+			([
+				filePathLength,
+				extraFieldLength,
+				fileCommentLength,
 
-			diskNumberStart,
-			internalFileAttributes,
+				diskNumberStart,
+				internalFileAttributes,
 
-			externalFileAttributes,
-			relativeOffsetOfLocalHeader,
-		]) => createTupleParser([
-			createFixedLengthSequenceParser(filePathLength),
-			createFixedLengthSequenceParser(extraFieldLength),
-			createFixedLengthSequenceParser(fileCommentLength),
+				externalFileAttributes,
+				relativeOffsetOfLocalHeader,
+			]) => createTupleParser([
+				createFixedLengthSequenceParser(filePathLength),
+				createFixedLengthSequenceParser(extraFieldLength),
+				createFixedLengthSequenceParser(fileCommentLength),
 
-			async () => diskNumberStart,
-			async () => internalFileAttributes,
+				async () => diskNumberStart,
+				async () => internalFileAttributes,
 
-			async () => externalFileAttributes,
-			async () => relativeOffsetOfLocalHeader,
-		]),
-	)(),
-]);
+				async () => externalFileAttributes,
+				async () => relativeOffsetOfLocalHeader,
+			]),
+		)(),
+	]),
+)();
 
 setParserName(zipCentralDirectoryHeaderParser_, 'centralDirectoryHeaderParser_');
 
 export const zipCentralDirectoryHeaderParser: Parser<ZipCentralDirectoryHeader, Uint8Array> = promiseCompose(
 	zipCentralDirectoryHeaderParser_,
 	([
-		_centralDirectoryHeaderSignature,
 		versionMadeBy,
 		versionNeededToExtract,
 		generalPurposeBitFlag,
