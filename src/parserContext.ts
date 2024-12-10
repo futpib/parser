@@ -7,7 +7,7 @@ import {
 	type ParserParsingFailedError, ParserUnexpectedEndOfInputError, ParserParsingInvariantError, ParserParsingJoinNoneError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinFurthestError,
 } from './parserError.js';
 import { type RunParserOptions } from './parser.js';
-import { type Falsy, parserInvariant, type ValueOrAccessor } from './parserInvariant.js';
+import { type Falsy, customInvariant, type ValueOrAccessor } from './customInvariant.js';
 
 type LookaheadOptions = {
 	debugName?: string;
@@ -225,7 +225,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy> {
 		const parserContext = this;
 
-		return parserInvariant(function (message: string) {
+		return customInvariant(function (message: string) {
 			return new ParserParsingInvariantError(message, parserContext._depth, parserContext.position);
 		}, value, format, ...formatArguments);
 	}
@@ -237,13 +237,13 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const parserContext = this;
 
 		if (errorJoinMode === 'none') {
-			return parserInvariant(function (message: string) {
+			return customInvariant(function (message: string) {
 				return new ParserParsingJoinNoneError(message, parserContext._depth, parserContext.position);
 			}, value, format, ...formatArguments);
 		}
 
 		if (errorJoinMode === 'furthest') {
-			return parserInvariant(function (message: string) {
+			return customInvariant(function (message: string) {
 				let furthestPosition = 0;
 				let furthestChildErrors: ParserParsingFailedError[] = [];
 
@@ -273,7 +273,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		}
 
 		if (errorJoinMode === 'deepest') {
-			return parserInvariant(function (message: string) {
+			return customInvariant(function (message: string) {
 				let deepestDepth = 0;
 				let deepestChildErrors: ParserParsingFailedError[] = [];
 
@@ -303,7 +303,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		}
 
 		if (errorJoinMode === 'all') {
-			return parserInvariant(function (message: string) {
+			return customInvariant(function (message: string) {
 				message += [
 					'',
 					'Child error stacks, indented:',

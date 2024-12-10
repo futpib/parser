@@ -4,7 +4,7 @@ export type Falsy = '' | 0 | false | undefined;
 
 export type ValueOrAccessor<T> = T | (() => T);
 
-export function parserInvariant<T>(
+export function customInvariant<T>(
 	ErrorConstructor: Constructor<Error, [message: string]> | ((message: string) => Error),
 	value: T,
 	formatOrFormatLines: ValueOrAccessor<string | string[]>,

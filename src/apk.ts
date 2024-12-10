@@ -19,6 +19,7 @@ export type ApkSignatureV2SignedData = {
 	digests: ApkSignatureV2Digest[];
 	certificates: Uint8Array[];
 	additionalAttributes: ApkSignatureV2AdditionalAttribute[];
+	zeroPaddingLength?: number;
 };
 
 export type ApkSignatureV2Signature = {
@@ -37,9 +38,9 @@ export type ApkSignatureV2 = {
 };
 
 export type ApkSigningBlock = {
-	zeroPaddingLength?: number;
-	signatureV2?: ApkSignatureV2;
 	pairs: ApkSigningBlockPair[];
+	signatureV2?: ApkSignatureV2;
+	zeroPaddingLength?: number;
 };
 
 export type Apk = Zip & {

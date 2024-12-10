@@ -188,26 +188,32 @@ const apkSignatureV2AdditionalAttributeParser = createUint32LengthPrefixedParser
 	),
 );
 
+setParserName(apkSignatureV2AdditionalAttributeParser, 'apkSignatureV2AdditionalAttributeParser');
+
 const apkSignatureV2AdditionalAttributesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
 	apkSignatureV2AdditionalAttributeParser,
 );
+
+setParserName(apkSignatureV2AdditionalAttributesParser, 'apkSignatureV2AdditionalAttributesParser');
 
 const apkSignatureV2SignedDataParser = createUint32LengthPrefixedSliceBoundedParser(
 	promiseCompose(
 		createTupleParser([
 			apkSignatureV2DigestsParser,
 			apkSignatureV2CertificatesParser,
-			createOptionalParser(apkSignatureV2AdditionalAttributesParser),
+			apkSignatureV2AdditionalAttributesParser,
 			createArrayParser(createExactElementParser(0)),
 		]),
 		([
-			digests = [],
-			certificates = [],
-			additionalAttributes = [],
+			digests,
+			certificates,
+			additionalAttributes,
+			zeroPadding,
 		]): ApkSignatureV2SignedData => ({
 			digests,
 			certificates,
 			additionalAttributes,
+			zeroPaddingLength: zeroPadding.length,
 		}),
 	),
 );
