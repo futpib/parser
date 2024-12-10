@@ -11,6 +11,46 @@ export type Unparser<
 	unparserContext: UnparserContext<Sequence, Element>,
 ) => AsyncIterable<Sequence | Element>;
 
+async function * onYield<T>(asyncIterable: AsyncIterable<T>, onYield: (value: T) => void): AsyncIterable<T> {
+	for await (const value of asyncIterable) {
+		onYield(value);
+		yield value;
+	}
+}
+
+async function * elementsToSequences<
+	Sequence,
+	Element,
+>(
+	elementsAndSequences: AsyncIterable<Element | Sequence>,
+	unparserOutputCompanion: UnparserOutputCompanion<Sequence, Element>,
+): AsyncIterable<Sequence> {
+	let elements: Element[] = [];
+
+	for await (const elementOrSequence of elementsAndSequences) {
+		if (unparserOutputCompanion.is(elementOrSequence)) {
+			if (unparserOutputCompanion.length(elementOrSequence) === 0) {
+				continue;
+			}
+
+			if (elements.length > 0) {
+				const sequence = unparserOutputCompanion.from(elements);
+				yield sequence;
+				elements = [];
+			}
+
+			yield elementOrSequence;
+		} else {
+			elements.push(elementOrSequence);
+		}
+	}
+
+	if (elements.length > 0) {
+		const sequence = unparserOutputCompanion.from(elements);
+		yield sequence;
+	}
+}
+
 export async function * runUnparser<
 	Input,
 	Sequence,
@@ -24,31 +64,13 @@ export async function * runUnparser<
 
 	const elementsAndSequences = unparser(input, unparserContext);
 
-	let elements: Element[] = [];
-
-	for await (const elementOrSequence of elementsAndSequences) {
-		if (unparserOutputCompanion.is(elementOrSequence)) {
-			if (unparserOutputCompanion.length(elementOrSequence) === 0) {
-				continue;
-			}
-
-			if (elements.length > 0) {
-				const sequence = unparserOutputCompanion.from(elements);
-				unparserContext.handleYield(sequence);
-				yield sequence;
-				elements = [];
-			}
-
-			unparserContext.handleYield(elementOrSequence);
-			yield elementOrSequence;
-		} else {
-			elements.push(elementOrSequence);
-		}
-	}
-
-	if (elements.length > 0) {
-		const sequence = unparserOutputCompanion.from(elements);
-		unparserContext.handleYield(sequence);
-		yield sequence;
-	}
+	yield * (
+		onYield(
+			elementsToSequences(
+				elementsAndSequences,
+				unparserOutputCompanion,
+			),
+			elementOrSequence => unparserContext.handleYield(elementOrSequence),
+		)
+	);
 }

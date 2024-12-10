@@ -29,7 +29,7 @@ export type ApkSignatureV2Signature = {
 export type ApkSignatureV2Signer = {
 	signedData: ApkSignatureV2SignedData;
 	signatures: ApkSignatureV2Signature[];
-	publicKey?: Uint8Array;
+	publicKey: Uint8Array;
 };
 
 export type ApkSignatureV2 = {

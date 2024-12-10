@@ -118,7 +118,7 @@ setParserName(apkSigningBlockPairParser, 'apkSigningBlockPairParser');
 
 const apkSigningBlockPairsParser: Parser<ApkSigningBlockPairType[], Uint8Array> = createArrayParser(apkSigningBlockPairParser);
 
-const apkSigningBlockParser: Parser<ApkSigningBlock, Uint8Array> = createUint64LengthPrefixedParser(
+export const apkSigningBlockParser: Parser<ApkSigningBlock, Uint8Array> = createUint64LengthPrefixedParser(
 	sizeOfBlock => promiseCompose(
 		createTupleParser([
 			apkSigningBlockPairsParser,
