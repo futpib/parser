@@ -3,6 +3,7 @@ import { Unparser } from "./unparser.js";
 import { Zip, ZipEntry, ZipFileEntry } from "./zip.js";
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { ZipEndOfCentralDirectoryRecord } from './zipParser.js';
 
 const uint16LEUnparser: Unparser<number, Uint8Array> = async function * (uint16LE) {
 	const buffer = Buffer.alloc(2);
@@ -50,6 +51,18 @@ const zipCompressionMethodUnparser: Unparser<'store' | 'deflate', Uint8Array> = 
 	} else {
 		yield * uint16LEUnparser(8, unparserContext);
 	}
+}
+
+export const zipEndOfCentralDirectoryRecordUnparser: Unparser<ZipEndOfCentralDirectoryRecord, Uint8Array> = async function * (zipEndOfCentralDirectoryRecord, unparserContext) {
+	yield Buffer.from('504b0506', 'hex');
+	yield * uint16LEUnparser(zipEndOfCentralDirectoryRecord.numberOfThisDisk, unparserContext);
+	yield * uint16LEUnparser(zipEndOfCentralDirectoryRecord.numberOfTheDiskWithTheStartOfTheCentralDirectory, unparserContext);
+	yield * uint16LEUnparser(zipEndOfCentralDirectoryRecord.totalNumberOfEntriesInTheCentralDirectoryOnThisDisk, unparserContext);
+	yield * uint16LEUnparser(zipEndOfCentralDirectoryRecord.totalNumberOfEntriesInTheCentralDirectory, unparserContext);
+	yield * uint32LEUnparser(zipEndOfCentralDirectoryRecord.sizeOfTheCentralDirectory, unparserContext);
+	yield * uint32LEUnparser(zipEndOfCentralDirectoryRecord.offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber, unparserContext);
+
+	yield * uint16LEPrefixedStringUnparser(zipEndOfCentralDirectoryRecord.zipFileComment, unparserContext);
 }
 
 export const zipUnparser: Unparser<Zip, Uint8Array> = async function * (zip, unparserContext) {
@@ -218,15 +231,15 @@ export const zipUnparser: Unparser<Zip, Uint8Array> = async function * (zip, unp
 	}
 
 	const endOfCentralDirectoryPosition = unparserContext.position;
-	const sizeOfCentralDirectory = endOfCentralDirectoryPosition - startOfCentralDirectoryPosition;
+	const sizeOfTheCentralDirectory = endOfCentralDirectoryPosition - startOfCentralDirectoryPosition;
 
-	yield Buffer.from('504b0506', 'hex');
-	yield * uint16LEUnparser(0, unparserContext); // number of this disk
-	yield * uint16LEUnparser(0, unparserContext); // number of the disk with the start of the central directory
-	yield * uint16LEUnparser(zip.entries.length, unparserContext); // total number of entries in the central directory on this disk
-	yield * uint16LEUnparser(zip.entries.length, unparserContext); // total number of entries in the central directory
-	yield * uint32LEUnparser(sizeOfCentralDirectory, unparserContext);
-	yield * uint32LEUnparser(startOfCentralDirectoryPosition, unparserContext);
-
-	yield * uint16LEPrefixedStringUnparser(zip.comment, unparserContext);
+	yield * zipEndOfCentralDirectoryRecordUnparser({
+		numberOfThisDisk: 0,
+		numberOfTheDiskWithTheStartOfTheCentralDirectory: 0,
+		totalNumberOfEntriesInTheCentralDirectoryOnThisDisk: zip.entries.length,
+		totalNumberOfEntriesInTheCentralDirectory: zip.entries.length,
+		sizeOfTheCentralDirectory,
+		offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber: startOfCentralDirectoryPosition,
+		zipFileComment: zip.comment,
+	}, unparserContext);
 }

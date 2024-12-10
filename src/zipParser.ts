@@ -351,7 +351,7 @@ const zipFileCommentParser: Parser<string, Uint8Array> = promiseCompose(
 	uint8Array => Buffer.from(uint8Array).toString('utf8'),
 );
 
-type ZipEndOfCentralDirectoryRecord = {
+export type ZipEndOfCentralDirectoryRecord = {
 	numberOfThisDisk: number;
 	numberOfTheDiskWithTheStartOfTheCentralDirectory: number;
 	totalNumberOfEntriesInTheCentralDirectoryOnThisDisk: number;
