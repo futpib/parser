@@ -1,4 +1,4 @@
-import { createNegativeLookaheadParser } from './negativeLookahead.js';
+import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 import { type Parser } from './parser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { promiseCompose } from './promiseCompose.js';

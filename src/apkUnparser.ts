@@ -1,6 +1,9 @@
 import { ApkSignatureV2AdditionalAttribute, ApkSignatureV2Digest, ApkSignatureV2Signature, ApkSignatureV2SignedData, ApkSignatureV2Signer, ApkSigningBlock } from "./apk.js";
 import { createArrayUnparser } from "./arrayUnparser.js";
+import { createSequenceUnparser } from "./sequenceUnparser.js";
 import { Unparser } from "./unparser.js";
+
+const uint8ArrayUnparser = createSequenceUnparser<Uint8Array>();
 
 const uint32LEUnparser: Unparser<number, Uint8Array> = async function * (input) {
 	const buffer = Buffer.alloc(4);
@@ -34,9 +37,7 @@ const apkSignatureV2DigestUnparser: Unparser<ApkSignatureV2Digest, Uint8Array> =
 
 const apkSignatureV2DigestsUnparser = createUint32LengthPrefixedUnparser(createArrayUnparser(apkSignatureV2DigestUnparser));
 
-const apkSignatureV2CertificateUnparser: Unparser<Uint8Array, Uint8Array> = createUint32LengthPrefixedUnparser(async function * (input) {
-	yield input;
-});
+const apkSignatureV2CertificateUnparser = createUint32LengthPrefixedUnparser(uint8ArrayUnparser);
 
 const apkSignatureV2CertificatesUnparser = createUint32LengthPrefixedUnparser(createArrayUnparser(apkSignatureV2CertificateUnparser));
 
@@ -64,9 +65,7 @@ const apkSignatureV2SignatureUnparser: Unparser<ApkSignatureV2Signature, Uint8Ar
 
 const apkSignatureV2SignaturesUnparser = createUint32LengthPrefixedUnparser(createArrayUnparser(apkSignatureV2SignatureUnparser));
 
-const apkSignatureV2PublicKeyUnparser: Unparser<Uint8Array, Uint8Array> = createUint32LengthPrefixedUnparser(async function * (input) {
-	yield input;
-});
+const apkSignatureV2PublicKeyUnparser = createUint32LengthPrefixedUnparser(uint8ArrayUnparser);
 
 const apkSignatureV2SignerUnparser: Unparser<ApkSignatureV2Signer, Uint8Array> = createUint32LengthPrefixedUnparser(async function * (input, unparserContext) {
 	yield * apkSignatureV2SignedDataUnparser(input.signedData, unparserContext);

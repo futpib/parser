@@ -74,3 +74,16 @@ export {
 export {
 	createDebugLogParser,
 } from './debugLogParser.js';
+
+export {
+	type Unparser,
+	runUnparser,
+} from './unparser.js';
+
+export {
+	createArrayUnparser,
+} from './arrayUnparser.js';
+
+export {
+	createSequenceUnparser,
+} from './sequenceUnparser.js';
