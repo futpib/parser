@@ -4,6 +4,7 @@ import { Zip, ZipEntry, ZipFileEntry } from "./zip.js";
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { ZipEndOfCentralDirectoryRecord } from './zipParser.js';
+import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 
 const uint16LEUnparser: Unparser<number, Uint8Array> = async function * (uint16LE) {
 	const buffer = Buffer.alloc(2);
@@ -83,14 +84,7 @@ export const zipUnparser: Unparser<Zip, Uint8Array> = async function * (zip, unp
 
 			const promise = Promise.all([
 				pipeline(input, deflate),
-				(async () => {
-					const chunks: Buffer[] = [];
-					for await (const chunk of deflate) {
-						chunks.push(chunk);
-					}
-
-					return Buffer.concat(chunks);
-				})(),
+				uint8ArrayAsyncIterableToUint8Array(deflate),
 			]);
 
 			return [[zipEntry, promise.then(([, compressedContent]) => compressedContent)]];

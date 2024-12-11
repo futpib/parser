@@ -17,6 +17,7 @@ import {
 	type ZipEntry,
 	type ZipFileEntry,
 } from './zip.js';
+import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 
 // https://pkwaredownloads.blob.core.windows.net/pem/APPNOTE.txt
 
@@ -141,7 +142,7 @@ const zipDataDescriptorParser: Parser<unknown, Uint8Array> = createTupleParser([
 	uint32LEParser,
 ]);
 
-type ZipLocalFile = {
+export type ZipLocalFile = {
 	zipLocalFileHeader: ZipLocalFileHeader;
 	zipEncryptionHeader: unknown;
 	compressedData: Uint8Array;
@@ -220,7 +221,7 @@ const createExternalFileAttributesParser = (hostSystem: number) => promiseCompos
 	externalFileAttributes => externalFileAttributes,
 );
 
-type ZipCentralDirectoryHeader = {
+export type ZipCentralDirectoryHeader = {
 	versionMadeBy: ZipVersionMadeBy;
 	versionNeededToExtract: number;
 	generalPurposeBitFlag: number;
@@ -462,14 +463,7 @@ export async function zipEntriesFromZipSegments({
 			const input = Readable.from(Buffer.from(compressedData));
 			const [ _, buffer ] = await Promise.all([
 				pipeline(input, inflate),
-				(async () => {
-					const chunks: Buffer[] = [];
-					for await (const chunk of inflate) {
-						chunks.push(chunk);
-					}
-
-					return Buffer.concat(chunks);
-				})(),
+				uint8ArrayAsyncIterableToUint8Array(inflate),
 			]);
 
 			fileEntry.content = Uint8Array.from(buffer);

@@ -47,7 +47,7 @@ const apkSignatureV2AdditionalAttributeUnparser: Unparser<ApkSignatureV2Addition
 
 const apkSignatureV2AdditionalAttributesUnparser = createUint32LengthPrefixedUnparser(createArrayUnparser(apkSignatureV2AdditionalAttributeUnparser));
 
-const apkSignatureV2SignedDataUnparser: Unparser<ApkSignatureV2SignedData, Uint8Array> = createUint32LengthPrefixedUnparser(async function * (input, unparserContext) {
+export const apkSignatureV2SignedDataUnparser: Unparser<ApkSignatureV2SignedData, Uint8Array> = createUint32LengthPrefixedUnparser(async function * (input, unparserContext) {
 	yield * apkSignatureV2DigestsUnparser(input.digests, unparserContext);
 	yield * apkSignatureV2CertificatesUnparser(input.certificates, unparserContext);
 	yield * apkSignatureV2AdditionalAttributesUnparser(input.additionalAttributes, unparserContext);

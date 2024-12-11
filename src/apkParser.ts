@@ -9,9 +9,12 @@ import {
 	zip64EndOfCentralDirectoryRecordParser,
 	zipArchiveDecryptionHeaderParser,
 	zipArchiveExtraDataRecordParser,
+    ZipCentralDirectoryHeader,
 	zipCentralDirectoryHeaderParser,
+    ZipEndOfCentralDirectoryRecord,
 	zipEndOfCentralDirectoryRecordParser,
 	zipFromZipSegments,
+    ZipLocalFile,
 	zipLocalFileParser,
 } from './zipParser.js';
 import { ApkSignatureV2AdditionalAttribute, ApkSignatureV2Digest, ApkSignatureV2Signature, ApkSignatureV2SignedData, ApkSignatureV2Signer, type Apk, type ApkSigningBlock, type ApkSigningBlockPair } from './apk.js';
@@ -317,7 +320,19 @@ export const apkParser: Parser<Apk, Uint8Array> = promiseCompose(
 
 setParserName(apkParser, 'apkParser');
 
-export const apkSignableSectionsParser: Parser<Uint8Array[], Uint8Array> = promiseCompose(
+export type ApkSignableSections = {
+	zipLocalFiles: ZipLocalFile[];
+	apkSigningBlock?: ApkSigningBlock;
+	zipCentralDirectory: ZipCentralDirectoryHeader[];
+	zipEndOfCentralDirectory: ZipEndOfCentralDirectoryRecord;
+
+	zipLocalFilesUint8Array: Uint8Array;
+	apkSigningBlockUint8Array?: Uint8Array;
+	zipCentralDirectoryUint8Array: Uint8Array;
+	zipEndOfCentralDirectoryUint8Array: Uint8Array;
+}
+
+export const apkSignableSectionsParser: Parser<ApkSignableSections, Uint8Array> = promiseCompose(
 	createTupleParser([
 		createParserConsumedSequenceParser(
 			createTupleParser([
@@ -326,7 +341,11 @@ export const apkSignableSectionsParser: Parser<Uint8Array[], Uint8Array> = promi
 				createOptionalParser(zipArchiveExtraDataRecordParser),
 			]),
 		),
-		createOptionalParser(apkSigningBlockParser),
+		createOptionalParser(
+			createParserConsumedSequenceParser(
+				apkSigningBlockParser
+			),
+		),
 		createParserConsumedSequenceParser(
 			createTupleParser([
 				createArrayParser(zipCentralDirectoryHeaderParser),
@@ -340,21 +359,34 @@ export const apkSignableSectionsParser: Parser<Uint8Array[], Uint8Array> = promi
 	]),
 	async ([
 		[
-			_zipEntries,
-			zipEntriesUint8Array,
+			[
+				zipLocalFiles,
+			],
+			zipLocalFilesUint8Array,
 		],
-		_apkSigningBlock,
 		[
-			_zipCentralDirectory,
+			apkSigningBlock = undefined,
+			apkSigningBlockUint8Array = undefined,
+		] = [],
+		[
+			[
+				zipCentralDirectory,
+			],
 			zipCentralDirectoryUint8Array,
 		],
 		[
-			_zipEndOfCentralDirectory,
+			zipEndOfCentralDirectory,
 			zipEndOfCentralDirectoryUint8Array,
 		],
-	]) => [
-		zipEntriesUint8Array,
+	]) => ({
+		zipLocalFiles,
+		apkSigningBlock,
+		zipCentralDirectory,
+		zipEndOfCentralDirectory,
+
+		zipLocalFilesUint8Array,
+		apkSigningBlockUint8Array,
 		zipCentralDirectoryUint8Array,
 		zipEndOfCentralDirectoryUint8Array,
-	],
+	}),
 );
