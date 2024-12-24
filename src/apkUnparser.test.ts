@@ -6,6 +6,7 @@ import { runUnparser } from './unparser.js';
 import { apkSigningBlockUnparser } from './apkUnparser.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
 import invariant from 'invariant';
+import { fetchCid } from './fetchCid.js';
 
 for (const apkCid of [
 	'bafkreicckcmzrdxwoc3w2in3tivpyxrdtcfpct4zwauq3igew3nkpvfapu',
@@ -13,9 +14,7 @@ for (const apkCid of [
 	test(
 		'apk ' + apkCid,
 		async t => {
-			const apkResponse = await fetch('https://ipfs.io/ipfs/' + apkCid);
-
-			const apkStream = apkResponse.body!;
+			const apkStream = await fetchCid(apkCid);
 
 			const apk = await runParser(apkParser, apkStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',

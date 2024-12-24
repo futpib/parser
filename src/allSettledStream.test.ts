@@ -57,3 +57,43 @@ test('allSettledStream', async t => {
 	t.snapshot(results);
 	t.is(results.length, 8);
 });
+
+test('allSettledStream reader cancel', async t => {
+	const stream = allSettledStream<number, number>([
+		10,
+		20,
+		0,
+		40,
+		30,
+	].map((delay) => ({
+		promise: new Promise<number>((resolve) => {
+			setTimeout(() => {
+				resolve(delay);
+			}, delay);
+		}),
+		context: delay,
+	})));
+
+	const results: any[] = [];
+
+	for await (const value of stream) {
+		results.push(value);
+
+		if (value.context === 30) {
+			break;
+		}
+	}
+
+	await new Promise<void>(resolve => {
+		setTimeout(resolve, 50);
+	});
+
+	stream.cancel();
+
+	for await (const value of stream) {
+		t.fail();
+		results.push(value);
+	}
+
+	t.deepEqual(results.map(({ context }) => context), [ 0, 10, 20, 30 ]);
+});

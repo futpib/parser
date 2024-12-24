@@ -771,8 +771,7 @@ const encodedValueByteParser: Parser<number, Uint8Array> = promiseCompose(
 const encodedValueShortParser: Parser<number, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x02),
 	size => {
-		console.log({ size });
-		return invariant(false, 'TODO') as Parser<number, Uint8Array>;
+		return invariant(false, 'TODO size: %s', size) as Parser<number, Uint8Array>;
 	},
 )();
 
@@ -961,8 +960,7 @@ type DexCodeItem = {
 	outsSize: number,
 	triesSize: number,
 	debugInfoOffset: number,
-	instructionsSize: number,
-	instructions: Uint16Array,
+	instructions: Uint8Array,
 	tries: DexTryItem[],
 	handlers: DexEncodedCatchHandler[],
 };
@@ -1008,7 +1006,7 @@ const createCodeItemParser = (codeOffset: number): Parser<DexCodeItem, Uint8Arra
 			),
 		]),
 		([
-			instructionsUint8Array,
+			instructions,
 			_padding,
 			tries,
 			handlers,
@@ -1018,8 +1016,7 @@ const createCodeItemParser = (codeOffset: number): Parser<DexCodeItem, Uint8Arra
 			outsSize,
 			triesSize,
 			debugInfoOffset,
-			instructionsSize,
-			instructions: new Uint16Array(instructionsUint8Array.buffer),
+			instructions,
 			tries,
 			handlers,
 		}),
@@ -1102,7 +1099,7 @@ export const dexParser: Parser<unknown, Uint8Array> = parserCreatorCompose(
 				return type;
 			});
 
-			const protos = await Promise.all(protoIds.map(async (protoId) => {
+			const prototypes = await Promise.all(protoIds.map(async (protoId) => {
 				const shorty = strings[protoId.shortyIndex];
 				invariant(shorty, 'Shorty string must be there. Shorty id: %d', protoId.shortyIndex);
 
@@ -1140,20 +1137,20 @@ export const dexParser: Parser<unknown, Uint8Array> = parserCreatorCompose(
 				const name = strings[fieldId.nameIndex];
 				invariant(name, 'Name must be there. Name id: %d', fieldId.nameIndex);
 
-				return { class_, type, name };
+				return { class: class_, type, name };
 			});
 
 			const methods = methodIds.map((methodId) => {
 				const class_ = types[methodId.classIndex];
 				invariant(class_, 'Class type must be there. Class type id: %d', methodId.classIndex);
 
-				const proto = protos[methodId.protoIndex];
-				invariant(proto, 'Proto must be there. Proto id: %d', methodId.protoIndex);
+				const prototype = prototypes[methodId.protoIndex];
+				invariant(prototype, 'Proto must be there. Proto id: %d', methodId.protoIndex);
 
 				const name = strings[methodId.nameIndex];
 				invariant(name, 'Name must be there. Name id: %d', methodId.nameIndex);
 
-				return { class_, proto, name };
+				return { class: class_, prototype, name };
 			});
 
 			const classDefinitions = await Promise.all(classDefIds.map(async (classDef) => {
@@ -1317,6 +1314,11 @@ export const dexParser: Parser<unknown, Uint8Array> = parserCreatorCompose(
 			}));
 
 			return {
+				strings,
+				types,
+				prototypes,
+				fields,
+				methods,
 				classDefinitions,
 				link,
 			};

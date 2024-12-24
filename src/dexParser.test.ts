@@ -2,6 +2,7 @@ import test from 'ava';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
 import { dexParser, sleb128Parser, uleb128p1Parser, uleb128Parser } from './dexParser.js';
+import { fetchCid } from './fetchCid.js';
 
 test('sleb128, uleb128, uleb128p1', async t => {
 	for (const [
@@ -28,13 +29,16 @@ for (const dexCid of [
 	test(
 		'dex ' + dexCid,
 		async t => {
-			const dexResponse = await fetch('https://ipfs.io/ipfs/' + dexCid);
+			const dexStream = await fetchCid(dexCid);
 
-			const dexStream = dexResponse.body!;
+			const label = 'dex ' + dexCid;
+			console.profile(label);
 
 			const actual = await runParser(dexParser, dexStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',
 			});
+
+			console.profileEnd(label);
 
 			t.snapshot(actual);
 		},

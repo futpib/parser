@@ -24,7 +24,7 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 		promiseCompose(terminatorParser, terminatorValue => new Terminated(terminatorValue)),
 	]);
 
-	return async parserContext => {
+	const terminatedArrayParser: Parser<[ElementOutput[], TerminatorOutput], Sequence> = async parserContext => {
 		const elements: ElementOutput[] = [];
 
 		while (true) {
@@ -37,4 +37,6 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 			elements.push(elementOrTerminator);
 		}
 	};
+
+	return terminatedArrayParser;
 };

@@ -2,6 +2,7 @@ import test from 'ava';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
 import { apkParser } from './apkParser.js';
+import { fetchCid } from './fetchCid.js';
 
 for (const apkCid of [
 	'bafkreicckcmzrdxwoc3w2in3tivpyxrdtcfpct4zwauq3igew3nkpvfapu',
@@ -10,9 +11,7 @@ for (const apkCid of [
 	test(
 		'apk ' + apkCid,
 		async t => {
-			const apkResponse = await fetch('https://ipfs.io/ipfs/' + apkCid);
-
-			const apkStream = apkResponse.body!;
+			const apkStream = await fetchCid(apkCid);
 
 			const actual = await runParser(apkParser, apkStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',

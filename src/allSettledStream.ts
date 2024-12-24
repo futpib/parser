@@ -18,14 +18,20 @@ type AllSettledStreamTask<T, Context> = {
 };
 
 export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T, Context>>): ReadableStream<AllSettedStreamResult<T, Context>> {
+	let cancelled = false;
+
 	return new ReadableStream({
-		async start(controller) {
+		start(controller) {
 			let settledCount = 0;
 			for (const { promise, context } of tasks) {
 				(async () => {
 					const [ promiseSettledResult ] = await Promise.allSettled([ promise ]);
 
 					settledCount++;
+
+					if (cancelled) {
+						return;
+					}
 
 					const allSettedStreamResult: AllSettedStreamResult<T, Context> = {
 						...promiseSettledResult,
@@ -39,6 +45,10 @@ export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T
 					}
 				})();
 			}
+		},
+
+		cancel() {
+			cancelled = true;
 		},
 	});
 }
