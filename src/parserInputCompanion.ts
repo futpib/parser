@@ -46,7 +46,7 @@ export class Uint8ArrayParserInputCompanion implements ParserInputCompanion<Uint
 	}
 
 	concat(sequences: Uint8Array[]): Uint8Array {
-		return Buffer.concat(sequences);
+		return new Uint8Array(Buffer.concat(sequences));
 	}
 
 	length(sequence: Uint8Array): number {
