@@ -46,6 +46,53 @@ test('inputReader', async t => {
 	t.is(await inputReader.peek(0), undefined);
 });
 
+test('inputReader peekSequence', async t => {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
+		yield '';
+		yield 'abc';
+		yield 'def';
+		yield '';
+		yield 'gh';
+	})());
+
+	t.is(await inputReader.peekSequence(0, 0), '');
+	t.is(await inputReader.peekSequence(0, 1), 'a');
+
+	inputReader.skip(0);
+
+	t.is(await inputReader.peekSequence(1, 2), 'b');
+
+	inputReader.skip(1);
+
+	t.is(await inputReader.peekSequence(1, 7), 'bcdefgh'.slice(1, 7));
+	t.is(await inputReader.peekSequence(1, 8), undefined);
+
+	inputReader.skip(6);
+
+	t.is(await inputReader.peekSequence(0, 0), '');
+	t.is(await inputReader.peekSequence(0, 1), 'h');
+	t.is(await inputReader.peekSequence(1, 2), undefined);
+	t.is(await inputReader.peekSequence(2, 2), undefined);
+
+	inputReader.skip(1);
+
+	t.is(await inputReader.peekSequence(0, 0), '');
+	t.is(await inputReader.peekSequence(0, 1), undefined);
+	t.is(await inputReader.peekSequence(1, 1), undefined);
+
+	inputReader.skip(0);
+
+	t.is(await inputReader.peekSequence(0, 0), '');
+	t.is(await inputReader.peekSequence(0, 1), undefined);
+	t.is(await inputReader.peekSequence(1, 1), undefined);
+
+	inputReader.skip(1);
+
+	t.is(await inputReader.peekSequence(0, 0), undefined);
+	t.is(await inputReader.peekSequence(0, 1), undefined);
+	t.is(await inputReader.peekSequence(1, 1), undefined);
+});
+
 test('inputReader.peek concurrent', async t => {
 	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
@@ -68,6 +115,64 @@ test('inputReader.peek concurrent', async t => {
 	t.deepEqual(peeks, [ 'a', 'a', 'a', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' ]);
 });
 
+test('inputReader.peekSequence concurrent', async t => {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
+		yield * 'abcdefgh';
+	})());
+
+	const peeks = await Promise.all([1, 2, 3].flatMap(length => [
+		inputReader.peekSequence(0, 0 + length),
+		inputReader.peekSequence(0, 0 + length),
+		inputReader.peekSequence(0, 0 + length),
+		inputReader.peekSequence(0, 0 + length),
+		inputReader.peekSequence(1, 1 + length),
+		inputReader.peekSequence(2, 2 + length),
+		inputReader.peekSequence(3, 3 + length),
+		inputReader.peekSequence(4, 4 + length),
+		inputReader.peekSequence(5, 5 + length),
+		inputReader.peekSequence(6, 6 + length),
+		inputReader.peekSequence(7, 7 + length),
+	]));
+
+	t.deepEqual(peeks, [
+		'a',
+		'a',
+		'a',
+		'a',
+		'b',
+		'c',
+		'd',
+		'e',
+		'f',
+		'g',
+		'h',
+
+		'ab',
+		'ab',
+		'ab',
+		'ab',
+		'bc',
+		'cd',
+		'de',
+		'ef',
+		'fg',
+		'gh',
+		undefined,
+
+		'abc',
+		'abc',
+		'abc',
+		'abc',
+		'bcd',
+		'cde',
+		'def',
+		'efg',
+		'fgh',
+		undefined,
+		undefined,
+	]);
+});
+
 test('inputReader skip while peeking', async t => {
 	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
@@ -79,6 +184,19 @@ test('inputReader skip while peeking', async t => {
 
 	t.is(await peekPromise, 'a');
 	t.is(await inputReader.peek(0), 'b');
+});
+
+test('inputReader skip while peeking sequence', async t => {
+	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
+		yield * 'abcdefgh';
+	})());
+
+	const peekPromise = inputReader.peekSequence(1, 5);
+
+	inputReader.skip(1);
+
+	t.is(await peekPromise, 'bcde');
+	t.is(await inputReader.peekSequence(1, 5), 'bcde');
 });
 
 test('inputReader.lookahead', async t => {

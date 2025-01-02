@@ -26,9 +26,11 @@ export type ParserContext<Sequence, Element> = {
 
 	get position(): number;
 	peek(offset: number): Promise<Element | undefined>;
+	peekSequence(start: number, end: number): Promise<Sequence | undefined>;
 	skip(offset: number): void;
 
 	read(offset: number): Promise<Element>;
+	readSequence(start: number, end: number): Promise<Sequence>;
 
 	lookahead(options?: LookaheadOptions): ParserContext<Sequence, Element>;
 	unlookahead(): void;
@@ -95,6 +97,17 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		return this._inputReader.peek(offset);
 	}
 
+	async peekSequence(start: number, end: number): Promise<Sequence | undefined> {
+		if (
+			this._options.sliceEnd !== undefined
+				&& (this.position + end) >= this._options.sliceEnd
+		) {
+			return undefined;
+		}
+
+		return this._inputReader.peekSequence(start, end);
+	}
+
 	skip(offset: number) {
 		this._inputReader.skip(offset);
 	}
@@ -109,6 +122,18 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		this.skip(offset + 1);
 
 		return element;
+	}
+
+	async readSequence(start: number, end: number): Promise<Sequence> {
+		const sequence = await this.peekSequence(start, end);
+
+		if (sequence === undefined) {
+			throw new ParserUnexpectedEndOfInputError('', this._depth, this.position);
+		}
+
+		this.skip(end);
+
+		return sequence;
 	}
 
 	lookahead(options: LookaheadOptions = {}): ParserContext<Sequence, Element> {

@@ -8,6 +8,7 @@ export type InputReader<Sequence, Element> = {
 	get position(): number;
 
 	peek(offset: number): Promise<Element | undefined>;
+	peekSequence(start: number, end: number): Promise<Sequence | undefined>;
 	skip(offset: number): void;
 
 	lookahead(): InputReader<Sequence, Element>;
@@ -85,6 +86,25 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		});
 	}
 
+	async peekSequence(start: number, end: number): Promise<Sequence | undefined> {
+		parserImplementationInvariant(start >= 0, 'start >= 0');
+		parserImplementationInvariant(end >= start, 'end >= start');
+
+		const sequence = this._sequenceBuffer.peekSequence(start, end);
+
+		if (sequence !== undefined) {
+			return sequence;
+		}
+
+		const lastElement = await this.peek(Math.max(0, end - 1));
+
+		if (lastElement === undefined) {
+			return undefined;
+		}
+
+		return this._sequenceBuffer.peekSequence(start, end);
+	}
+
 	skip(offset: number) {
 		parserImplementationInvariant(offset >= 0, 'offset >= 0');
 
@@ -132,6 +152,15 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 		this._offset -= inputReaderMovedForward;
 
 		return this._inputReader.peek(this._offset + offset);
+	}
+
+	async peekSequence(start: number, end: number): Promise<Sequence | undefined> {
+		const inputReaderMovedForward = this._inputReader.position - this._initialInputReaderPosition;
+
+		this._initialInputReaderPosition = this._inputReader.position;
+		this._offset -= inputReaderMovedForward;
+
+		return this._inputReader.peekSequence(this._offset + start, this._offset + end);
 	}
 
 	skip(offset: number) {

@@ -30,6 +30,29 @@ test('parserContext.read', async t => {
 	});
 });
 
+test('parserContext.readSequence', async t => {
+	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
+		yield '';
+		yield 'abc';
+		yield 'def';
+		yield '';
+		yield 'gh';
+	})()), ...commonParserContextArguments);
+
+	t.is(await parserContext.readSequence(0, 0), '');
+	t.is(await parserContext.readSequence(0, 1), 'a');
+	t.is(await parserContext.readSequence(1, 4), 'cde');
+	t.is(await parserContext.readSequence(0, 1), 'f');
+	t.is(await parserContext.readSequence(0, 0), '');
+	t.is(await parserContext.readSequence(0, 1), 'g');
+	t.is(await parserContext.readSequence(1, 1), '');
+	t.is(await parserContext.readSequence(0, 0), '');
+
+	await t.throwsAsync(async () => parserContext.readSequence(0, 1), {
+		instanceOf: ParserUnexpectedEndOfInputError,
+	});
+});
+
 test('parserContext.lookahead', async t => {
 	const parserContext = new ParserContextImplementation(stringParserInputCompanion, new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 		yield * 'abcdefgh';
