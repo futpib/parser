@@ -21,8 +21,10 @@ type ParserContextOptions<Sequence, Element> =
 
 export type ParserContext<Sequence, Element> = {
 	from(elements: Element[]): Sequence;
+	concat(sequences: Sequence[]): Sequence;
 	length(sequence: Sequence): number;
 	at(sequence: Sequence, index: number): Element | undefined;
+	subsequence(sequence: Sequence, start: number, end: number): Sequence;
 
 	get position(): number;
 	peek(offset: number): Promise<Element | undefined>;
@@ -74,12 +76,20 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		return this._parserInputCompanion.from(elements);
 	}
 
+	concat(sequences: Sequence[]): Sequence {
+		return this._parserInputCompanion.concat(sequences);
+	}
+
 	length(sequence: Sequence): number {
 		return this._parserInputCompanion.length(sequence);
 	}
 
 	at(sequence: Sequence, index: number): Element | undefined {
 		return this._parserInputCompanion.at(sequence, index);
+	}
+
+	subsequence(sequence: Sequence, start: number, end: number): Sequence {
+		return this._parserInputCompanion.subsequence(sequence, start, end);
 	}
 
 	get position() {
