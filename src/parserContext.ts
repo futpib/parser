@@ -110,7 +110,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	async peekSequence(start: number, end: number): Promise<Sequence | undefined> {
 		if (
 			this._options.sliceEnd !== undefined
-				&& (this.position + end) >= this._options.sliceEnd
+				&& (this.position + end - 1) >= this._options.sliceEnd
 		) {
 			return undefined;
 		}

@@ -6,6 +6,7 @@ import { createFixedLengthSequenceParser, createFixedLengthSequenceParserNaive }
 import { Parser, runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { HighResolutionTotalTimer } from './highResolutionTimer.js';
+import { arbitrarilySlicedAsyncIterable } from './arbitrarilySlicedAsyncInterable.js';
 
 const naiveTotalTimer = new HighResolutionTotalTimer();
 const totalTimer = new HighResolutionTotalTimer();
@@ -19,14 +20,16 @@ testProp.serial(
 				max: 2n ** 14n,
 			})
 			.chain(length => fc.tuple(
-				fc.string({
-					minLength: Number(length),
-					maxLength: Number(length) * 2,
-				}),
+				arbitrarilySlicedAsyncIterable(
+					fc.string({
+						minLength: Number(length),
+						maxLength: Number(length) * 2,
+					}),
+				),
 				fc.constant(length),
 			)),
 	],
-	async (t, [ sequence, length ]) => {
+	async (t, [ [ _, sequence ], length ]) => {
 		const fixedLengthSequenceParserNaive = createFixedLengthSequenceParserNaive<string>(length);
 		const fixedLengthSequenceParser = createFixedLengthSequenceParser<string>(length);
 

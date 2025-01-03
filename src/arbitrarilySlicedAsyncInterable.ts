@@ -23,9 +23,14 @@ function equals<Sliceable extends string | Uint8Array>(a: Sliceable, b: Sliceabl
 
 export function arbitrarilySlicedAsyncIterable<Sliceable extends string | Uint8Array>(
 	arbitrarySliceable: Arbitrary<Sliceable>,
+	{
+		minSlices = 1,
+	}: {
+		minSlices?: number,
+	} = {},
 ): Arbitrary<[ Sliceable, AsyncIterable<Sliceable> ]> {
 	return (
-		fc.tuple(arbitrarySliceable, fc.array(fc.nat(), { minLength: 1 }))
+		fc.tuple(arbitrarySliceable, fc.array(fc.nat(), { minLength: Math.max(1, minSlices) }))
 			.map(([ sliceable, sliceSizes ]) => {
 				let start = 0;
 

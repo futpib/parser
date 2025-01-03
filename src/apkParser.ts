@@ -173,13 +173,19 @@ const apkSignatureV2DigestsParser = createUint32LengthPrefixedSliceBoundedArrayP
 	apkSignatureV2DigestParser,
 );
 
+setParserName(apkSignatureV2DigestsParser, 'apkSignatureV2DigestsParser');
+
 const apkSignatureV2CertificateParser = createUint32LengthPrefixedParser(
 	certificateLength => createFixedLengthSequenceParser(certificateLength),
 );
 
+setParserName(apkSignatureV2CertificateParser, 'apkSignatureV2CertificateParser');
+
 const apkSignatureV2CertificatesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
 	apkSignatureV2CertificateParser,
 );
+
+setParserName(apkSignatureV2CertificatesParser, 'apkSignatureV2CertificatesParser');
 
 const apkSignatureV2AdditionalAttributeParser = createUint32LengthPrefixedParser<ApkSignatureV2AdditionalAttribute>(
 	pairLength => promiseCompose(

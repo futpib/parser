@@ -65,11 +65,15 @@ test('parserContext.lookahead', async t => {
 	});
 
 	t.is(await lookaheadContext3.peek(2), 'c');
+	t.is(await lookaheadContext3.peekSequence(2, 3), 'c');
 	t.is(await lookaheadContext3.peek(3), undefined);
+	t.is(await lookaheadContext3.peekSequence(3, 4), undefined);
 	t.is(await lookaheadContext3.read(0), 'a');
 	t.is(await lookaheadContext3.read(0), 'b');
 	t.is(await lookaheadContext3.read(0), 'c');
 	t.is(await lookaheadContext3.peek(0), undefined);
+	t.is(await lookaheadContext3.peekSequence(0, 1), undefined);
+	t.is(await lookaheadContext3.peekSequence(0, 0), '');
 
 	t.is(await parserContext.peek(0), 'a');
 	t.is(await lookaheadContext1.peek(0), 'a');
@@ -86,6 +90,10 @@ test('parserContext.lookahead', async t => {
 	t.is(lookaheadContext1.position, 1);
 	t.is(lookaheadContext2.position, 0);
 	t.is(lookaheadContext3.position, 3);
+
+	lookaheadContext3.skip(1);
+	t.is(await lookaheadContext3.peekSequence(0, 0), undefined);
+	t.is(lookaheadContext3.position, 4);
 });
 
 test('parserContext.unlookahead', async t => {
