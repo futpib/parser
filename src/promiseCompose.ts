@@ -1,10 +1,16 @@
 
 export function promiseCompose<A, B, C>(
-	f1: (a: A) => Promise<B>,
+	f1: (a: A) => B | Promise<B>,
 	f2: (b: B) => C | Promise<C>,
-): (a: A) => Promise<C> {
-	async function promiseComposed(a: A) {
-		return f1(a).then(f2);
+): (a: A) => C | Promise<C> {
+	function promiseComposed(a: A) {
+		const bOrBPromise = f1(a);
+
+		if (bOrBPromise instanceof Promise) {
+			return bOrBPromise.then(f2);
+		}
+
+		return f2(bOrBPromise);
 	};
 
 	Object.defineProperty(promiseComposed, 'name', {

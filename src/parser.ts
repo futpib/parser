@@ -8,7 +8,7 @@ export type Parser<
 	Output,
 	Sequence,
 	Element = DeriveSequenceElement<Sequence>,
-> = (parserContext: ParserContext<Sequence, Element>) => Promise<Output>;
+> = (parserContext: ParserContext<Sequence, Element>) => Output | Promise<Output>;
 
 export function getParserName(parser: Parser<any, any, any>, default_ = 'anonymous'): string {
 	return parser.name || default_;

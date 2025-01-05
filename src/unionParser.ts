@@ -3,26 +3,28 @@ import { getParserName, setParserName, type Parser } from './parser.js';
 import { type ParserContext } from './parserContext.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
+import { DeriveSequenceElement } from './sequence.js';
 
 export const createUnionParser = <
 	Output,
 	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
 >(
-	childParsers: Array<Parser<any, Sequence, any>>,
-): Parser<Output, Sequence, unknown> => {
+	childParsers: Array<Parser<unknown, Sequence, Element>>,
+): Parser<Output, Sequence, Element> => {
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
-	const unionParser: Parser<Output, Sequence, unknown> = async parserContext => {
-		let runningChildParserContexts: Array<ParserContext<unknown, unknown>> = [];
+	const unionParser: Parser<Output, Sequence, Element> = async parserContext => {
+		let runningChildParserContexts: Array<ParserContext<Sequence, Element>> = [];
 
-		const childParserResults = allSettledStream(childParsers.map(childParser => {
+		const childParserResults = allSettledStream<Output, ParserContext<Sequence, Element>>(childParsers.map(childParser => {
 			const childParserContext = parserContext.lookahead({
 				debugName: getParserName(childParser, 'anonymousUnionChild'),
 			});
 
 			runningChildParserContexts.push(childParserContext);
 
-			const promise = childParser(childParserContext);
+			const promise = (async () => childParser(childParserContext) as Promise<Output>)();
 
 			return {
 				promise,
@@ -32,7 +34,7 @@ export const createUnionParser = <
 
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 		const successfulParserOutputs: Output[] = [];
-		const successfulParserContexts: Array<ParserContext<unknown, unknown>> = [];
+		const successfulParserContexts: Array<ParserContext<Sequence, Element>> = [];
 		let didUnlookahead = false;
 
 		for await (const childParserResult of childParserResults) {
