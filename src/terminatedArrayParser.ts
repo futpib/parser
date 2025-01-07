@@ -51,13 +51,19 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 		const elements: ElementOutput[] = [];
 
 		while (true) {
-			const terminatorParserContext = parserContext.lookahead();
+			const terminatorParserContext = parserContext.lookahead({
+				debugName: getParserName(terminatorParser, 'anonymousTerminator'),
+			});
 
 			try {
 				const terminatorValue = await terminatorParser(terminatorParserContext);
 
+				const elementParserContext = parserContext.lookahead({
+					debugName: getParserName(elementParser, 'anonymousElement'),
+				});
+
 				try {
-					await elementParser(parserContext);
+					await elementParser(elementParserContext);
 
 					parserImplementationInvariant(
 						false,
@@ -67,6 +73,8 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 					if (!(error instanceof ParserParsingFailedError)) {
 						throw error;
 					}
+				} finally {
+					elementParserContext.dispose();
 				}
 
 				terminatorParserContext.unlookahead();

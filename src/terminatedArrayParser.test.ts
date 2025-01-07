@@ -3,16 +3,31 @@ import * as fc from 'fast-check';
 import { testProp } from '@fast-check/ava';
 import { createTerminatedArrayParser, createTerminatedArrayParserNaive } from './terminatedArrayParser.js';
 import { Parser, runParser } from './parser.js';
-import { stringParserInputCompanion } from './parserInputCompanion.js';
+import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { HighResolutionTotalTimer } from './highResolutionTimer.js';
 import { createElementParser } from './elementParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createTupleParser } from './tupleParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 import { promiseCompose } from './promiseCompose.js';
+import { createUnionParser } from './unionParser.js';
+import { createExactElementParser } from './exactElementParser.js';
 
-const naiveTotalTimer = new HighResolutionTotalTimer();
-const totalTimer = new HighResolutionTotalTimer();
+test('terminatedArrayParser of union parsers', async t => {
+	const parser: Parser<[ number[], number ], Uint8Array> = createTerminatedArrayParser(
+		createUnionParser([
+			createExactElementParser(1),
+			createExactElementParser(2),
+		]),
+		createExactElementParser(0),
+	);
+
+	const input = new Uint8Array([ 0 ]);
+
+	const result = await runParser(parser, input, uint8ArrayParserInputCompanion);
+
+	t.deepEqual(result, [ [], 0 ]);
+});
 
 testProp(
 	'terminatedArrayParser both terminator and element matching',
@@ -61,6 +76,9 @@ testProp(
 		verbose: true,
 	},
 );
+
+const naiveTotalTimer = new HighResolutionTotalTimer();
+const totalTimer = new HighResolutionTotalTimer();
 
 testProp.serial(
 	'terminatedArrayParser',

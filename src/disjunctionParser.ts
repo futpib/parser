@@ -29,6 +29,8 @@ export const createDisjunctionParser = <
 				return successfulParserOutput;
 			}
 
+			childParserContext.dispose();
+
 			const error = childParserResult.reason;
 
 			if (error instanceof ParserParsingFailedError) {

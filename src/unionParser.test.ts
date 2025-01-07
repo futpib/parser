@@ -1,8 +1,32 @@
 import test from 'ava';
 import { createUnionParser } from './unionParser.js';
-import { runParser } from './parser.js';
+import { Parser, runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { createArrayParser } from './arrayParser.js';
+import { createExactElementParser } from './exactElementParser.js';
+
+test('union of union of union', async t => {
+	const parser: Parser<string, string> = createUnionParser([
+		createExactElementParser('a'),
+		createUnionParser([
+			createExactElementParser('b'),
+			createUnionParser([
+				createExactElementParser('c'),
+				createExactElementParser('d'),
+			]),
+			createExactElementParser('e'),
+		]),
+		createExactElementParser('f'),
+		createUnionParser([
+			createExactElementParser('g'),
+			createExactElementParser('h'),
+		]),
+	]);
+
+	for (const character of 'abcdefgh') {
+		t.deepEqual(await runParser(parser, character, stringParserInputCompanion), character);
+	}
+});
 
 test('sync and async child parsers', async t => {
 	const parser = createArrayParser(
