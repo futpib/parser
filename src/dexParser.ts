@@ -4,7 +4,7 @@ import { createElementParser } from './elementParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
-import { runParser, type Parser } from './parser.js';
+import { runParser, setParserName, type Parser } from './parser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createQuantifierParser } from './quantifierParser.js';
@@ -13,6 +13,7 @@ import { createTupleParser } from './tupleParser.js';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { createUnionParser } from './unionParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
+import { createSkipToParser } from './skipToParser.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
 
@@ -225,10 +226,6 @@ const dexHeaderParser: Parser<DexHeader, Uint8Array> = promiseCompose(
 		data,
 	}),
 );
-
-const createSkipToParser = (offset: number): Parser<void, Uint8Array> => async (parserContext) => {
-	parserContext.skip(offset - parserContext.position);
-};
 
 const createStringIdsParser = ({ size, offset }: SizeOffset): Parser<number[], Uint8Array> => (
 	size === 0
@@ -744,19 +741,19 @@ const createClassDataItemParser = (classDataOffset: number): Parser<DexClassData
 	),
 )();
 
-const createByteWithSetBitsParser = (mask: number): Parser<number, Uint8Array> => async (parserContext) => {
+const createByteWith5LeastSignificantBitsEqualParser = (leastSignificant5: number): Parser<number, Uint8Array> => async (parserContext) => {
 	const byte = await parserContext.read(0);
 	parserContext.invariant(
-		(byte & mask) !== 0,
-		'Expected bits set: %s, got: %s',
-		mask.toString(2).padStart(8, '0'),
+		(byte & 0b00011111) === leastSignificant5,
+		'Expected byte with 5 least significant bits equal to %d, but got %s',
+		leastSignificant5.toString(2).padStart(8, '0'),
 		byte.toString(2).padStart(8, '0'),
 	);
 	return byte;
 };
 
 const createEncodedValueArgParser = (valueType: number): Parser<number, Uint8Array> => promiseCompose(
-	createByteWithSetBitsParser(valueType),
+	createByteWith5LeastSignificantBitsEqualParser(valueType),
 	(byte) => byte >> 5,
 );
 
@@ -768,25 +765,514 @@ const encodedValueByteParser: Parser<number, Uint8Array> = promiseCompose(
 	([ _, value ]) => value,
 );
 
+setParserName(encodedValueByteParser, 'encodedValueByteParser');
+
 const encodedValueShortParser: Parser<number, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x02),
-	size => {
-		return invariant(false, 'TODO size: %s', size) as Parser<number, Uint8Array>;
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readInt8(0);
+				},
+			);
+		}
+
+		invariant(size === 2, '(encodedValueShortParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readInt16LE(0);
+			},
+		);
 	},
 )();
 
-const encodedValueCharParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueIntParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueLongParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueFloatParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueDoubleParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueMethodTypeParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueMethodHandleParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueStringParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueTypeParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueFieldParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueMethodParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
-const encodedValueEnumParser: Parser<number, Uint8Array> = encodedValueShortParser; // TODO
+setParserName(encodedValueShortParser, 'encodedValueShortParser');
+
+const encodedValueCharParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x03),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size == 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from([ 0, ...uint8Array ]);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 2, '(encodedValueCharParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt16LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueCharParser, 'encodedValueCharParser');
+
+const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x04),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readInt8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueIntParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueIntParser, 'encodedValueIntParser');
+
+const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x06),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return BigInt(buffer.readInt8(0));
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return BigInt(buffer.readInt16LE(0));
+				},
+			);
+		}
+
+		if (size === 4) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return BigInt(buffer.readInt32LE(0));
+				},
+			);
+		}
+
+		invariant(size === 8, '(encodedValueLongParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readBigInt64LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueLongParser, 'encodedValueLongParser');
+
+const encodedValueFloatParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x10),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0 ]);
+					return buffer.readFloatLE(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from([ ...uint8Array, 0, 0 ]);
+					return buffer.readFloatLE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueFloatParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readFloatLE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueFloatParser, 'encodedValueFloatParser');
+
+const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x11),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0, 0 ]);
+					return buffer.readDoubleLE(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0 ]);
+					return buffer.readDoubleLE(0);
+				},
+			);
+		}
+
+		if (size === 4) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0 ]);
+					return buffer.readDoubleLE(0);
+				},
+			);
+		}
+
+		invariant(size === 8, '(encodedValueDoubleParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readDoubleLE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueDoubleParser, 'encodedValueDoubleParser');
+
+const encodedValueMethodTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x15),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUint8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueMethodTypeParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueMethodTypeParser, 'encodedValueMethodTypeParser');
+
+const encodedValueMethodHandleParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x16),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueMethodHandleParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueMethodHandleParser, 'encodedValueMethodHandleParser');
+
+const encodedValueStringParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x17),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueStringParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueStringParser, 'encodedValueStringParser');
+
+const encodedValueTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x18),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueTypeParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueTypeParser, 'encodedValueTypeParser');
+
+const encodedValueFieldParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x19),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueFieldParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueFieldParser, 'encodedValueFieldParser');
+
+const encodedValueMethodParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x1a),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueMethodParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueMethodParser, 'encodedValueMethodParser');
+
+const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x1b),
+	sizeSubOne => {
+		const size = sizeSubOne + 1;
+
+		if (size === 1) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt8(0);
+				},
+			);
+		}
+
+		if (size === 2) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const buffer = Buffer.from(uint8Array);
+					return buffer.readUInt16LE(0);
+				},
+			);
+		}
+
+		invariant(size === 4, '(encodedValueEnumParser) TODO size: %s', size);
+
+		return promiseCompose(
+			createFixedLengthSequenceParser(size),
+			(uint8Array) => {
+				const buffer = Buffer.from(uint8Array);
+				return buffer.readUInt32LE(0);
+			},
+		);
+	},
+)();
+
+setParserName(encodedValueEnumParser, 'encodedValueEnumParser');
 
 const encodedArrayParser: Parser<DexEncodedValue[], Uint8Array> = parserCreatorCompose(
 	() => uleb128Parser,
@@ -796,13 +1282,22 @@ const encodedArrayParser: Parser<DexEncodedValue[], Uint8Array> = parserCreatorC
 	),
 )();
 
+setParserName(encodedArrayParser, 'encodedArrayParser');
+
 const encodedValueArrayParser: Parser<DexEncodedValue[], Uint8Array> = promiseCompose(
 	createTupleParser([
-		createEncodedValueArgParser(0x1c),
+		parserCreatorCompose(
+			() => createEncodedValueArgParser(0x1c),
+			valueArg => parserContext => {
+				parserContext.invariant(valueArg === 0, '(encodedValueArrayParser) valueArg: %s', valueArg);
+			},
+		)(),
 		encodedArrayParser,
 	]),
 	([ _, array ]) => array,
 );
+
+setParserName(encodedValueArrayParser, 'encodedValueArrayParser');
 
 type DexAnnotationElement = {
 	nameIndex: number,
@@ -821,6 +1316,8 @@ const annotationElementParser: Parser<DexAnnotationElement, Uint8Array> = promis
 	]),
 	([ nameIndex, value ]) => ({ nameIndex, value }),
 );
+
+setParserName(annotationElementParser, 'annotationElementParser');
 
 const encodedAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promiseCompose(
 	parserCreatorCompose(
@@ -842,23 +1339,39 @@ const encodedAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promis
 	([ typeIndex, elements ]) => ({ typeIndex, elements }),
 );
 
+setParserName(encodedAnnotationParser, 'encodedAnnotationParser');
+
 const encodedValueAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createEncodedValueArgParser(0x1d),
+		parserCreatorCompose(
+			() => createEncodedValueArgParser(0x1d),
+			valueArg => parserContext => {
+				parserContext.invariant(valueArg === 0, '(encodedValueAnnotationParser) valueArg: %s', valueArg);
+			},
+		)(),
 		encodedAnnotationParser,
 	]),
 	([ _, annotation ]) => annotation,
 );
 
-const encodedValueNullParser: Parser<null, Uint8Array> = promiseCompose(
-	createEncodedValueArgParser(0x1e),
-	() => null,
-);
+setParserName(encodedValueAnnotationParser, 'encodedValueAnnotationParser');
+
+const encodedValueNullParser: Parser<null, Uint8Array> = parserCreatorCompose(
+	() => createEncodedValueArgParser(0x1e),
+	valueArg => parserContext => {
+		parserContext.invariant(valueArg === 0, '(encodedValueNullParser) valueArg: %s', valueArg);
+		return null;
+	},
+)();
+
+setParserName(encodedValueNullParser, 'encodedValueNullParser');
 
 const encodedValueBooleanParser: Parser<boolean, Uint8Array> = promiseCompose(
 	createEncodedValueArgParser(0x1f),
 	(value) => Boolean(value),
 );
+
+setParserName(encodedValueBooleanParser, 'encodedValueBooleanParser');
 
 type DexEncodedValue = number | DexEncodedValue[] | undefined;
 
@@ -883,7 +1396,9 @@ const encodedValueParser: Parser<DexEncodedValue, Uint8Array> = createUnionParse
 	encodedValueBooleanParser,
 ]);
 
-const createEncodedArrayParser = (encodedArrayOffset: number): Parser<DexEncodedValue[], Uint8Array> => promiseCompose(
+setParserName(encodedValueParser, 'encodedValueParser');
+
+const createSkipThenEncodedArrayParser = (encodedArrayOffset: number): Parser<DexEncodedValue[], Uint8Array> => promiseCompose(
 	createTupleParser([
 		createSkipToParser(encodedArrayOffset),
 		encodedArrayParser,
@@ -1295,7 +1810,7 @@ export const dexParser: Parser<unknown, Uint8Array> = parserCreatorCompose(
 					invariant(data, 'data must be there if classDef.staticValuesOffset is not 0');
 
 					staticValues = await runParser(
-						createEncodedArrayParser(classDef.staticValuesOffset - dexHeader.data.offset),
+						createSkipThenEncodedArrayParser(classDef.staticValuesOffset - dexHeader.data.offset),
 						data,
 						uint8ArrayParserInputCompanion,
 					);
