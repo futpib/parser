@@ -1,6 +1,8 @@
 
 export class ParserError extends Error {
 	name = 'ParserError';
+
+	public position: undefined | number = undefined;
 }
 
 export class ParserImplementationError extends ParserError {

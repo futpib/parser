@@ -3,6 +3,7 @@ import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
 import { type DeriveSequenceElement } from './sequence.js';
+import { ParserError } from './parserError.js';
 
 export type Parser<
 	Output,
@@ -99,5 +100,16 @@ export async function runParser<
 		debugName: 'root',
 	});
 
-	return parser(parserContext);
+	try {
+		return await parser(parserContext);
+	} catch (error) {
+		if (
+			error instanceof ParserError
+				&& error.position === undefined
+		) {
+			error.position = parserContext.position;
+		}
+
+		throw error;
+	}
 }
