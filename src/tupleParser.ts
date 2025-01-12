@@ -27,11 +27,10 @@ export function createTupleParser<Sequence>(parsers: Array<Parser<unknown, Seque
 		return values;
 	};
 
-	setParserName(tupleParser, [
-		'[',
-		parsers.map(parser => getParserName(parser, 'anonymousTupleChild')).join(','),
-		']',
-	].join(''));
+	setParserName(
+		tupleParser,
+		parsers.map(parser => getParserName(parser, 'anonymousTupleChild')).join(''),
+	);
 
 	return tupleParser;
 }

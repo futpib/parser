@@ -5,6 +5,14 @@ import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { DeriveSequenceElement } from './sequence.js';
 
+const bigintReplacer = (_key: string, value: unknown) => {
+	if (typeof value === 'bigint') {
+		return `${value}n`;
+	}
+
+	return value;
+};
+
 export const createUnionParser = <
 	Output,
 	Sequence,
@@ -74,7 +82,7 @@ export const createUnionParser = <
 				'%s',
 				'End of successful parser outputs.',
 			],
-			() => successfulParserOutputs.map(output => '  ' + JSON.stringify(output)).join('\n'),
+			() => successfulParserOutputs.map(output => '  ' + JSON.stringify(output, bigintReplacer)).join('\n'),
 		);
 
 		parserContext.invariantJoin(

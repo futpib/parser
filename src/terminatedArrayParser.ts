@@ -40,6 +40,8 @@ export const createTerminatedArrayParserNaive = <ElementOutput, TerminatorOutput
 		}
 	};
 
+	setParserName(terminatedArrayParser, `${getParserName(elementParser, 'anonymousElement')}*?${getParserName(terminatorParser, 'anonymousTerminator')}`);
+
 	return terminatedArrayParser;
 };
 
@@ -93,6 +95,8 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 			elements.push(element);
 		}
 	};
+
+	setParserName(terminatedArrayParser, `${getParserName(elementParser, 'anonymousElement')}*?${getParserName(terminatorParser, 'anonymousTerminator')}`);
 
 	return terminatedArrayParser;
 };
