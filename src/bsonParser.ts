@@ -1,6 +1,5 @@
 import { type JsonObject, type JsonValue } from 'type-fest';
 import { getParserName, setParserName, type Parser } from './parser.js';
-import { invariantDefined } from './invariantDefined.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
@@ -65,7 +64,7 @@ const bsonArrayParser = promiseCompose(
 );
 
 const bsonBooleanParser: Parser<boolean, Uint8Array> = async parserContext => {
-	const booleanValue = invariantDefined(await parserContext.read(0), 'Unexpected end of input');
+	const booleanValue = await parserContext.read(0);
 
 	return booleanValue === 1;
 };

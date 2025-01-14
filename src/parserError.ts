@@ -20,12 +20,7 @@ export class ParserParsingFailedError extends ParserError {
 		public readonly depth: number,
 		public readonly position: number,
 	) {
-		super([
-			'(position: ',
-			position,
-			') ',
-			message,
-		].join(''));
+		super(message);
 	}
 }
 
