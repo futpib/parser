@@ -8,6 +8,7 @@ import {
 } from './parserError.js';
 import { type RunParserOptions } from './parser.js';
 import { type Falsy, customInvariant, type ValueOrAccessor } from './customInvariant.js';
+import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 
 type LookaheadOptions = {
 	debugName?: string;
@@ -153,7 +154,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 			debugger;
 		}
 
-		invariant(
+		parserImplementationInvariant(
 			this.position === lookaheadInputReader.position,
 			'lookahead this.position (%s) === lookaheadInputReader.position (%s)',
 			this.position,
@@ -182,7 +183,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 			debugger;
 		}
 
-		invariant(
+		parserImplementationInvariant(
 			this.position === lookaheadParserContext.position,
 			'lookahead this.position (%s) === lookaheadParserContext.position (%s)',
 			this.position,
@@ -193,11 +194,14 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	}
 
 	unlookahead() {
-		invariant(this._parentParserContext !== undefined, 'this._parentParserContext !== undefined');
-		invariant(
+		const parentParserContext = parserImplementationInvariant(
+			this._parentParserContext,
+			'this._parentParserContext !== undefined',
+		);
+		parserImplementationInvariant(
 			(
-				this._parentParserContext._exclusiveChildParserContext === undefined
-				|| this._parentParserContext._exclusiveChildParserContext === this
+				parentParserContext._exclusiveChildParserContext === undefined
+				|| parentParserContext._exclusiveChildParserContext === this
 			),
 			[
 				'Parent\'s exclusive child must be undefined or this',
@@ -206,29 +210,29 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 				'parent.exclusiveChild: %s',
 			].join('\n'),
 			this.toString(),
-			this._parentParserContext.toString(),
-			this._parentParserContext._exclusiveChildParserContext?.toString(),
+			parentParserContext.toString(),
+			parentParserContext._exclusiveChildParserContext?.toString(),
 		);
-		invariant(
-			this._parentParserContext.position <= this.position,
+		parserImplementationInvariant(
+			parentParserContext.position <= this.position,
 			'unlookahead this._parentParserContext.position (%s) <= this.position (%s)',
-			this._parentParserContext.position,
+			parentParserContext.position,
 			this.position,
 		);
 
-		const offset = this._inputReader.position - this._parentParserContext._inputReader.position;
+		const offset = this._inputReader.position - parentParserContext._inputReader.position;
 
-		this._parentParserContext.skip(offset);
+		parentParserContext.skip(offset);
 
-		invariant(
-			this._parentParserContext.position === this.position,
+		parserImplementationInvariant(
+			parentParserContext.position === this.position,
 			'unlookahead this._parentParserContext.position (%s) === this.position (%s)',
-			this._parentParserContext.position,
+			parentParserContext.position,
 			this.position,
 		);
 
-		this._inputReader = this._parentParserContext._inputReader;
-		this._parentParserContext._exclusiveChildParserContext = this;
+		this._inputReader = parentParserContext._inputReader;
+		parentParserContext._exclusiveChildParserContext = this;
 
 		if (this._exclusiveChildParserContext) {
 			this._exclusiveChildParserContext.unlookahead();
@@ -236,11 +240,14 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	}
 
 	dispose() {
-		invariant(this._parentParserContext !== undefined, 'this._parentParserContext !== undefined');
-		invariant(
+		const parentParserContext = parserImplementationInvariant(
+			this._parentParserContext,
+			'this._parentParserContext !== undefined',
+		);
+		parserImplementationInvariant(
 			(
-				this._parentParserContext._exclusiveChildParserContext === undefined
-				|| this._parentParserContext._exclusiveChildParserContext === this
+				parentParserContext._exclusiveChildParserContext === undefined
+				|| parentParserContext._exclusiveChildParserContext === this
 			),
 			[
 				'Parent\'s exclusive child must be undefined or this',
@@ -249,11 +256,11 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 				'parent.exclusiveChild: %s',
 			].join('\n'),
 			this.toString(),
-			this._parentParserContext.toString(),
-			this._parentParserContext._exclusiveChildParserContext?.toString(),
+			parentParserContext.toString(),
+			parentParserContext._exclusiveChildParserContext?.toString(),
 		);
 
-		this._parentParserContext._exclusiveChildParserContext = undefined;
+		parentParserContext._exclusiveChildParserContext = undefined;
 		this._parentParserContext = undefined;
 	}
 
@@ -266,7 +273,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	}
 
 	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy> {
-		invariant(childErrors.length > 0, 'childErrors.length > 0');
+		parserImplementationInvariant(childErrors.length > 0, 'childErrors.length > 0');
 
 		const errorJoinMode = this._options.errorJoinMode ?? 'none';
 		const parserContext = this;
@@ -350,6 +357,6 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 			}, value, format, ...formatArguments);
 		}
 
-		invariant(false, 'Unsupported errorJoinMode: %s', errorJoinMode);
+		return parserImplementationInvariant(false, 'Unsupported errorJoinMode: %s', errorJoinMode);
 	}
 }

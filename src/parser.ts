@@ -27,6 +27,28 @@ export function setParserName<
 	return parser;
 }
 
+const originalParserByClone = new WeakMap<Parser<any, any, any>, Parser<any, any, any>>();
+
+export function cloneParser<
+	Output,
+	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
+>(
+	parser: Parser<Output, Sequence, Element>,
+): Parser<Output, Sequence, Element> {
+	const originalParser = originalParserByClone.get(parser) ?? parser;
+
+	const clone: Parser<Output, Sequence, Element> = (parserContext) => {
+		return originalParser(parserContext);
+	};
+
+	setParserName(clone, getParserName(parser));
+
+	originalParserByClone.set(clone, originalParser);
+
+	return clone;
+}
+
 export type RunParserOptions<
 	Output,
 	Sequence,

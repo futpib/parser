@@ -5,13 +5,29 @@ export const createDebugLogParser = <Output, Sequence>(
 ): Parser<Output, Sequence> => {
 	let idCounter = 0;
 
+	function getLogParserName() {
+		const childParserName = getParserName(childParser);
+
+		if (childParserName !== 'anonymous') {
+			return childParserName;
+		}
+
+		const debugLogParserName = getParserName(debugLogParser);
+
+		if (!debugLogParserName.startsWith('debugLog(')) {
+			return debugLogParserName;
+		}
+
+		return 'anonymousDebugLogChild';
+	}
+
 	const debugLogParser: typeof childParser = async parserContext => {
 		const id = idCounter++;
 		const initialPosition = parserContext.position;
 
 		console.debug(
 			'%s %s: started (position: %s)',
-			getParserName(childParser),
+			getLogParserName(),
 			id,
 			initialPosition,
 		);
@@ -21,7 +37,7 @@ export const createDebugLogParser = <Output, Sequence>(
 
 			console.debug(
 				'%s %s: finished (position: %s, consumed: %s): %o',
-				getParserName(childParser),
+				getLogParserName(),
 				id,
 				parserContext.position,
 				parserContext.position - initialPosition,
@@ -32,7 +48,7 @@ export const createDebugLogParser = <Output, Sequence>(
 		} catch (error) {
 			console.debug(
 				'%s %s: failed (position: %s, consumed: %s): %o',
-				getParserName(childParser),
+				getLogParserName(),
 				id,
 				parserContext.position,
 				parserContext.position - initialPosition,

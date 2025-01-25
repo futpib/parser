@@ -17,7 +17,7 @@ testProp(
 			fc.string({
 				minLength: 1,
 			}),
-		).filter(([ a, b ]) => a !== b),
+		).filter(([ a, b ]) => !a.startsWith(b))
 	],
 	async (t, [ stringA, stringB ]) => {
 		const result = await runParser(

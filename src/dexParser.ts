@@ -4,20 +4,28 @@ import { createElementParser } from './elementParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
-import { runParser, setParserName, type Parser } from './parser.js';
+import { cloneParser, setParserName, type Parser } from './parser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createQuantifierParser } from './quantifierParser.js';
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createTupleParser } from './tupleParser.js';
-import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { createUnionParser } from './unionParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createSkipToParser } from './skipToParser.js';
+import { createLookaheadParser } from './lookaheadParser.js';
+import { getIsoTypedNumberArray, IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoPrototypeIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds, isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler, isoOffsetToAnnotationItem, isoOffsetToAnnotationsDirectoryItem, isoOffsetToAnnotationSetItem, isoOffsetToAnnotationSetRefListItem, isoOffsetToClassDataItem, isoOffsetToCodeItem, isoOffsetToDebugInfoItem, isoOffsetToEncodedArrayItem, isoOffsetToStringDataItem, isoOffsetToTypeList, OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, OffsetToAnnotationItem, OffsetToAnnotationsDirectoryItem, OffsetToAnnotationSetItem, OffsetToAnnotationSetRefListItem, OffsetToClassDataItem, OffsetToCodeItem, OffsetToDebugInfoItem, OffsetToEncodedArrayItem, OffsetToStringDataItem, OffsetToTypeList, TypedNumberArray } from './dexParser/typedNumbers.js';
+import { Iso } from 'monocle-ts';
+import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
 
-const ubyteParser: Parser<number, Uint8Array> = createExactElementParser(1);
+export const uleb128p1NumberParser: Parser<number, Uint8Array> = async (parserContext) => {
+	const value = await uleb128NumberParser(parserContext);
+	return value - 1;
+}
+
+const ubyteParser: Parser<number, Uint8Array> = createElementParser();
 
 const byteParser: Parser<number, Uint8Array> = promiseCompose(
 	ubyteParser,
@@ -72,62 +80,13 @@ const ulongParser: Parser<bigint, Uint8Array> = promiseCompose(
 	},
 );
 
-export const sleb128Parser: Parser<number, Uint8Array> = async (parserContext) => {
-	let value = 0;
-	let leastSignificantValueBitIndex = 0;
+const createByteAlignParser = (byteAlignment: number): Parser<void, Uint8Array> => async (parserContext) => {
+	const toSkip = (byteAlignment - (parserContext.position % byteAlignment)) % byteAlignment;
 
-	while (true) {
-		const byte = await parserContext.read(0);
-		const byteValue = byte & 0b01111111;
-		const byteNotLast = byte & 0b10000000;
-
-		value |= byteValue << leastSignificantValueBitIndex;
-
-		if (byteNotLast) {
-			leastSignificantValueBitIndex += 7;
-			continue;
-		}
-
-		const mostSignificantInputBit = byte & 0b01000000;
-
-		if (mostSignificantInputBit) {
-			const mostSignificantValueBit = 1 << (leastSignificantValueBitIndex + 1);
-			const mask = mostSignificantValueBit - 1;
-			value |= -mostSignificantValueBit | (value & mask);
-		}
-
-		break;
-	}
-
-	return value;
+	parserContext.skip(toSkip);
 };
 
-export const uleb128Parser: Parser<number, Uint8Array> = async (parserContext) => {
-	let leastSignificantValueBitIndex = 0;
-	let value = 0;
-
-	while (true) {
-		const byte = await parserContext.read(0);
-		const byteValue = byte & 0b01111111;
-		const byteNotLast = byte & 0b10000000;
-
-		value |= byteValue << leastSignificantValueBitIndex;
-
-		if (byteNotLast) {
-			leastSignificantValueBitIndex += 7;
-			continue;
-		}
-
-		break;
-	}
-
-	return value;
-}
-
-export const uleb128p1Parser: Parser<number, Uint8Array> = async (parserContext) => {
-	const value = await uleb128Parser(parserContext);
-	return value - 1;
-}
+const byteAlign4Parser: Parser<void, Uint8Array> = createByteAlignParser(4);
 
 const dexHeaderVersionParser: Parser<number, Uint8Array> = promiseCompose(
 	createTupleParser([
@@ -156,7 +115,7 @@ const sizeOffsetParser: Parser<SizeOffset, Uint8Array> = promiseCompose(
 	([ size, offset ]) => ({ size, offset }),
 );
 
-type DexHeader = {
+type DexHeaderItem = {
 	version: number,
 	checksum: number,
 	sha1Hash: Uint8Array,
@@ -167,14 +126,14 @@ type DexHeader = {
 	mapOffset: number,
 	stringIds: SizeOffset,
 	typeIds: SizeOffset,
-	protoIds: SizeOffset,
+	prototypeIds: SizeOffset,
 	fieldIds: SizeOffset,
 	methodIds: SizeOffset,
 	classDefinitions: SizeOffset,
 	data: SizeOffset,
 };
 
-const dexHeaderParser: Parser<DexHeader, Uint8Array> = promiseCompose(
+const dexHeaderItemParser: Parser<DexHeaderItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		dexHeaderVersionParser,
 		uintParser,
@@ -203,7 +162,7 @@ const dexHeaderParser: Parser<DexHeader, Uint8Array> = promiseCompose(
 		mapOffset,
 		stringIds,
 		typeIds,
-		protoIds,
+		prototypeIds,
 		fieldIds,
 		methodIds,
 		classDefinitions,
@@ -219,7 +178,7 @@ const dexHeaderParser: Parser<DexHeader, Uint8Array> = promiseCompose(
 		mapOffset,
 		stringIds,
 		typeIds,
-		protoIds,
+		prototypeIds,
 		fieldIds,
 		methodIds,
 		classDefinitions,
@@ -227,116 +186,212 @@ const dexHeaderParser: Parser<DexHeader, Uint8Array> = promiseCompose(
 	}),
 );
 
-const createStringIdsParser = ({ size, offset }: SizeOffset): Parser<number[], Uint8Array> => (
+type DexStringIdItem = OffsetToStringDataItem;
+
+const dexStringIdItemParser: Parser<DexStringIdItem, Uint8Array> = promiseCompose(
+	cloneParser(uintParser),
+	(offset) => isoOffsetToStringDataItem.wrap(offset),
+);
+
+type DexStringIdItems = TypedNumberArray<IndexIntoStringIds, DexStringIdItem>;
+
+const isoDexStringIdItems = getIsoTypedNumberArray<IndexIntoStringIds, DexStringIdItem>();
+
+const createSkipToThenStringIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexStringIdItems, Uint8Array> => (
 	size === 0
-		? (async () => [])
+		? (() => isoDexStringIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					uintParser,
+					dexStringIdItemParser,
 					size,
 				),
 			]),
-			([ _, stringIds ]) => stringIds,
+			([ _, stringIds ]) => isoDexStringIdItems.wrap(stringIds),
 		)
 );
 
-const createTypeIdsParser = createStringIdsParser;
+type DexTypeIdItem = IndexIntoStringIds;
 
-type DexProtoIdItem = {
-	shortyIndex: number,
-	returnTypeIndex: number,
-	parametersOffset: number,
+const dexTypeIdItemParser: Parser<DexTypeIdItem, Uint8Array> = promiseCompose(
+	cloneParser(uintParser),
+	(index) => isoIndexIntoStringIds.wrap(index),
+);
+
+type DexTypeIdItems = TypedNumberArray<IndexIntoTypeIds, DexTypeIdItem>;
+
+const isoDexTypeIdItems = getIsoTypedNumberArray<IndexIntoTypeIds, DexTypeIdItem>();
+
+const createSkipToThenTypeIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexTypeIdItems, Uint8Array> => (
+	size === 0
+		? (() => isoDexTypeIdItems.wrap([]))
+		: promiseCompose(
+			createTupleParser([
+				createSkipToParser(offset),
+				createQuantifierParser(
+					dexTypeIdItemParser,
+					size,
+				),
+			]),
+			([ _, typeIds ]) => isoDexTypeIdItems.wrap(typeIds),
+		)
+);
+
+type DexPrototypeIdItem = {
+	shortyIndex: IndexIntoStringIds;
+	returnTypeIndex: IndexIntoTypeIds;
+	parametersOffset: OffsetToTypeList;
 };
 
-const createProtoIdsParser = ({ size, offset }: SizeOffset): Parser<DexProtoIdItem[], Uint8Array> => (
+const prototypeIdItemParser: Parser<DexPrototypeIdItem, Uint8Array> = promiseCompose(
+	createTupleParser([
+		byteAlign4Parser,
+		uintParser,
+		uintParser,
+		uintParser,
+	]),
+	([ _, shortyIndex, returnTypeIndex, parametersOffset ]): DexPrototypeIdItem => ({
+		shortyIndex: isoIndexIntoStringIds.wrap(shortyIndex),
+		returnTypeIndex: isoIndexIntoTypeIds.wrap(returnTypeIndex),
+		parametersOffset: isoOffsetToTypeList.wrap(parametersOffset),
+	}),
+);
+
+type DexPrototypeIdItems = TypedNumberArray<IndexIntoPrototypeIds, DexPrototypeIdItem>;
+
+const isoDexPrototypeIdItems = getIsoTypedNumberArray<IndexIntoPrototypeIds, DexPrototypeIdItem>();
+
+const createSkipToThenPrototypeIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexPrototypeIdItems, Uint8Array> => (
 	size === 0
-		? (async () => [])
+		? (() => isoDexPrototypeIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					promiseCompose(
-						createTupleParser([
-							uintParser,
-							uintParser,
-							uintParser,
-						]),
-						([ shortyIndex, returnTypeIndex, parametersOffset ]): DexProtoIdItem => ({
-							shortyIndex,
-							returnTypeIndex,
-							parametersOffset,
-						}),
-					),
+					prototypeIdItemParser,
 					size,
 				),
 			]),
-			([ _, protoIds ]) => protoIds,
+			([ _, prototypeIds ]) => isoDexPrototypeIdItems.wrap(prototypeIds),
 		)
 );
+
+const createSkipToThenItemByOffsetParser = <Offset, Item>({
+	sizeOffset: { size, offset },
+	itemParser,
+	byteAlign4,
+	isoOffset,
+	parserName,
+}: {
+	sizeOffset: SizeOffset;
+	itemParser: Parser<Item, Uint8Array>;
+	byteAlign4: boolean;
+	isoOffset: Iso<Offset, number>;
+	parserName: string;
+}): Parser<Map<Offset, Item>, Uint8Array> => {
+	const skipToThenItemByOffsetParser: Parser<Map<Offset, Item>, Uint8Array> = async (parserContext) => {
+		const itemByOffset = new Map<Offset, Item>();
+
+		if (size === 0) {
+			return itemByOffset;
+		}
+
+		await createSkipToParser(offset)(parserContext);
+
+		for (let i = 0; i < size; i++) {
+			if (byteAlign4) {
+				await byteAlign4Parser(parserContext);
+			}
+
+			const offset = parserContext.position;
+
+			const item = await itemParser(parserContext);
+
+			itemByOffset.set(isoOffset.wrap(offset), item);
+		}
+
+		return itemByOffset;
+	};
+
+	setParserName(skipToThenItemByOffsetParser, parserName);
+
+	return skipToThenItemByOffsetParser;
+};
 
 type DexFieldIdItem = {
-	classIndex: number,
-	typeIndex: number,
-	nameIndex: number,
+	classIndex: IndexIntoTypeIds;
+	typeIndex: IndexIntoTypeIds;
+	nameIndex: IndexIntoStringIds;
 };
 
-const createFieldIdsParser = ({ size, offset }: SizeOffset): Parser<DexFieldIdItem[], Uint8Array> => (
+const dexFieldIdItemParser: Parser<DexFieldIdItem, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ushortParser,
+		ushortParser,
+		uintParser,
+	]),
+	([ classIndex, typeIndex, nameIndex ]): DexFieldIdItem => ({
+		classIndex: isoIndexIntoTypeIds.wrap(classIndex),
+		typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
+		nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
+	}),
+);
+
+type DexFieldIdItems = TypedNumberArray<IndexIntoFieldIds, DexFieldIdItem>;
+
+const isoDexFieldIdItems = getIsoTypedNumberArray<IndexIntoFieldIds, DexFieldIdItem>();
+
+const createSkipToThenFieldIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexFieldIdItems, Uint8Array> => (
 	size === 0
-		? (async () => [])
+		? (() => isoDexFieldIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					promiseCompose(
-						createTupleParser([
-							ushortParser,
-							ushortParser,
-							uintParser,
-						]),
-						([ classIndex, typeIndex, nameIndex ]): DexFieldIdItem => ({
-							classIndex,
-							typeIndex,
-							nameIndex,
-						}),
-					),
+					dexFieldIdItemParser,
 					size,
 				),
 			]),
-			([ _, fieldIds ]) => fieldIds,
+			([ _, fieldIds ]) => isoDexFieldIdItems.wrap(fieldIds),
 		)
 );
 
 type DexMethodIdItem = {
-	classIndex: number,
-	protoIndex: number,
-	nameIndex: number,
+	classIndex: IndexIntoTypeIds;
+	prototypeIndex: IndexIntoPrototypeIds;
+	nameIndex: IndexIntoStringIds;
 };
 
-const createMethodIdsParser = ({ size, offset }: SizeOffset): Parser<DexMethodIdItem[], Uint8Array> => (
+const dexMethodIdItemParser: Parser<DexMethodIdItem, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ushortParser,
+		ushortParser,
+		uintParser,
+	]),
+	([ classIndex, prototypeIndex, nameIndex ]): DexMethodIdItem => ({
+		classIndex: isoIndexIntoTypeIds.wrap(classIndex),
+		prototypeIndex: isoIndexIntoPrototypeIds.wrap(prototypeIndex),
+		nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
+	}),
+);
+
+type DexMethodIdItems = TypedNumberArray<IndexIntoMethodIds, DexMethodIdItem>;
+
+const isoDexMethodIdItems = getIsoTypedNumberArray<IndexIntoMethodIds, DexMethodIdItem>();
+
+const createSkipToThenMethodIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexMethodIdItems, Uint8Array> => (
 	size === 0
-		? (async () => [])
+		? (() => isoDexMethodIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					promiseCompose(
-						createTupleParser([
-							ushortParser,
-							ushortParser,
-							uintParser,
-						]),
-						([ classIndex, protoIndex, nameIndex ]): DexMethodIdItem => ({
-							classIndex,
-							protoIndex,
-							nameIndex,
-						}),
-					),
+					dexMethodIdItemParser,
 					size,
 				),
 			]),
-			([ _, methodIds ]) => methodIds,
+			([ _, methodIds ]) => isoDexMethodIdItems.wrap(methodIds),
 		)
 );
 
@@ -388,7 +443,7 @@ const uintAccessFlagsParser: Parser<DexAccessFlags, Uint8Array> = promiseCompose
 );
 
 const uleb128AccessFlagsParser: Parser<DexAccessFlags, Uint8Array> = promiseCompose(
-	uleb128Parser,
+	uleb128NumberParser,
 	flags => ({
 		public: Boolean(flags & 0b00000001),
 		private: Boolean(flags & 0b00000010),
@@ -412,20 +467,22 @@ const uleb128AccessFlagsParser: Parser<DexAccessFlags, Uint8Array> = promiseComp
 	}),
 );
 
-type DexClassDefItem = {
-	classIndex: number,
-	accessFlags: DexAccessFlags,
-	superclassIndex: number,
-	interfacesOffset: number,
-	sourceFileIndex: number,
-	annotationsOffset: number,
-	classDataOffset: number,
-	staticValuesOffset: number,
+type DexClassDefinitionItem = {
+	classIndex: IndexIntoTypeIds;
+	accessFlags: DexAccessFlags;
+	superclassIndex: IndexIntoTypeIds;
+	interfacesOffset: OffsetToTypeList;
+	sourceFileIndex: undefined | IndexIntoStringIds;
+	annotationsOffset: OffsetToAnnotationsDirectoryItem;
+	classDataOffset: OffsetToClassDataItem;
+	staticValuesOffset: OffsetToEncodedArrayItem;
 };
 
-const createClassDefinitionsParser = ({ size, offset }: SizeOffset): Parser<DexClassDefItem[], Uint8Array> => (
+const DEX_CLASS_DEFINITION_ITEM_SOURCE_FILE_NO_INDEX = 0xffffffff;
+
+const createSkipToThenClassDefinitionItemsParser = ({ size, offset }: SizeOffset): Parser<DexClassDefinitionItem[], Uint8Array> => (
 	size === 0
-		? (async () => [])
+		? (() => [])
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
@@ -450,15 +507,19 @@ const createClassDefinitionsParser = ({ size, offset }: SizeOffset): Parser<DexC
 							annotationsOffset,
 							classDataOffset,
 							staticValuesOffset,
-						]): DexClassDefItem => ({
-							classIndex,
+						]): DexClassDefinitionItem => ({
+							classIndex: isoIndexIntoTypeIds.wrap(classIndex),
 							accessFlags,
-							superclassIndex,
-							interfacesOffset,
-							sourceFileIndex,
-							annotationsOffset,
-							classDataOffset,
-							staticValuesOffset,
+							superclassIndex: isoIndexIntoTypeIds.wrap(superclassIndex),
+							interfacesOffset: isoOffsetToTypeList.wrap(interfacesOffset),
+							sourceFileIndex: (
+								sourceFileIndex === DEX_CLASS_DEFINITION_ITEM_SOURCE_FILE_NO_INDEX
+									? undefined
+									: isoIndexIntoStringIds.wrap(sourceFileIndex)
+							),
+							annotationsOffset: isoOffsetToAnnotationsDirectoryItem.wrap(annotationsOffset),
+							classDataOffset: isoOffsetToClassDataItem.wrap(classDataOffset),
+							staticValuesOffset: isoOffsetToEncodedArrayItem.wrap(staticValuesOffset),
 						}),
 					),
 					size,
@@ -468,9 +529,9 @@ const createClassDefinitionsParser = ({ size, offset }: SizeOffset): Parser<DexC
 		)
 );
 
-const createDataParser = ({ size, offset }: SizeOffset): Parser<undefined | Uint8Array, Uint8Array> => (
+const createRawDataParser = ({ size, offset }: SizeOffset): Parser<undefined | Uint8Array, Uint8Array> => (
 	size === 0
-		? (async () => undefined)
+		? (() => undefined)
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
@@ -479,12 +540,6 @@ const createDataParser = ({ size, offset }: SizeOffset): Parser<undefined | Uint
 			([ _, data ]) => data,
 		)
 );
-
-const createByteAlignParser = (byteAlignment: number): Parser<void, Uint8Array> => async (parserContext) => {
-	parserContext.skip(parserContext.position % byteAlignment);
-};
-
-const byteAlign4Parser: Parser<void, Uint8Array> = createByteAlignParser(4);
 
 const nullByteParser: Parser<number, Uint8Array> = createExactElementParser(0);
 const nonNullByteParser: Parser<number, Uint8Array> = parserCreatorCompose(
@@ -500,10 +555,9 @@ type DexStringDataItem = {
 	data: Uint8Array,
 };
 
-const createStringDataItemParser = (stringDataOffset: number): Parser<DexStringDataItem, Uint8Array> => promiseCompose(
+const stringDataItemParser: Parser<DexStringDataItem, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createSkipToParser(stringDataOffset),
-		uleb128Parser,
+		uleb128NumberParser,
 		promiseCompose(
 			createTerminatedArrayParser(
 				nonNullByteParser,
@@ -512,44 +566,86 @@ const createStringDataItemParser = (stringDataOffset: number): Parser<DexStringD
 			([ stringData ]) => stringData,
 		),
 	]),
-	([ _, utf16Size, data ]) => ({
+	([ utf16Size, data ]) => ({
 		utf16Size,
 		data: new Uint8Array(data),
 	}),
 );
 
-const createStringParser = (stringDataOffset: number): Parser<string, Uint8Array> => promiseCompose(
-	createStringDataItemParser(stringDataOffset),
+type DexStringDataItemString = string;
+
+const stringDataItemStringParser: Parser<DexStringDataItemString, Uint8Array> = promiseCompose(
+	stringDataItemParser,
 	({ utf16Size, data }) => {
 		const mutf8Decoder = new MUtf8Decoder();
 		const string = mutf8Decoder.decode(data);
-		invariant(string.length === utf16Size, 'String length mismatch. Expected: %d, actual: %d', utf16Size, string.length);
+		invariant(string.length === utf16Size, 'String length mismatch. Expected: %s, actual: %s', utf16Size, string.length);
 		return string;
 	},
 );
 
-const createTypeListParser = (typeListOffset: number): Parser<number[], Uint8Array> => parserCreatorCompose(
+type DexStringDataItemStringByOffset = Map<OffsetToStringDataItem, DexStringDataItemString>;
+
+const createSkipToThenStringsParser = (sizeOffset: SizeOffset): Parser<DexStringDataItemStringByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: stringDataItemStringParser,
+	byteAlign4: false,
+	isoOffset: isoOffsetToStringDataItem,
+	parserName: 'skipToThenStringsParser',
+});
+
+type DexTypeItem = IndexIntoTypeIds;
+
+const dexTypeItemParser: Parser<DexTypeItem, Uint8Array> = promiseCompose(
+	cloneParser(ushortParser),
+	(index) => isoIndexIntoTypeIds.wrap(index),
+);
+
+type DexTypeList = TypedNumberArray<IndexIntoTypeIds, DexTypeItem>;
+
+const isoDexTypeList = getIsoTypedNumberArray<IndexIntoTypeIds, DexTypeItem>();
+
+const dexTypeListParser: Parser<DexTypeList, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
-		createSkipToParser(typeListOffset),
+		byteAlign4Parser,
 		uintParser,
 	]),
-	([ _, size ]) => createQuantifierParser(
-		ushortParser,
-		size,
+	([ _, size ]) => promiseCompose(
+		createQuantifierParser(
+			dexTypeItemParser,
+			size,
+		),
+		(typeItems) => isoDexTypeList.wrap(typeItems),
 	),
 )();
 
+type DexTypeListByOffset = Map<OffsetToTypeList, DexTypeList>;
+
+const createSkipToThenTypeListByOffsetParser = (sizeOffset: SizeOffset): Parser<DexTypeListByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: dexTypeListParser,
+	byteAlign4: true,
+	isoOffset: isoOffsetToTypeList,
+	parserName: 'skipToThenTypeListByOffsetParser',
+});
+
 type DexFieldAnnotation = {
-	fieldIndex: number,
-	annotationsOffset: number,
+	fieldIndex: IndexIntoFieldIds;
+	annotationsOffset: OffsetToAnnotationSetItem;
 };
 
 const fieldAnnotationParser: Parser<DexFieldAnnotation, Uint8Array> = promiseCompose(
 	createTupleParser([
-		uleb128Parser,
-		uleb128Parser,
+		uintParser,
+		uintParser,
 	]),
-	([ fieldIndex, annotationsOffset ]) => ({ fieldIndex, annotationsOffset }),
+	([
+		fieldIndex,
+		annotationsOffset,
+	]) => ({
+		fieldIndex: isoIndexIntoFieldIds.wrap(fieldIndex),
+		annotationsOffset: isoOffsetToAnnotationSetItem.wrap(annotationsOffset),
+	}),
 );
 
 const createFieldAnnotationsParser = (fieldsSize: number): Parser<DexFieldAnnotation[], Uint8Array> => createQuantifierParser(
@@ -558,8 +654,8 @@ const createFieldAnnotationsParser = (fieldsSize: number): Parser<DexFieldAnnota
 );
 
 type DexMethodAnnotation = {
-	methodIndex: number,
-	annotationsOffset: number,
+	methodIndex: IndexIntoMethodIds;
+	annotationsOffset: OffsetToAnnotationSetItem;
 };
 
 const methodAnnotationParser: Parser<DexMethodAnnotation, Uint8Array> = promiseCompose(
@@ -567,7 +663,13 @@ const methodAnnotationParser: Parser<DexMethodAnnotation, Uint8Array> = promiseC
 		uintParser,
 		uintParser,
 	]),
-	([ methodIndex, annotationsOffset ]) => ({ methodIndex, annotationsOffset }),
+	([
+		methodIndex,
+		annotationsOffset,
+	]) => ({
+		methodIndex: isoIndexIntoMethodIds.wrap(methodIndex),
+		annotationsOffset: isoOffsetToAnnotationSetItem.wrap(annotationsOffset),
+	}),
 );
 
 const createMethodAnnotationsParser = (methodsSize: number): Parser<DexMethodAnnotation[], Uint8Array> => createQuantifierParser(
@@ -576,8 +678,8 @@ const createMethodAnnotationsParser = (methodsSize: number): Parser<DexMethodAnn
 );
 
 type DexParameterAnnotation = {
-	methodIndex: number,
-	annotationsOffset: number,
+	methodIndex: IndexIntoMethodIds;
+	annotationsOffset: OffsetToAnnotationSetRefListItem;
 };
 
 const parameterAnnotationParser: Parser<DexParameterAnnotation, Uint8Array> = promiseCompose(
@@ -585,7 +687,13 @@ const parameterAnnotationParser: Parser<DexParameterAnnotation, Uint8Array> = pr
 		uintParser,
 		uintParser,
 	]),
-	([ methodIndex, annotationsOffset ]) => ({ methodIndex, annotationsOffset }),
+	([
+		methodIndex,
+		annotationsOffset,
+	]) => ({
+		methodIndex: isoIndexIntoMethodIds.wrap(methodIndex),
+		annotationsOffset: isoOffsetToAnnotationSetRefListItem.wrap(annotationsOffset),
+	}),
 );
 
 const createParameterAnnotationsParser = (parametersSize: number): Parser<DexParameterAnnotation[], Uint8Array> => createQuantifierParser(
@@ -594,15 +702,15 @@ const createParameterAnnotationsParser = (parametersSize: number): Parser<DexPar
 );
 
 type DexAnnotationsDirectoryItem = {
-	classAnnotationsOffset: number,
-	fieldAnnotations: DexFieldAnnotation[],
-	methodAnnotations: DexMethodAnnotation[],
-	parameterAnnotations: DexParameterAnnotation[],
+	classAnnotationsOffset: OffsetToAnnotationSetItem;
+	fieldAnnotations: DexFieldAnnotation[];
+	methodAnnotations: DexMethodAnnotation[];
+	parameterAnnotations: DexParameterAnnotation[];
 };
 
-const createAnnotationsDirectoryItemParser = (annotationsDirectoryOffset: number): Parser<DexAnnotationsDirectoryItem, Uint8Array> => parserCreatorCompose(
+const annotationsDirectoryItemParser: Parser<DexAnnotationsDirectoryItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
-		createSkipToParser(annotationsDirectoryOffset),
+		byteAlign4Parser,
 		uintParser,
 		uintParser,
 		uintParser,
@@ -616,7 +724,7 @@ const createAnnotationsDirectoryItemParser = (annotationsDirectoryOffset: number
 		annotatedParametersSize,
 	]) => promiseCompose(
 		createTupleParser([
-			async () => classAnnotationsOffset,
+			() => isoOffsetToAnnotationSetItem.wrap(classAnnotationsOffset),
 			createFieldAnnotationsParser(fieldsSize),
 			createMethodAnnotationsParser(annotatedMethodsSize),
 			createParameterAnnotationsParser(annotatedParametersSize),
@@ -635,24 +743,35 @@ const createAnnotationsDirectoryItemParser = (annotationsDirectoryOffset: number
 	),
 )();
 
-type DexEncodedField = {
-	fieldIndexDiff: number,
-	accessFlags: DexAccessFlags,
+type DexAnnotationsDirectoryItemByOffset = Map<OffsetToAnnotationsDirectoryItem, DexAnnotationsDirectoryItem>;
+
+const createSkipToThenAnnotationsDirectoryItemsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationsDirectoryItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: annotationsDirectoryItemParser,
+	byteAlign4: true,
+	isoOffset: isoOffsetToAnnotationsDirectoryItem,
+	parserName: 'skipToThenAnnotationsDirectoryItemsParser',
+});
+
+type DexEncodedFieldDiff = {
+	fieldIndexDiff: number;
+	accessFlags: DexAccessFlags;
 };
 
-const encodedFieldParser: Parser<DexEncodedField, Uint8Array> = promiseCompose(
+const encodedFieldParser: Parser<DexEncodedFieldDiff, Uint8Array> = promiseCompose(
 	createTupleParser([
-		uleb128Parser,
+		uleb128NumberParser,
 		uleb128AccessFlagsParser,
 	]),
 	([ fieldIndexDiff, accessFlags ]) => ({ fieldIndexDiff, accessFlags }),
 );
 
-type DexEncodedField_ = DexEncodedField & {
-	fieldIndex: number,
+type DexEncodedField = {
+	fieldIndex: IndexIntoFieldIds;
+	accessFlags: DexAccessFlags;
 };
 
-const createEncodedFieldsParser = (fieldsSize: number): Parser<DexEncodedField_[], Uint8Array> => promiseCompose(
+const createEncodedFieldsParser = (fieldsSize: number): Parser<DexEncodedField[], Uint8Array> => promiseCompose(
 	createQuantifierParser(
 		encodedFieldParser,
 		fieldsSize,
@@ -661,31 +780,44 @@ const createEncodedFieldsParser = (fieldsSize: number): Parser<DexEncodedField_[
 		let previousFieldIndex = 0;
 		return encodedFields.map(({ fieldIndexDiff, accessFlags }) => {
 			previousFieldIndex += fieldIndexDiff;
-			return { fieldIndex: previousFieldIndex, fieldIndexDiff, accessFlags };
+			return {
+				fieldIndex: isoIndexIntoFieldIds.wrap(previousFieldIndex),
+				accessFlags,
+			};
 		});
 	},
 );
 
-type DexEncodedMethod = {
-	methodIndexDiff: number,
-	accessFlags: DexAccessFlags,
-	codeOffset: number,
+type DexEncodedMethodDiff = {
+	methodIndexDiff: number;
+	accessFlags: DexAccessFlags;
+	codeOffset: OffsetToCodeItem;
 };
 
-const encodedMethodParser: Parser<DexEncodedMethod, Uint8Array> = promiseCompose(
+const encodedMethodParser: Parser<DexEncodedMethodDiff, Uint8Array> = promiseCompose(
 	createTupleParser([
-		uleb128Parser,
+		uleb128NumberParser,
 		uleb128AccessFlagsParser,
-		uleb128Parser,
+		uleb128NumberParser,
 	]),
-	([ methodIndexDiff, accessFlags, codeOffset ]) => ({ methodIndexDiff, accessFlags, codeOffset }),
+	([
+		methodIndexDiff,
+		accessFlags,
+		codeOffset,
+	]) => ({
+		methodIndexDiff,
+		accessFlags,
+		codeOffset: isoOffsetToCodeItem.wrap(codeOffset),
+	}),
 );
 
-type DexEncodedMethod_ = DexEncodedMethod & {
-	methodIndex: number,
+type DexEncodedMethod = {
+	methodIndex: IndexIntoMethodIds;
+	accessFlags: DexAccessFlags;
+	codeOffset: OffsetToCodeItem;
 };
 
-const createEncodedMethodsParser = (methodsSize: number): Parser<DexEncodedMethod_[], Uint8Array> => promiseCompose(
+const createEncodedMethodsParser = (methodsSize: number): Parser<DexEncodedMethod[], Uint8Array> => promiseCompose(
 	createQuantifierParser(
 		encodedMethodParser,
 		methodsSize,
@@ -694,28 +826,30 @@ const createEncodedMethodsParser = (methodsSize: number): Parser<DexEncodedMetho
 		let previousMethodIndex = 0;
 		return encodedMethods.map(({ methodIndexDiff, accessFlags, codeOffset }) => {
 			previousMethodIndex += methodIndexDiff;
-			return { methodIndex: previousMethodIndex, methodIndexDiff, accessFlags, codeOffset };
+			return {
+				methodIndex: isoIndexIntoMethodIds.wrap(previousMethodIndex),
+				accessFlags,
+				codeOffset,
+			};
 		});
 	},
 );
 
 type DexClassDataItem = {
-	staticFields: DexEncodedField_[],
-	instanceFields: DexEncodedField_[],
-	directMethods: DexEncodedMethod_[],
-	virtualMethods: DexEncodedMethod_[],
+	staticFields: DexEncodedField[],
+	instanceFields: DexEncodedField[],
+	directMethods: DexEncodedMethod[],
+	virtualMethods: DexEncodedMethod[],
 };
 
-const createClassDataItemParser = (classDataOffset: number): Parser<DexClassDataItem, Uint8Array> => parserCreatorCompose(
+const classDataItemParser: Parser<DexClassDataItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
-		createSkipToParser(classDataOffset),
-		uleb128Parser,
-		uleb128Parser,
-		uleb128Parser,
-		uleb128Parser,
+		uleb128NumberParser,
+		uleb128NumberParser,
+		uleb128NumberParser,
+		uleb128NumberParser,
 	]),
 	([
-		_,
 		staticFieldsSize,
 		instanceFieldsSize,
 		directMethodsSize,
@@ -741,11 +875,21 @@ const createClassDataItemParser = (classDataOffset: number): Parser<DexClassData
 	),
 )();
 
+type DexClassDataItemByOffset = Map<OffsetToClassDataItem, DexClassDataItem>;
+
+const createSkipToThenClassDataItemsParser = (sizeOffset: SizeOffset): Parser<DexClassDataItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: classDataItemParser,
+	byteAlign4: false,
+	isoOffset: isoOffsetToClassDataItem,
+	parserName: 'skipToThenClassDataItemsParser',
+});
+
 const createByteWith5LeastSignificantBitsEqualParser = (leastSignificant5: number): Parser<number, Uint8Array> => async (parserContext) => {
 	const byte = await parserContext.read(0);
 	parserContext.invariant(
 		(byte & 0b00011111) === leastSignificant5,
-		'Expected byte with 5 least significant bits equal to %d, but got %s',
+		'Expected byte with 5 least significant bits equal to %s, but got %s',
 		leastSignificant5.toString(2).padStart(8, '0'),
 		byte.toString(2).padStart(8, '0'),
 	);
@@ -782,7 +926,7 @@ const encodedValueShortParser: Parser<number, Uint8Array> = parserCreatorCompose
 			);
 		}
 
-		invariant(size === 2, '(encodedValueShortParser) TODO size: %s', size);
+		invariant(size === 2, '(encodedValueShortParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -811,7 +955,7 @@ const encodedValueCharParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			);
 		}
 
-		invariant(size === 2, '(encodedValueCharParser) TODO size: %s', size);
+		invariant(size === 2, '(encodedValueCharParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -850,7 +994,7 @@ const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			);
 		}
 
-		invariant(size === 4, '(encodedValueIntParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueIntParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -899,7 +1043,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 			);
 		}
 
-		invariant(size === 8, '(encodedValueLongParser) TODO size: %s', size);
+		invariant(size === 8, '(encodedValueLongParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -938,7 +1082,7 @@ const encodedValueFloatParser: Parser<number, Uint8Array> = parserCreatorCompose
 			);
 		}
 
-		invariant(size === 4, '(encodedValueFloatParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueFloatParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -987,7 +1131,7 @@ const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompos
 			);
 		}
 
-		invariant(size === 8, '(encodedValueDoubleParser) TODO size: %s', size);
+		invariant(size === 8, '(encodedValueDoubleParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1026,7 +1170,7 @@ const encodedValueMethodTypeParser: Parser<number, Uint8Array> = parserCreatorCo
 			);
 		}
 
-		invariant(size === 4, '(encodedValueMethodTypeParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueMethodTypeParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1065,7 +1209,7 @@ const encodedValueMethodHandleParser: Parser<number, Uint8Array> = parserCreator
 			);
 		}
 
-		invariant(size === 4, '(encodedValueMethodHandleParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueMethodHandleParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1104,7 +1248,7 @@ const encodedValueStringParser: Parser<number, Uint8Array> = parserCreatorCompos
 			);
 		}
 
-		invariant(size === 4, '(encodedValueStringParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueStringParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1143,7 +1287,7 @@ const encodedValueTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			);
 		}
 
-		invariant(size === 4, '(encodedValueTypeParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueTypeParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1182,7 +1326,7 @@ const encodedValueFieldParser: Parser<number, Uint8Array> = parserCreatorCompose
 			);
 		}
 
-		invariant(size === 4, '(encodedValueFieldParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueFieldParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1221,7 +1365,7 @@ const encodedValueMethodParser: Parser<number, Uint8Array> = parserCreatorCompos
 			);
 		}
 
-		invariant(size === 4, '(encodedValueMethodParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueMethodParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1260,7 +1404,7 @@ const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			);
 		}
 
-		invariant(size === 4, '(encodedValueEnumParser) TODO size: %s', size);
+		invariant(size === 4, '(encodedValueEnumParser) Unexpected size: %s', size);
 
 		return promiseCompose(
 			createFixedLengthSequenceParser(size),
@@ -1274,8 +1418,10 @@ const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
 
 setParserName(encodedValueEnumParser, 'encodedValueEnumParser');
 
-const encodedArrayParser: Parser<DexEncodedValue[], Uint8Array> = parserCreatorCompose(
-	() => uleb128Parser,
+type DexEncodedArray = DexEncodedValue[];
+
+const encodedArrayParser: Parser<DexEncodedArray, Uint8Array> = parserCreatorCompose(
+	() => uleb128NumberParser,
 	(size) => createQuantifierParser(
 		encodedValueParser,
 		size,
@@ -1311,7 +1457,7 @@ type DexEncodedAnnotation = {
 
 const annotationElementParser: Parser<DexAnnotationElement, Uint8Array> = promiseCompose(
 	createTupleParser([
-		uleb128Parser,
+		uleb128NumberParser,
 		createParserAccessorParser(() => encodedValueParser),
 	]),
 	([ nameIndex, value ]) => ({ nameIndex, value }),
@@ -1322,14 +1468,14 @@ setParserName(annotationElementParser, 'annotationElementParser');
 const encodedAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promiseCompose(
 	parserCreatorCompose(
 		() => createTupleParser([
-			uleb128Parser,
-			uleb128Parser,
+			uleb128NumberParser,
+			uleb128NumberParser,
 		]),
 		([
 			typeIndex,
 			size,
 		]) => createTupleParser([
-			async () => typeIndex,
+			() => typeIndex,
 			createQuantifierParser(
 				annotationElementParser,
 				size,
@@ -1398,18 +1544,16 @@ const encodedValueParser: Parser<DexEncodedValue, Uint8Array> = createUnionParse
 
 setParserName(encodedValueParser, 'encodedValueParser');
 
-const createSkipThenEncodedArrayParser = (encodedArrayOffset: number): Parser<DexEncodedValue[], Uint8Array> => promiseCompose(
-	createTupleParser([
-		createSkipToParser(encodedArrayOffset),
-		encodedArrayParser,
-	]),
-	([ _, encodedArray ]) => encodedArray,
-);
-
 type DexTryItem = {
-	startAddress: number,
-	instructionCount: number,
-	handlerOffset: number,
+	startAddress: number;
+	instructionCount: number;
+	handlerOffset: OffsetFromEncodedCatchHandlerListToEncodedCatchHandler;
+};
+
+type DexTry = {
+	startAddress: number;
+	instructionCount: number;
+	handler: DexEncodedCatchHandler;
 };
 
 const tryItemParser: Parser<DexTryItem, Uint8Array> = promiseCompose(
@@ -1425,64 +1569,103 @@ const tryItemParser: Parser<DexTryItem, Uint8Array> = promiseCompose(
 	]) => ({
 		startAddress,
 		instructionCount,
-		handlerOffset,
+		handlerOffset: isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler.wrap(handlerOffset),
 	}),
 );
 
+setParserName(tryItemParser, 'tryItemParser');
+
 type DexEncodedTypeAddressPair = {
-	typeIndex: number,
-	address: number,
+	typeIndex: IndexIntoTypeIds;
+	address: number;
 };
 
 const encodedTypeAddressPairParser: Parser<DexEncodedTypeAddressPair, Uint8Array> = promiseCompose(
 	createTupleParser([
-		uleb128Parser,
-		uleb128Parser,
+		uleb128NumberParser,
+		uleb128NumberParser,
 	]),
-	([ typeIndex, address ]) => ({ typeIndex, address }),
+	([
+		typeIndex,
+		address,
+	]) => ({
+		typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
+		address,
+	}),
 );
 
 type DexEncodedCatchHandler = {
-	addresses: DexEncodedTypeAddressPair[],
+	handlers: DexEncodedTypeAddressPair[],
 	catchAllAddress: undefined | number,
 };
 
 const encodedCatchHandlerParser: Parser<DexEncodedCatchHandler, Uint8Array> = parserCreatorCompose(
-	() => sleb128Parser,
+	() => sleb128NumberParser,
 	size => promiseCompose(
 		createTupleParser([
 			createQuantifierParser(
 				encodedTypeAddressPairParser,
 				Math.abs(size),
 			),
-			size < 0 ? uleb128Parser : async () => undefined,
+			size <= 0 ? uleb128NumberParser : () => undefined,
 		]),
-		([ addresses, catchAllAddress ]) => ({ addresses, catchAllAddress }),
+		([
+			handlers,
+			catchAllAddress,
+		]) => ({
+			size,
+			handlers,
+			catchAllAddress,
+		}),
 	),
 )();
 
-const encodedCatchHandlersParser: Parser<DexEncodedCatchHandler[], Uint8Array> = parserCreatorCompose(
-	() => uleb128Parser,
-	size => createQuantifierParser(
-		encodedCatchHandlerParser,
-		size,
-	),
-)();
+setParserName(encodedCatchHandlerParser, 'encodedCatchHandlerParser');
 
-type DexCodeItem = {
-	registersSize: number,
-	insSize: number,
-	outsSize: number,
-	triesSize: number,
-	debugInfoOffset: number,
-	instructions: Uint8Array,
-	tries: DexTryItem[],
-	handlers: DexEncodedCatchHandler[],
+type DexEncodedCatchHandlerByRelativeOffset = Map<OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, DexEncodedCatchHandler>;
+
+const encodedCatchHandlerListParser: Parser<DexEncodedCatchHandlerByRelativeOffset, Uint8Array> = async (parserContext) => {
+	const listOffset = parserContext.position;
+	const handlers: DexEncodedCatchHandlerByRelativeOffset = new Map();
+
+	const size = await uleb128NumberParser(parserContext);
+
+	for (let i = 0; i < size; i += 1) {
+		const handlerRelativeOffset = isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler.wrap(
+			parserContext.position - listOffset,
+		);
+		const handler = await encodedCatchHandlerParser(parserContext);
+
+		handlers.set(handlerRelativeOffset, handler);
+	}
+
+	return handlers;
 };
 
-const createCodeItemParser = (codeOffset: number): Parser<DexCodeItem, Uint8Array> => parserCreatorCompose(
+setParserName(encodedCatchHandlerListParser, 'encodedCatchHandlerListParser');
+
+type DexCodeItem = {
+	registersSize: number;
+	insSize: number;
+	outsSize: number;
+	debugInfoOffset: OffsetToDebugInfoItem;
+	instructions: Uint8Array;
+	tryItems: DexTryItem[];
+	handlers: DexEncodedCatchHandlerByRelativeOffset;
+};
+
+type DexCode = {
+	registersSize: number;
+	insSize: number;
+	outsSize: number;
+	debugInfo: undefined | DexDebugInfo;
+	instructions: Uint8Array;
+	tries: DexTry[];
+};
+
+const dexCodeItemParser: Parser<DexCodeItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
-		createSkipToParser(codeOffset),
+		byteAlign4Parser,
 		ushortParser,
 		ushortParser,
 		ushortParser,
@@ -1498,66 +1681,82 @@ const createCodeItemParser = (codeOffset: number): Parser<DexCodeItem, Uint8Arra
 		triesSize,
 		debugInfoOffset,
 		instructionsSize,
-	]) => promiseCompose(
-		createTupleParser([
-			createFixedLengthSequenceParser(instructionsSize * 2),
-			(
-				triesSize !== 0 && instructionsSize % 2 === 1
-					? createExactSequenceParser(new Uint8Array(2))
-					: async () => undefined
-			),
-			(
-				triesSize !== 0
-					? createQuantifierParser(
-						tryItemParser,
-						triesSize,
-					)
-					: async () => []
-			),
-			(
-				triesSize !== 0
-					? encodedCatchHandlersParser
-					: async () => []
-			),
-		]),
-		([
-			instructions,
-			_padding,
-			tries,
-			handlers,
-		]) => ({
-			registersSize,
-			insSize,
-			outsSize,
-			triesSize,
-			debugInfoOffset,
-			instructions,
-			tries,
-			handlers,
-		}),
-	),
+	]) => {
+		return promiseCompose(
+			createTupleParser([
+				setParserName(createFixedLengthSequenceParser(instructionsSize * 2), `instructionsParser(${instructionsSize * 2})`),
+				byteAlign4Parser,
+				(
+					triesSize !== 0
+						? createQuantifierParser(
+							tryItemParser,
+							triesSize,
+						)
+						: () => []
+				),
+				(
+					triesSize !== 0
+						? encodedCatchHandlerListParser
+						: () => new Map()
+				),
+			]),
+			([
+				instructions,
+				_padding,
+				tryItems,
+				handlers,
+			]) => {
+				return {
+					registersSize,
+					insSize,
+					outsSize,
+					triesSize,
+					debugInfoOffset: isoOffsetToDebugInfoItem.wrap(debugInfoOffset),
+					instructions,
+					tryItems,
+					handlers,
+				};
+			},
+		);
+	},
 )();
+
+setParserName(dexCodeItemParser, 'dexCodeItemParser');
+
+type DexCodeItemByOffset = Map<OffsetToCodeItem, DexCodeItem>;
+
+const createSkipToThenCodeItemsParser = (sizeOffset: SizeOffset): Parser<DexCodeItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: dexCodeItemParser,
+	byteAlign4: true,
+	isoOffset: isoOffsetToCodeItem,
+	parserName: 'skipToThenCodeItemsParser',
+});
 
 type DexDebugInfoItem = {
 	lineStart: number,
-	parameterNames: number[],
+	parameterNames: IndexIntoStringIds[],
 	bytecode: Uint8Array,
 };
 
-const createDebugInfoItemParser = (debugInfoOffset: number): Parser<DexDebugInfoItem, Uint8Array> => parserCreatorCompose(
+type DexDebugInfo = {
+	lineStart: number,
+	parameterNames: string[],
+	bytecode: Uint8Array,
+};
+
+const debugInfoItemParser: Parser<DexDebugInfoItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
-		createSkipToParser(debugInfoOffset),
-		uleb128Parser,
-		uleb128Parser,
+		uleb128NumberParser,
+		uleb128NumberParser,
 	]),
 	([
-		_,
 		lineStart,
 		parametersSize,
 	]) => promiseCompose(
 		createTupleParser([
 			createQuantifierParser(
-				uleb128Parser,
+				uleb128NumberParser,
 				parametersSize,
 			),
 			createTerminatedArrayParser(
@@ -1567,276 +1766,855 @@ const createDebugInfoItemParser = (debugInfoOffset: number): Parser<DexDebugInfo
 		]),
 		([ parameterNames, [ bytecode ] ]) => ({
 			lineStart,
-			parameterNames,
+			parameterNames: parameterNames.map(isoIndexIntoStringIds.wrap),
 			bytecode: new Uint8Array(bytecode),
 		}),
 	),
 )();
 
-export const dexParser: Parser<unknown, Uint8Array> = parserCreatorCompose(
-	() => dexHeaderParser,
-	(dexHeader) => promiseCompose(
+type DexDebugInfoItemByOffset = Map<OffsetToDebugInfoItem, DexDebugInfoItem>;
+
+const createSkipToThenDebugInfoItemsParser = (sizeOffset: SizeOffset): Parser<DexDebugInfoItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: debugInfoItemParser,
+	byteAlign4: false,
+	isoOffset: isoOffsetToDebugInfoItem,
+	parserName: 'skipToThenDebugInfoItemsParser',
+});
+
+type DexAnnotationItemVisibility =
+	| 'build'
+	| 'runtime'
+	| 'system'
+;
+
+const dexAnnotationItemVisibilityParser: Parser<DexAnnotationItemVisibility, Uint8Array> = promiseCompose(
+	ubyteParser,
+	(visibility) => {
+		switch (visibility) {
+			case 0x00: return 'build';
+			case 0x01: return 'runtime';
+			case 0x02: return 'system';
+			default: invariant(false, 'Unexpected visibility: %s', visibility);
+		}
+	},
+);
+
+setParserName(dexAnnotationItemVisibilityParser, 'dexAnnotationItemVisibilityParser');
+
+type DexAnnotationItem = {
+	visibility: DexAnnotationItemVisibility;
+	encodedAnnotation: DexEncodedAnnotation;
+};
+
+const dexAnnotationItemParser: Parser<DexAnnotationItem, Uint8Array> = promiseCompose(
+	createTupleParser([
+		dexAnnotationItemVisibilityParser,
+		encodedAnnotationParser,
+	]),
+	([ visibility, encodedAnnotation ]) => ({ visibility, encodedAnnotation }),
+);
+
+setParserName(dexAnnotationItemParser, 'dexAnnotationItemParser');
+
+type DexAnnotationItemByOffset = Map<OffsetToAnnotationItem, DexAnnotationItem>;
+
+const createSkipToThenAnnotationItemsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: dexAnnotationItemParser,
+	byteAlign4: false,
+	isoOffset: isoOffsetToAnnotationItem,
+	parserName: 'skipToThenAnnotationItemsParser',
+});
+
+type DexHeaderAndMap = {
+	headerItem: DexHeaderItem;
+	mapList: DexMapList;
+};
+
+const dexHeaderAndMapParser: Parser<DexHeaderAndMap, Uint8Array> = parserCreatorCompose(
+	() => dexHeaderItemParser,
+	(headerItem) => promiseCompose(
+		createLookaheadParser(createDexMapListParser(headerItem.mapOffset)),
+		(mapList) => ({ headerItem, mapList }),
+	),
+)();
+
+type DexPrototype = {
+	shorty: string;
+	returnType: string;
+	parameters: string[];
+};
+
+type DexField = {
+	class: string;
+	type: string;
+	name: string;
+};
+
+type DexFieldWithAccess = {
+	field: DexField;
+	accessFlags: DexAccessFlags;
+};
+
+type DexMethod = {
+	class: string;
+	prototype: DexPrototype;
+	name: string;
+};
+
+type DexMethodWithAccess = {
+	method: DexMethod;
+	accessFlags: DexAccessFlags;
+	code: undefined | DexCode;
+};
+
+type DexAnnotationOffsetItem = {
+	annotationOffset: OffsetToAnnotationItem;
+}
+
+const dexAnnotationOffsetItemParser: Parser<DexAnnotationOffsetItem, Uint8Array> = promiseCompose(
+	uintParser,
+	(annotationOffset) => ({
+		annotationOffset: isoOffsetToAnnotationItem.wrap(annotationOffset),
+	}),
+);
+
+type DexAnnotationSetItem = {
+	entries: DexAnnotationOffsetItem[];
+};
+
+const dexAnnotationSetItemParser: Parser<DexAnnotationSetItem, Uint8Array> = parserCreatorCompose(
+	() => createTupleParser([
+		byteAlign4Parser,
+		uintParser,
+	]),
+	([ _, size ]) => promiseCompose(
+		createQuantifierParser(
+			dexAnnotationOffsetItemParser,
+			size,
+		),
+		(entries) => ({ entries }),
+	),
+)();
+
+type DexAnnotationSetItemByOffset = Map<OffsetToAnnotationSetItem, DexAnnotationSetItem>;
+
+const createSkipToThenAnnotationSetItemsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationSetItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: dexAnnotationSetItemParser,
+	byteAlign4: true,
+	isoOffset: isoOffsetToAnnotationSetItem,
+	parserName: 'skipToThenAnnotationSetItemsParser',
+});
+
+type DexAnnotationSetRefItem = OffsetToAnnotationSetItem;
+
+const dexAnnotationSetRefItemParser: Parser<DexAnnotationSetRefItem, Uint8Array> = promiseCompose(
+	uintParser,
+	(annotationsOffset) => isoOffsetToAnnotationSetItem.wrap(annotationsOffset),
+);
+
+type DexAnnotationSetRefList = {
+	list: DexAnnotationSetRefItem[];
+};
+
+const dexAnnotationSetRefListParser: Parser<DexAnnotationSetRefList, Uint8Array> = parserCreatorCompose(
+	() => createTupleParser([
+		byteAlign4Parser,
+		uintParser,
+	]),
+	([ _, size ]) => promiseCompose(
+		createQuantifierParser(
+			dexAnnotationSetRefItemParser,
+			size,
+		),
+		(list) => ({ list }),
+	),
+)();
+
+type DexAnnotationSetRefListItemByOffset = Map<OffsetToAnnotationSetRefListItem, DexAnnotationSetRefList>;
+
+const createSkipToThenAnnotationSetRefListsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationSetRefListItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: dexAnnotationSetRefListParser,
+	byteAlign4: true,
+	isoOffset: isoOffsetToAnnotationSetRefListItem,
+	parserName: 'skipToThenAnnotationSetRefListsParser',
+});
+
+type DexClassFieldAnnotation = {
+	field: DexField;
+	annotations: undefined | DexAnnotationSetItem;
+};
+
+type DexClassMethodAnnotation = {
+	method: DexMethod;
+	annotations: undefined | DexAnnotationSetItem;
+};
+
+type DexClassParameterAnnotation = {
+	method: DexMethod;
+	annotations: undefined | (undefined | DexAnnotationItem[])[];
+};
+
+type DexClassAnnotations = {
+	classAnnotations: undefined | DexAnnotationSetItem;
+	fieldAnnotations: DexClassFieldAnnotation[];
+	methodAnnotations: DexClassMethodAnnotation[];
+	parameterAnnotations: DexClassParameterAnnotation[];
+};
+
+type DexClassData = {
+	staticFields: DexFieldWithAccess[];
+	instanceFields: DexFieldWithAccess[];
+	directMethods: DexMethodWithAccess[];
+	virtualMethods: DexMethodWithAccess[];
+};
+
+type DexClassDefinition = {
+	class: string;
+	accessFlags: DexAccessFlags,
+	superclass: string;
+	interfaces: string[];
+	sourceFile: undefined | string;
+	annotations: undefined | DexClassAnnotations;
+	staticValues: DexEncodedValue[];
+	classData: undefined | DexClassData;
+};
+
+type DexMapItemType =
+	| 'headerItem'
+	| 'stringIdItem'
+	| 'typeIdItem'
+	| 'prototypeIdItem'
+	| 'fieldIdItem'
+	| 'methodIdItem'
+	| 'classDefinitionItem'
+	| 'callSiteIdItem'
+	| 'methodHandleItem'
+	| 'mapList'
+	| 'typeList'
+	| 'annotationSetRefList'
+	| 'annotationSetItem'
+	| 'classDataItem'
+	| 'codeItem'
+	| 'stringDataItem'
+	| 'debugInfoItem'
+	| 'annotationItem'
+	| 'encodedArrayItem'
+	| 'annotationsDirectoryItem'
+	| 'hiddenApiClassDataItem'
+;
+
+const dexMapItemTypeParser: Parser<DexMapItemType, Uint8Array> = promiseCompose(
+	ushortParser,
+	(type) => {
+		switch (type) {
+			case 0x0000: return 'headerItem';
+			case 0x0001: return 'stringIdItem';
+			case 0x0002: return 'typeIdItem';
+			case 0x0003: return 'prototypeIdItem';
+			case 0x0004: return 'fieldIdItem';
+			case 0x0005: return 'methodIdItem';
+			case 0x0006: return 'classDefinitionItem';
+			case 0x0007: return 'callSiteIdItem';
+			case 0x0008: return 'methodHandleItem';
+			case 0x1000: return 'mapList';
+			case 0x1001: return 'typeList';
+			case 0x1002: return 'annotationSetRefList';
+			case 0x1003: return 'annotationSetItem';
+			case 0x2000: return 'classDataItem';
+			case 0x2001: return 'codeItem';
+			case 0x2002: return 'stringDataItem';
+			case 0x2003: return 'debugInfoItem';
+			case 0x2004: return 'annotationItem';
+			case 0x2005: return 'encodedArrayItem';
+			case 0x2006: return 'annotationsDirectoryItem';
+			case 0xF000: return 'hiddenApiClassDataItem';
+			default: invariant(false, 'Unexpected map item type: %s', type);
+		}
+	},
+);
+
+type DexMapItem = {
+	type: DexMapItemType;
+	size: number;
+	offset: number;
+};
+
+const dexMapItemParser: Parser<DexMapItem, Uint8Array> = promiseCompose(
+	createTupleParser([
+		dexMapItemTypeParser,
+		ushortParser,
+		uintParser,
+		uintParser,
+	]),
+	([ type, _unused, size, offset ]) => ({ type, size, offset }),
+);
+
+type DexMapList = DexMapItem[];
+
+const dexMapListParser: Parser<DexMapList, Uint8Array> = parserCreatorCompose(
+	() => uintParser,
+	size => {
+		return createQuantifierParser(
+			dexMapItemParser,
+			size,
+		);
+	},
+)();
+
+setParserName(dexMapListParser, 'dexMapListParser');
+
+const createDexMapListParser = (mapOffset: number): Parser<DexMapList, Uint8Array> => {
+	const dexMapParser = promiseCompose(
 		createTupleParser([
-			createStringIdsParser(dexHeader.stringIds),
-			createTypeIdsParser(dexHeader.typeIds),
-			createProtoIdsParser(dexHeader.protoIds),
-			createFieldIdsParser(dexHeader.fieldIds),
-			createMethodIdsParser(dexHeader.methodIds),
-			createClassDefinitionsParser(dexHeader.classDefinitions),
-			createDataParser(dexHeader.data),
-			createDataParser(dexHeader.link),
+			createSkipToParser(mapOffset),
+			dexMapListParser,
+		]),
+		([ _, map ]) => map,
+	);
+
+	setParserName(dexMapParser, 'dexMapParser');
+
+	return dexMapParser;
+};
+
+type DexEncodedArrayItem = DexEncodedArray;
+
+type DexEncodedArrayItemByOffset = Map<OffsetToEncodedArrayItem, DexEncodedArrayItem>;
+
+const createSkipToThenEncodedArrayItemsParser = (sizeOffset: SizeOffset): Parser<DexEncodedArrayItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+	sizeOffset,
+	itemParser: encodedArrayParser,
+	byteAlign4: false,
+	isoOffset: isoOffsetToEncodedArrayItem,
+	parserName: 'skipToThenEncodedArrayItemsParser',
+});
+
+type DexCallSiteIdItem = unknown; // TODO
+
+type DexMethodHandleItem = unknown; // TODO
+
+type DexHiddenApiClassDataItem = unknown; // TODO
+
+type DexData = {
+	headerItem: DexHeaderItem;
+	stringIdItems: DexStringIdItems;
+	typeIdItems: DexTypeIdItems;
+	prototypeIdItems: DexPrototypeIdItems;
+	fieldIdItems: DexFieldIdItems;
+	methodIdItems: DexMethodIdItems;
+	classDefinitionItems: DexClassDefinitionItem[];
+	callSiteIdItems: DexCallSiteIdItem[];
+	methodHandleItems: DexMethodHandleItem[];
+	mapList: DexMapList;
+	typeListByOffset: DexTypeListByOffset;
+	annotationSetRefListItemByOffset: DexAnnotationSetRefListItemByOffset;
+	annotationSetItemByOffset: DexAnnotationSetItemByOffset;
+	classDataItemByOffset: DexClassDataItemByOffset;
+	codeItemByOffset: DexCodeItemByOffset;
+	stringDataItemStringByOffset: DexStringDataItemStringByOffset;
+	debugInfoItemByOffset: DexDebugInfoItemByOffset;
+	annotationItemByOffset: DexAnnotationItemByOffset;
+	encodedArrayItemByOffset: DexEncodedArrayItemByOffset;
+	annotationsDirectoryItemByOffset: DexAnnotationsDirectoryItemByOffset;
+	hiddenApiClassDataItems: DexHiddenApiClassDataItem[];
+};
+
+const createDexDataParser = ({
+	headerItem,
+	mapList,
+}: DexHeaderAndMap): Parser<DexData, Uint8Array> => {
+	const dexDataParser: Parser<DexData, Uint8Array> = async (parserContext) => {
+		let stringIdItems: DexStringIdItems = isoDexStringIdItems.wrap([]);
+		let typeIdItems: DexTypeIdItems = isoDexTypeIdItems.wrap([]);
+		let prototypeIdItems: DexPrototypeIdItems = isoDexPrototypeIdItems.wrap([]);
+		let fieldIdItems: DexFieldIdItems = isoDexFieldIdItems.wrap([]);
+		let methodIdItems: DexMethodIdItems = isoDexMethodIdItems.wrap([]);
+		let classDefinitionItems: DexClassDefinitionItem[] = [];
+		let callSiteIdItems: DexCallSiteIdItem[] = [];
+		let methodHandleItems: DexMethodHandleItem[] = [];
+		let typeListByOffset: DexTypeListByOffset = new Map();
+		let annotationSetRefListItemByOffset: DexAnnotationSetRefListItemByOffset = new Map();
+		let annotationSetItemByOffset: DexAnnotationSetItemByOffset = new Map();
+		let classDataItemByOffset: DexClassDataItemByOffset = new Map();
+		let codeItemByOffset: DexCodeItemByOffset = new Map();
+		let stringDataItemStringByOffset: DexStringDataItemStringByOffset = new Map();
+		let debugInfoItemByOffset: DexDebugInfoItemByOffset = new Map();
+		let annotationItemByOffset: DexAnnotationItemByOffset = new Map();
+		let encodedArrayItemByOffset: DexEncodedArrayItemByOffset = new Map();
+		let annotationsDirectoryItemByOffset: DexAnnotationsDirectoryItemByOffset = new Map();
+		let hiddenApiClassDataItems: DexHiddenApiClassDataItem[] = [];
+
+		for (const dexMapItem of mapList) {
+			if (dexMapItem.type === 'headerItem') {
+				continue;
+			}
+
+			if (dexMapItem.type === 'stringIdItem') {
+				stringIdItems = await createSkipToThenStringIdItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'typeIdItem') {
+				typeIdItems = await createSkipToThenTypeIdItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'prototypeIdItem') {
+				prototypeIdItems = await createSkipToThenPrototypeIdItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'fieldIdItem') {
+				fieldIdItems = await createSkipToThenFieldIdItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'methodIdItem') {
+				methodIdItems = await createSkipToThenMethodIdItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'classDefinitionItem') {
+				classDefinitionItems = await createSkipToThenClassDefinitionItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'callSiteIdItem') {
+				// TODO
+			}
+
+			if (dexMapItem.type === 'methodHandleItem') {
+				// TODO
+			}
+
+			if (dexMapItem.type === 'mapList') {
+				continue;
+			}
+
+			if (dexMapItem.type === 'typeList') {
+				typeListByOffset = await createSkipToThenTypeListByOffsetParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'annotationSetRefList') {
+				annotationSetRefListItemByOffset = await createSkipToThenAnnotationSetRefListsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'annotationSetItem') {
+				annotationSetItemByOffset = await createSkipToThenAnnotationSetItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'classDataItem') {
+				classDataItemByOffset = await createSkipToThenClassDataItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'codeItem') {
+				codeItemByOffset = await createSkipToThenCodeItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'stringDataItem') {
+				stringDataItemStringByOffset = await createSkipToThenStringsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'debugInfoItem') {
+				debugInfoItemByOffset = await createSkipToThenDebugInfoItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'annotationItem') {
+				annotationItemByOffset = await createSkipToThenAnnotationItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'encodedArrayItem') {
+				encodedArrayItemByOffset = await createSkipToThenEncodedArrayItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'annotationsDirectoryItem') {
+				annotationsDirectoryItemByOffset = await createSkipToThenAnnotationsDirectoryItemsParser(dexMapItem)(parserContext);
+				continue;
+			}
+
+			if (dexMapItem.type === 'hiddenApiClassDataItem') {
+				// TODO
+			}
+
+			invariant(false, 'Unexpected map item type: %s', dexMapItem.type);
+		}
+
+		return {
+			headerItem,
+			stringIdItems,
+			typeIdItems,
+			prototypeIdItems,
+			fieldIdItems,
+			methodIdItems,
+			classDefinitionItems,
+			callSiteIdItems,
+			methodHandleItems,
+			mapList,
+			typeListByOffset,
+			annotationSetRefListItemByOffset,
+			annotationSetItemByOffset,
+			classDataItemByOffset,
+			codeItemByOffset,
+			stringDataItemStringByOffset,
+			debugInfoItemByOffset,
+			annotationItemByOffset,
+			encodedArrayItemByOffset,
+			annotationsDirectoryItemByOffset,
+			hiddenApiClassDataItems,
+		};
+	};
+
+	setParserName(dexDataParser, 'dexDataParser');
+
+	return dexDataParser;
+};
+
+type Dex = {
+	classDefinitions: DexClassDefinition[];
+	link: undefined | Uint8Array,
+};
+
+export const dexParser: Parser<Dex, Uint8Array> = parserCreatorCompose(
+	() => dexHeaderAndMapParser,
+	({
+		headerItem,
+		mapList,
+	}) => promiseCompose(
+		createTupleParser([
+			createLookaheadParser(createDexDataParser({ headerItem, mapList })),
+			createRawDataParser(headerItem.link),
 		]),
 		async ([
-			stringIds,
-			typeIds,
-			protoIds,
-			fieldIds,
-			methodIds,
-			classDefIds,
-			data,
+			{
+				headerItem: _headerItem,
+				stringIdItems,
+				typeIdItems,
+				prototypeIdItems,
+				fieldIdItems,
+				methodIdItems,
+				classDefinitionItems,
+				// callSiteIdItems,
+				// methodHandleItems,
+				mapList: _mapList,
+				typeListByOffset,
+				annotationSetRefListItemByOffset,
+				annotationSetItemByOffset,
+				classDataItemByOffset,
+				codeItemByOffset,
+				stringDataItemStringByOffset,
+				debugInfoItemByOffset,
+				annotationItemByOffset,
+				encodedArrayItemByOffset,
+				annotationsDirectoryItemByOffset,
+				// hiddenApiClassDataItems,
+			},
 			link,
 		]) => {
-			const strings = await Promise.all(stringIds.map(async (stringDataOffset) => {
-				invariant(data, 'data must be there if stringIds has elements');
+			const strings = stringIdItems.map((stringId) => {
+				const stringOffset = stringId;
+				const string = stringDataItemStringByOffset.get(stringOffset);
+				invariant(string !== undefined, 'String must be there. String offset: %s', stringOffset);
 
-				const stringDataItem = await runParser(
-					createStringParser(stringDataOffset - dexHeader.data.offset),
-					data,
-					uint8ArrayParserInputCompanion,
-				);
+				return string;
+			});
 
-				return stringDataItem;
-			}));
+			const types = typeIdItems.map((typeId) => {
+				const type = strings.at(typeId);
+				invariant(type, 'Type string must be there. Type id: %s', typeId);
 
-			const types = typeIds.map((typeId) => {
-				const type = strings[typeId];
-				invariant(type, 'Type string must be there. Type id: %d', typeId);
 				return type;
 			});
 
-			const prototypes = await Promise.all(protoIds.map(async (protoId) => {
-				const shorty = strings[protoId.shortyIndex];
-				invariant(shorty, 'Shorty string must be there. Shorty id: %d', protoId.shortyIndex);
+			const resolvedTypeListByOffset = new Map<OffsetToTypeList, string[]>([
+				[ isoOffsetToTypeList.wrap(0), [] ],
+			]);
 
-				const returnType = types[protoId.returnTypeIndex];
-				invariant(returnType, 'Return type must be there. Return type id: %d', protoId.returnTypeIndex);
+			for (const [ offset, typeIndexes ] of typeListByOffset) {
+				const typeNames = isoDexTypeList.unwrap(typeIndexes).map((typeIndex) => {
+					const type = types.at(typeIndex);
+					invariant(type, 'Type must be there. Type id: %s', typeIndex);
 
-				if (protoId.parametersOffset === 0) {
-					return { shorty, returnType, parameters: [] };
-				}
-
-				invariant(data, 'data must be there if protoId.parametersOffset is not 0');
-
-				const parameterIndexes = await runParser(
-					createTypeListParser(protoId.parametersOffset - dexHeader.data.offset),
-					data,
-					uint8ArrayParserInputCompanion,
-				);
-
-				const parameters = parameterIndexes.map((parameterIndex) => {
-					const parameter = types[parameterIndex];
-					invariant(parameter, 'Parameter type must be there. Parameter type id: %d', parameterIndex);
-					return parameter;
+					return type;
 				});
 
+				resolvedTypeListByOffset.set(offset, typeNames);
+			}
+
+			const prototypes = prototypeIdItems.map((prototypeId) => {
+				const shorty = strings.at(prototypeId.shortyIndex);
+				invariant(shorty, 'Shorty must be there. Shorty id: %s', prototypeId.shortyIndex);
+
+				const returnType = types.at(prototypeId.returnTypeIndex);
+				invariant(returnType, 'Return type must be there. Return type id: %s', prototypeId.returnTypeIndex);
+
+				const parameters = resolvedTypeListByOffset.get(prototypeId.parametersOffset);
+				invariant(parameters !== undefined, 'Parameters must be there. Parameters offset: %s', prototypeId.parametersOffset);
+
 				return { shorty, returnType, parameters };
-			}));
+			});
 
-			const fields = fieldIds.map((fieldId) => {
-				const class_ = types[fieldId.classIndex];
-				invariant(class_, 'Class type must be there. Class type id: %d', fieldId.classIndex);
+			const fields = fieldIdItems.map((fieldId) => {
+				const class_ = types.at(fieldId.classIndex);
+				invariant(class_, 'Class must be there. Class id: %s', fieldId.classIndex);
 
-				const type = types[fieldId.typeIndex];
-				invariant(type, 'Type must be there. Type id: %d', fieldId.typeIndex);
+				const type = types.at(fieldId.typeIndex);
+				invariant(type, 'Type must be there. Type id: %s', fieldId.typeIndex);
 
-				const name = strings[fieldId.nameIndex];
-				invariant(name, 'Name must be there. Name id: %d', fieldId.nameIndex);
+				const name = strings.at(fieldId.nameIndex);
+				invariant(name, 'Name string must be there. String offset: %s', fieldId.nameIndex);
 
 				return { class: class_, type, name };
 			});
 
-			const methods = methodIds.map((methodId) => {
-				const class_ = types[methodId.classIndex];
-				invariant(class_, 'Class type must be there. Class type id: %d', methodId.classIndex);
+			const methods = methodIdItems.map((methodId) => {
+				const class_ = types.at(methodId.classIndex);
+				invariant(class_, 'Class must be there. Class id: %s', methodId.classIndex);
 
-				const prototype = prototypes[methodId.protoIndex];
-				invariant(prototype, 'Proto must be there. Proto id: %d', methodId.protoIndex);
+				const prototype = prototypes.at(methodId.prototypeIndex);
+				invariant(prototype, 'Prototype must be there. Prototype id: %s', methodId.prototypeIndex);
 
-				const name = strings[methodId.nameIndex];
-				invariant(name, 'Name must be there. Name id: %d', methodId.nameIndex);
+				const name = strings.at(methodId.nameIndex);
+				invariant(name, 'Name string must be there. String offset: %s', methodId.nameIndex);
 
 				return { class: class_, prototype, name };
 			});
 
-			const classDefinitions = await Promise.all(classDefIds.map(async (classDef) => {
-				const class_ = types[classDef.classIndex];
-				invariant(class_, 'Class type must be there. Class type id: %d', classDef.classIndex);
+			const debugInfoByOffset = new Map<OffsetToDebugInfoItem, undefined | DexDebugInfo>([
+				[ isoOffsetToDebugInfoItem.wrap(0), undefined ],
+			]);
 
-				const superclass = types[classDef.superclassIndex];
-				invariant(superclass, 'Superclass type must be there. Superclass type id: %d', classDef.superclassIndex);
+			for (const [ offset, debugInfoItem ] of debugInfoItemByOffset) {
+				debugInfoByOffset.set(offset, {
+					lineStart: debugInfoItem.lineStart,
+					parameterNames: debugInfoItem.parameterNames.map((index) => {
+						const string = strings.at(index);
+						invariant(string !== undefined, 'String must be there. String id: %s', index);
 
-				let interfaces: string[];
+						return string;
+					}),
+					bytecode: debugInfoItem.bytecode,
+				});
+			}
 
-				if (classDef.interfacesOffset === 0) {
-					interfaces = [];
-				} else {
-					invariant(data, 'data must be there if classDef.interfacesOffset is not 0');
+			const codeByOffset = new Map<OffsetToCodeItem, undefined | DexCode>([
+				[ isoOffsetToCodeItem.wrap(0), undefined ],
+			]);
 
-					const interfaceIndexes = await runParser(
-						createTypeListParser(classDef.interfacesOffset - dexHeader.data.offset),
-						data,
-						uint8ArrayParserInputCompanion,
+			for (const [ offset, codeItem ] of codeItemByOffset) {
+				const debugInfo = debugInfoByOffset.get(codeItem.debugInfoOffset);
+
+				codeByOffset.set(offset, {
+					registersSize: codeItem.registersSize,
+					insSize: codeItem.insSize,
+					outsSize: codeItem.outsSize,
+					debugInfo: debugInfo,
+					instructions: codeItem.instructions,
+					tries: codeItem.tryItems.map((tryItem) => {
+						const handler = codeItem.handlers.get(tryItem.handlerOffset);
+						invariant(handler, 'Handler must be there. Handler offset: %s', tryItem.handlerOffset);
+
+						return {
+							startAddress: tryItem.startAddress,
+							instructionCount: tryItem.instructionCount,
+							handler,
+						};
+					}),
+				});
+			}
+
+			const classDataByOffset = new Map<OffsetToClassDataItem, undefined | DexClassData>([
+				[ isoOffsetToClassDataItem.wrap(0), undefined ],
+			]);
+
+			for (const [ offset, classDataItem ] of classDataItemByOffset) {
+				classDataByOffset.set(offset, {
+					staticFields: classDataItem.staticFields.map((encodedField) => {
+						const field = fields.at(encodedField.fieldIndex);
+						invariant(field, 'Field must be there. Field id: %s', encodedField.fieldIndex);
+
+						return {
+							field,
+							accessFlags: encodedField.accessFlags,
+						};
+					}),
+
+					instanceFields: classDataItem.instanceFields.map((encodedField) => {
+						const field = fields.at(encodedField.fieldIndex);
+						invariant(field, 'Field must be there. Field id: %s', encodedField.fieldIndex);
+
+						return {
+							field,
+							accessFlags: encodedField.accessFlags,
+						};
+					}),
+
+					directMethods: classDataItem.directMethods.map((method) => {
+						const method_ = methods.at(method.methodIndex);
+						invariant(method_, 'Method must be there. Method id: %s', method.methodIndex);
+
+						const code = codeByOffset.get(method.codeOffset);
+
+						return {
+							method: method_,
+							accessFlags: method.accessFlags,
+							code,
+						};
+					}),
+
+					virtualMethods: classDataItem.virtualMethods.map((method) => {
+						const method_ = methods.at(method.methodIndex);
+						invariant(method_, 'Method must be there. Method id: %s', method.methodIndex);
+
+						const code = codeByOffset.get(method.codeOffset);
+
+						return {
+							method: method_,
+							accessFlags: method.accessFlags,
+							code,
+						};
+					}),
+				});
+			}
+
+			const classDefinitions = classDefinitionItems.map((classDefinitionItem) => {
+				const class_ = types.at(classDefinitionItem.classIndex);
+				invariant(class_, 'Class must be there. Class id: %s', classDefinitionItem.classIndex);
+
+				const superclass = types.at(classDefinitionItem.superclassIndex);
+				invariant(superclass, 'Superclass must be there. Superclass id: %s', classDefinitionItem.superclassIndex);
+
+				const interfaces = resolvedTypeListByOffset.get(classDefinitionItem.interfacesOffset);
+				invariant(interfaces !== undefined, 'Interfaces must be there. Interfaces offset: %s', classDefinitionItem.interfacesOffset);
+
+				const sourceFile = classDefinitionItem.sourceFileIndex === undefined ? undefined : strings.at(classDefinitionItem.sourceFileIndex);
+
+				const annotationsDirectoryItem = annotationsDirectoryItemByOffset.get(classDefinitionItem.annotationsOffset);
+				invariant(
+					isoOffsetToAnnotationsDirectoryItem.unwrap(classDefinitionItem.annotationsOffset) === 0 || annotationsDirectoryItem,
+					'Annotations directory item must be there. Annotations offset: %s',
+					classDefinitionItem.annotationsOffset,
+				);
+
+				const annotations = (() => {
+					if (!annotationsDirectoryItem) {
+						return undefined;
+					}
+
+					const classAnnotations = annotationSetItemByOffset.get(annotationsDirectoryItem.classAnnotationsOffset);
+					invariant(
+						isoOffsetToAnnotationSetItem.unwrap(annotationsDirectoryItem.classAnnotationsOffset) === 0 || classAnnotations,
+						'Class annotations must be there. Class annotations offset: %s',
+						annotationsDirectoryItem.classAnnotationsOffset,
 					);
 
-					interfaces = interfaceIndexes.map((interfaceIndex) => {
-						const interface_ = types[interfaceIndex];
-						invariant(interface_, 'Interface type must be there. Interface type id: %d', interfaceIndex);
-						return interface_;
+					const fieldAnnotations = annotationsDirectoryItem.fieldAnnotations.map((fieldAnnotation) => {
+						const field = fields.at(fieldAnnotation.fieldIndex);
+						invariant(field, 'Field must be there. Field id: %s', fieldAnnotation.fieldIndex);
+
+						const annotations = annotationSetItemByOffset.get(fieldAnnotation.annotationsOffset);
+						invariant(
+							isoOffsetToAnnotationSetItem.unwrap(fieldAnnotation.annotationsOffset) === 0 || annotations,
+							'Annotations must be there. Annotations offset: %s',
+							fieldAnnotation.annotationsOffset,
+						);
+
+						return { field, annotations };
 					});
-				}
 
-				let annotations: unknown;
+					const methodAnnotations = annotationsDirectoryItem.methodAnnotations.map((methodAnnotation) => {
+						const method = methods.at(methodAnnotation.methodIndex);
+						invariant(method, 'Method must be there. Method id: %s', methodAnnotation.methodIndex);
 
-				if (classDef.annotationsOffset === 0) {
-					annotations = undefined;
-				} else {
-					invariant(data, 'data must be there if classDef.annotationsOffset is not 0');
+						const annotations = annotationSetItemByOffset.get(methodAnnotation.annotationsOffset);
+						invariant(
+							isoOffsetToAnnotationSetItem.unwrap(methodAnnotation.annotationsOffset) === 0 || annotations,
+							'Annotations must be there. Annotations offset: %s',
+							methodAnnotation.annotationsOffset,
+						);
 
-					annotations = await runParser(
-						createAnnotationsDirectoryItemParser(classDef.annotationsOffset - dexHeader.data.offset),
-						data,
-						uint8ArrayParserInputCompanion,
-					);
-				}
+						return { method, annotations };
+					});
 
-				let classDataItem: DexClassDataItem | undefined;
+					const parameterAnnotations = annotationsDirectoryItem.parameterAnnotations.map((parameterAnnotation) => {
+						const method = methods.at(parameterAnnotation.methodIndex);
+						invariant(method, 'Method must be there. Method id: %s', parameterAnnotation.methodIndex);
 
-				if (classDef.classDataOffset !== 0) {
-					invariant(data, 'data must be there if classDef.classDataOffset is not 0');
+						const annotationSetRefList = annotationSetRefListItemByOffset.get(parameterAnnotation.annotationsOffset);
+						invariant(
+							isoOffsetToAnnotationSetRefListItem.unwrap(parameterAnnotation.annotationsOffset) === 0 || annotationSetRefList,
+							'Annotations must be there. Annotations offset: %s',
+							parameterAnnotation.annotationsOffset,
+						);
 
-					classDataItem = await runParser(
-						createClassDataItemParser(classDef.classDataOffset - dexHeader.data.offset),
-						data,
-						uint8ArrayParserInputCompanion,
-					);
-				}
-
-				const [
-					directMethods,
-					virtualMethods,
-				] = await Promise.all([
-					Promise.all((classDataItem?.directMethods ?? []).map(async (directMethod) => {
-						const method = methods[directMethod.methodIndex];
-						invariant(method, 'Method must be there. Method id: %d', directMethod.methodIndex);
-
-						let codeItem: DexCodeItem | undefined;
-
-						if (directMethod.codeOffset !== 0) {
-							invariant(data, 'data must be there if directMethod.codeOffset is not 0');
-
-							codeItem = await runParser(
-								createCodeItemParser(directMethod.codeOffset - dexHeader.data.offset),
-								data,
-								uint8ArrayParserInputCompanion,
+						const annotations = annotationSetRefList?.list.map((annotationSetRefItem) => {
+							const annotationSetItem = annotationSetItemByOffset.get(annotationSetRefItem);
+							invariant(
+								isoOffsetToAnnotationSetItem.unwrap(annotationSetRefItem) === 0 || annotationSetItem,
+								'Annotations must be there. Annotations offset: %s',
+								annotationSetRefItem,
 							);
-						}
 
-						let debugInfoItem: DexDebugInfoItem | undefined;
+							const annotationItems = annotationSetItem?.entries.map((annotationOffsetItem) => {
+								const annotationItem = annotationItemByOffset.get(annotationOffsetItem.annotationOffset);
+								invariant(
+									annotationItem,
+									'Annotation must be there. Annotation offset: %s',
+									annotationOffsetItem.annotationOffset,
+								);
 
-						if (codeItem?.debugInfoOffset) {
-							invariant(data, 'data must be there if codeItem.debugInfoOffset is not 0');
+								return annotationItem;
+							});
 
-							debugInfoItem = await runParser(
-								createDebugInfoItemParser(codeItem.debugInfoOffset - dexHeader.data.offset),
-								data,
-								uint8ArrayParserInputCompanion,
-							);
-						}
+							return annotationItems;
+						});
 
-						return {
-							method,
-							accessFlags: directMethod.accessFlags,
-							codeItem: codeItem && {
-								registersSize: codeItem.registersSize,
-								insSize: codeItem.insSize,
-								outsSize: codeItem.outsSize,
-								tries: codeItem.tries,
-								handlers: codeItem.handlers,
-								instructions: codeItem.instructions,
-								debugInfo: debugInfoItem,
-							},
-						};
-					})),
-					Promise.all((classDataItem?.virtualMethods ?? []).map(async (virtualMethod) => {
-						const method = methods[virtualMethod.methodIndex];
-						invariant(method, 'Method must be there. Method id: %d', virtualMethod.methodIndex);
+						return { method, annotations };
+					});
 
-						let codeItem: DexCodeItem | undefined;
+					return {
+						classAnnotations,
+						fieldAnnotations,
+						methodAnnotations,
+						parameterAnnotations,
+					};
+				})();
 
-						if (virtualMethod.codeOffset !== 0) {
-							invariant(data, 'data must be there if virtualMethod.codeOffset is not 0');
+				const classData = classDataByOffset.get(classDefinitionItem.classDataOffset);
 
-							codeItem = await runParser(
-								createCodeItemParser(virtualMethod.codeOffset - dexHeader.data.offset),
-								data,
-								uint8ArrayParserInputCompanion,
-							);
-						}
-
-						return {
-							method,
-							accessFlags: virtualMethod.accessFlags,
-							codeItem,
-						};
-					})),
-				] as const);
-
-				const classData = {
-					staticFields: classDataItem?.staticFields.map((field) => ({
-						field: fields[field.fieldIndex],
-						accessFlags: field.accessFlags,
-					})) ?? [],
-					instanceFields: classDataItem?.instanceFields.map((field) => ({
-						field: fields[field.fieldIndex],
-						accessFlags: field.accessFlags,
-					})) ?? [],
-					directMethods,
-					virtualMethods,
-				};
-
-				let staticValues: DexEncodedValue[] = [];
-
-				if (classDef.staticValuesOffset !== 0) {
-					invariant(data, 'data must be there if classDef.staticValuesOffset is not 0');
-
-					staticValues = await runParser(
-						createSkipThenEncodedArrayParser(classDef.staticValuesOffset - dexHeader.data.offset),
-						data,
-						uint8ArrayParserInputCompanion,
-					);
-				}
+				const staticValues = isoOffsetToEncodedArrayItem.unwrap(classDefinitionItem.staticValuesOffset) === 0 ? [] : encodedArrayItemByOffset.get(classDefinitionItem.staticValuesOffset);
+				invariant(staticValues, 'Static values must be there. Static values offset: %s', classDefinitionItem.staticValuesOffset);
 
 				return {
 					class: class_,
-					accessFlags: classDef.accessFlags,
+					accessFlags: classDefinitionItem.accessFlags,
 					superclass,
 					interfaces,
-					sourceFile: strings[classDef.sourceFileIndex],
+					sourceFile,
 					annotations,
 					classData,
 					staticValues,
 				};
-			}));
+			});
 
 			return {
-				strings,
-				types,
-				prototypes,
-				fields,
-				methods,
 				classDefinitions,
 				link,
 			};
 		},
 	),
 )();
+
+setParserName(dexParser, 'dexParser');
