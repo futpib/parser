@@ -1739,7 +1739,7 @@ const createSkipToThenCodeItemsParser = (sizeOffset: SizeOffset): Parser<DexCode
 	parserName: 'skipToThenCodeItemsParser',
 });
 
-type DexDebugByteCodeValue =
+type DexDebugByteCodeValueItem =
 	| {
 		type: 'advancePc';
 		addressDiff: number;
@@ -1759,7 +1759,7 @@ type DexDebugByteCodeValue =
 		registerNum: number;
 		nameIndex: IndexIntoStringIds;
 		typeIndex: IndexIntoTypeIds;
-		sigIndex: IndexIntoStringIds;
+		signatureIndex: IndexIntoStringIds;
 	}
 	| {
 		type: 'endLocal';
@@ -1785,9 +1785,55 @@ type DexDebugByteCodeValue =
 	}
 ;
 
-const dexDebugByteCodeValueParser: Parser<DexDebugByteCodeValue, Uint8Array> = parserCreatorCompose(
+type DexDebugByteCodeValue =
+	| {
+		type: 'advancePc';
+		addressDiff: number;
+	}
+	| {
+		type: 'advanceLine';
+		lineDiff: number;
+	}
+	| {
+		type: 'startLocal';
+		registerNum: number;
+		name: undefined | string;
+		type_: undefined | string;
+	}
+	| {
+		type: 'startLocalExtended';
+		registerNum: number;
+		name: undefined | string;
+		type_: undefined | string;
+		signature: undefined | string;
+	}
+	| {
+		type: 'endLocal';
+		registerNum: number;
+	}
+	| {
+		type: 'restartLocal';
+		registerNum: number;
+	}
+	| {
+		type: 'setPrologueEnd';
+	}
+	| {
+		type: 'setEpilogueBegin';
+	}
+	| {
+		type: 'setFile';
+		name: undefined | string;
+	}
+	| {
+		type: 'special';
+		value: number;
+	}
+;
+
+const dexDebugByteCodeValueParser: Parser<DexDebugByteCodeValueItem, Uint8Array> = parserCreatorCompose(
 	() => ubyteParser,
-	(value): Parser<DexDebugByteCodeValue, Uint8Array> => {
+	(value): Parser<DexDebugByteCodeValueItem, Uint8Array> => {
 		switch (value) {
 			case 0x01: return promiseCompose(
 				uleb128NumberParser,
@@ -1817,12 +1863,12 @@ const dexDebugByteCodeValueParser: Parser<DexDebugByteCodeValue, Uint8Array> = p
 					uleb128NumberParser,
 					uleb128NumberParser,
 				]),
-				([ registerNum, nameIndex, typeIndex, sigIndex ]) => ({
+				([ registerNum, nameIndex, typeIndex, signatureIndex ]) => ({
 					type: 'startLocalExtended',
 					registerNum,
 					nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
 					typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
-					sigIndex: isoIndexIntoStringIds.wrap(sigIndex),
+					signatureIndex: isoIndexIntoStringIds.wrap(signatureIndex),
 				}),
 			);
 			case 0x05: return promiseCompose(
@@ -1849,9 +1895,11 @@ const dexDebugByteCodeValueParser: Parser<DexDebugByteCodeValue, Uint8Array> = p
 
 setParserName(dexDebugByteCodeValueParser, 'dexDebugByteCodeValueParser');
 
+type DexDebugByteCodeItem = DexDebugByteCodeValueItem[];
+
 type DexDebugByteCode = DexDebugByteCodeValue[];
 
-const debugByteCodeParser: Parser<DexDebugByteCode, Uint8Array> = promiseCompose(
+const debugByteCodeParser: Parser<DexDebugByteCodeItem, Uint8Array> = promiseCompose(
 	createTerminatedArrayParser(
 		dexDebugByteCodeValueParser,
 		nullByteParser,
@@ -1864,7 +1912,7 @@ setParserName(debugByteCodeParser, 'debugByteCodeParser');
 type DexDebugInfoItem = {
 	lineStart: number;
 	parameterNames: (undefined | IndexIntoStringIds)[];
-	bytecode: DexDebugByteCode;
+	bytecode: DexDebugByteCodeItem;
 };
 
 const DEX_DEBUG_INFO_ITEM_PARAMETER_NAME_NO_INDEX = -1;
@@ -2538,7 +2586,25 @@ export const dexParser: Parser<Dex, Uint8Array> = parserCreatorCompose(
 
 						return string;
 					}),
-					bytecode: debugInfoItem.bytecode,
+					bytecode: debugInfoItem.bytecode.map((value) => {
+						switch (value.type) {
+							case 'startLocal': return {
+								type: 'startLocal',
+								registerNum: value.registerNum,
+								name: value.nameIndex === undefined ? undefined : strings.at(value.nameIndex),
+								type_: value.typeIndex === undefined ? undefined : types.at(value.typeIndex),
+							};
+							case 'startLocalExtended': return {
+								type: 'startLocalExtended',
+								registerNum: value.registerNum,
+								name: value.nameIndex === undefined ? undefined : strings.at(value.nameIndex),
+								type_: value.typeIndex === undefined ? undefined : types.at(value.typeIndex),
+								signature: value.signatureIndex === undefined ? undefined : strings.at(value.signatureIndex),
+							};
+							case 'setFile': return { type: 'setFile', name: strings.at(value.nameIndex) };
+							default: return value;
+						}
+					}),
 				});
 			}
 
