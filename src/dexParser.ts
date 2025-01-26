@@ -885,15 +885,21 @@ const createSkipToThenClassDataItemsParser = (sizeOffset: SizeOffset): Parser<De
 	parserName: 'skipToThenClassDataItemsParser',
 });
 
-const createByteWith5LeastSignificantBitsEqualParser = (leastSignificant5: number): Parser<number, Uint8Array> => async (parserContext) => {
-	const byte = await parserContext.read(0);
-	parserContext.invariant(
-		(byte & 0b00011111) === leastSignificant5,
-		'Expected byte with 5 least significant bits equal to %s, but got %s',
-		leastSignificant5.toString(2).padStart(8, '0'),
-		byte.toString(2).padStart(8, '0'),
-	);
-	return byte;
+const createByteWith5LeastSignificantBitsEqualParser = (leastSignificant5: number): Parser<number, Uint8Array> => {
+	const byteWith5LeastSignificantBitsEqualParser: Parser<number, Uint8Array> = async (parserContext) => {
+		const byte = await parserContext.read(0);
+		parserContext.invariant(
+			(byte & 0b00011111) === leastSignificant5,
+			'Expected byte with 5 least significant bits equal to %s, but got %s',
+			leastSignificant5.toString(2).padStart(8, '0'),
+			byte.toString(2).padStart(8, '0'),
+		);
+		return byte;
+	};
+
+	setParserName(byteWith5LeastSignificantBitsEqualParser, `createByteWith5LeastSignificantBitsEqualParser(${leastSignificant5.toString(2).padStart(5, '0')})`);
+
+	return byteWith5LeastSignificantBitsEqualParser;
 };
 
 const createEncodedValueArgParser = (valueType: number): Parser<number, Uint8Array> => promiseCompose(
@@ -1733,16 +1739,140 @@ const createSkipToThenCodeItemsParser = (sizeOffset: SizeOffset): Parser<DexCode
 	parserName: 'skipToThenCodeItemsParser',
 });
 
+type DexDebugByteCodeValue =
+	| {
+		type: 'advancePc';
+		addressDiff: number;
+	}
+	| {
+		type: 'advanceLine';
+		lineDiff: number;
+	}
+	| {
+		type: 'startLocal';
+		registerNum: number;
+		nameIndex: IndexIntoStringIds;
+		typeIndex: IndexIntoTypeIds;
+	}
+	| {
+		type: 'startLocalExtended';
+		registerNum: number;
+		nameIndex: IndexIntoStringIds;
+		typeIndex: IndexIntoTypeIds;
+		sigIndex: IndexIntoStringIds;
+	}
+	| {
+		type: 'endLocal';
+		registerNum: number;
+	}
+	| {
+		type: 'restartLocal';
+		registerNum: number;
+	}
+	| {
+		type: 'setPrologueEnd';
+	}
+	| {
+		type: 'setEpilogueBegin';
+	}
+	| {
+		type: 'setFile';
+		nameIndex: IndexIntoStringIds;
+	}
+	| {
+		type: 'special';
+		value: number;
+	}
+;
+
+const dexDebugByteCodeValueParser: Parser<DexDebugByteCodeValue, Uint8Array> = parserCreatorCompose(
+	() => ubyteParser,
+	(value): Parser<DexDebugByteCodeValue, Uint8Array> => {
+		switch (value) {
+			case 0x01: return promiseCompose(
+				uleb128NumberParser,
+				(addressDiff) => ({ type: 'advancePc', addressDiff }),
+			);
+			case 0x02: return promiseCompose(
+				sleb128NumberParser,
+				(lineDiff) => ({ type: 'advanceLine', lineDiff }),
+			);
+			case 0x03: return promiseCompose(
+				createTupleParser([
+					uleb128NumberParser,
+					uleb128NumberParser,
+					uleb128NumberParser,
+				]),
+				([ registerNum, nameIndex, typeIndex ]) => ({
+					type: 'startLocal',
+					registerNum,
+					nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
+					typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
+				}),
+			);
+			case 0x04: return promiseCompose(
+				createTupleParser([
+					uleb128NumberParser,
+					uleb128NumberParser,
+					uleb128NumberParser,
+					uleb128NumberParser,
+				]),
+				([ registerNum, nameIndex, typeIndex, sigIndex ]) => ({
+					type: 'startLocalExtended',
+					registerNum,
+					nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
+					typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
+					sigIndex: isoIndexIntoStringIds.wrap(sigIndex),
+				}),
+			);
+			case 0x05: return promiseCompose(
+				uleb128NumberParser,
+				(registerNum) => ({ type: 'endLocal', registerNum }),
+			);
+			case 0x06: return promiseCompose(
+				uleb128NumberParser,
+				(registerNum) => ({ type: 'restartLocal', registerNum }),
+			);
+			case 0x07: return () => ({ type: 'setPrologueEnd' });
+			case 0x08: return () => ({ type: 'setEpilogueBegin' });
+			case 0x09: return promiseCompose(
+				uleb128NumberParser,
+				(nameIndex) => ({ type: 'setFile', nameIndex: isoIndexIntoStringIds.wrap(nameIndex) }),
+			);
+			default: return parserContext => {
+				parserContext.invariant(value >= 0x0a, 'Unexpected special value: %s', value);
+				return { type: 'special', value };
+			};
+		}
+	}
+)();
+
+setParserName(dexDebugByteCodeValueParser, 'dexDebugByteCodeValueParser');
+
+type DexDebugByteCode = DexDebugByteCodeValue[];
+
+const debugByteCodeParser: Parser<DexDebugByteCode, Uint8Array> = promiseCompose(
+	createTerminatedArrayParser(
+		dexDebugByteCodeValueParser,
+		nullByteParser,
+	),
+	([ values ]) => values,
+);
+
+setParserName(debugByteCodeParser, 'debugByteCodeParser');
+
 type DexDebugInfoItem = {
-	lineStart: number,
-	parameterNames: IndexIntoStringIds[],
-	bytecode: Uint8Array,
+	lineStart: number;
+	parameterNames: (undefined | IndexIntoStringIds)[];
+	bytecode: DexDebugByteCode;
 };
 
+const DEX_DEBUG_INFO_ITEM_PARAMETER_NAME_NO_INDEX = -1;
+
 type DexDebugInfo = {
-	lineStart: number,
-	parameterNames: string[],
-	bytecode: Uint8Array,
+	lineStart: number;
+	parameterNames: (undefined | string)[];
+	bytecode: DexDebugByteCode;
 };
 
 const debugInfoItemParser: Parser<DexDebugInfoItem, Uint8Array> = parserCreatorCompose(
@@ -1756,21 +1886,20 @@ const debugInfoItemParser: Parser<DexDebugInfoItem, Uint8Array> = parserCreatorC
 	]) => promiseCompose(
 		createTupleParser([
 			createQuantifierParser(
-				uleb128NumberParser,
+				uleb128p1NumberParser,
 				parametersSize,
 			),
-			createTerminatedArrayParser(
-				nonNullByteParser,
-				nullByteParser,
-			),
+			debugByteCodeParser,
 		]),
-		([ parameterNames, [ bytecode ] ]) => ({
+		([ parameterNames, bytecode ]) => ({
 			lineStart,
-			parameterNames: parameterNames.map(isoIndexIntoStringIds.wrap),
-			bytecode: new Uint8Array(bytecode),
+			parameterNames: parameterNames.map(parameterName => parameterName === DEX_DEBUG_INFO_ITEM_PARAMETER_NAME_NO_INDEX ? undefined : isoIndexIntoStringIds.wrap(parameterName)),
+			bytecode,
 		}),
 	),
 )();
+
+setParserName(debugInfoItemParser, 'debugInfoItemParser');
 
 type DexDebugInfoItemByOffset = Map<OffsetToDebugInfoItem, DexDebugInfoItem>;
 
@@ -2400,6 +2529,10 @@ export const dexParser: Parser<Dex, Uint8Array> = parserCreatorCompose(
 				debugInfoByOffset.set(offset, {
 					lineStart: debugInfoItem.lineStart,
 					parameterNames: debugInfoItem.parameterNames.map((index) => {
+						if (index === undefined) {
+							return undefined;
+						}
+
 						const string = strings.at(index);
 						invariant(string !== undefined, 'String must be there. String id: %s', index);
 

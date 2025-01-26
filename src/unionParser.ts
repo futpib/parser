@@ -25,20 +25,24 @@ export const createUnionParser = <
 	const unionParser: Parser<Output, Sequence, Element> = async parserContext => {
 		let runningChildParserContexts: Array<ParserContext<Sequence, Element>> = [];
 
-		const childParserResults = allSettledStream<Output, ParserContext<Sequence, Element>>(childParsers.map(childParser => {
+		const createChildParserTask = (childParser: Parser<unknown, Sequence, Element>) => {
 			const childParserContext = parserContext.lookahead({
 				debugName: getParserName(childParser, 'anonymousUnionChild'),
 			});
 
 			runningChildParserContexts.push(childParserContext);
 
-			const promise = (async () => childParser(childParserContext) as Promise<Output>)();
+			const getChildParserPromise = (async () => childParser(childParserContext) as Promise<Output>);
+
+			const promise = getChildParserPromise();
 
 			return {
 				promise,
 				context: childParserContext,
 			};
-		}));
+		};
+
+		const childParserResults = allSettledStream<Output, ParserContext<Sequence, Element>>(childParsers.map(createChildParserTask));
 
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 		const successfulParserOutputs: Output[] = [];

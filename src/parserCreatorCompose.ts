@@ -11,13 +11,17 @@ export function parserCreatorCompose<
 	f1: (...arguments_: Arguments) => Parser<OutputA, Sequence, Element>,
 	f2: (outputA: OutputA) => Parser<OutputB, Sequence, Element>,
 ): (...arguments_: Arguments) => Parser<OutputB, Sequence, Element> {
-	return (...arguments_) => {
+	const parserCreatorComposedOuter: (...arguments_: Arguments) => Parser<OutputB, Sequence, Element> = (...arguments_) => {
 		const parserA = f1(...arguments_);
 
-		return async parserContext => {
+		const parserCreatorComposedInner: Parser<OutputB, Sequence, Element> = async parserContext => {
 			const outputA = await parserA(parserContext);
 			const parserB = f2(outputA);
 			return parserB(parserContext);
 		};
+
+		return parserCreatorComposedInner;
 	};
+
+	return parserCreatorComposedOuter;
 }

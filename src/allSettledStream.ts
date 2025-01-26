@@ -24,7 +24,7 @@ export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T
 		start(controller) {
 			let settledCount = 0;
 			for (const { promise, context } of tasks) {
-				(async () => {
+				const allSettledStreamTaskAwaiter = async () => {
 					const [ promiseSettledResult ] = await Promise.allSettled([ promise ]);
 
 					settledCount++;
@@ -43,7 +43,9 @@ export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T
 					if (settledCount === tasks.length) {
 						controller.close();
 					}
-				})();
+				};
+
+				allSettledStreamTaskAwaiter();
 			}
 		},
 
