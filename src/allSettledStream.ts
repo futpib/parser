@@ -22,30 +22,48 @@ export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T
 
 	return new ReadableStream({
 		start(controller) {
-			let settledCount = 0;
-			for (const { promise, context } of tasks) {
-				const allSettledStreamTaskAwaiter = async () => {
-					const [ promiseSettledResult ] = await Promise.allSettled([ promise ]);
+			const startStack = (
+				(new Error('allSettledStream ReadableStream start stack holder').stack ?? '')
+					.split('\n')
+					.slice(1)
+					.join('\n')
+			);
 
-					settledCount++;
+			const allSettledStreamTaskAwaiter = async ({
+				promise,
+				context,
+			}: AllSettledStreamTask<T, Context>) => {
+				const [ promiseSettledResult ] = await Promise.allSettled([ promise ]);
 
-					if (cancelled) {
-						return;
-					}
+				if (
+					promiseSettledResult.status === 'rejected'
+						&& promiseSettledResult.reason instanceof Error
+						&& promiseSettledResult.reason.stack
+				) {
+					promiseSettledResult.reason.stack += `\n${startStack}`;
+				}
 
-					const allSettedStreamResult: AllSettedStreamResult<T, Context> = {
-						...promiseSettledResult,
-						context,
-					};
+				settledCount++;
 
-					controller.enqueue(allSettedStreamResult);
+				if (cancelled) {
+					return;
+				}
 
-					if (settledCount === tasks.length) {
-						controller.close();
-					}
+				const allSettedStreamResult: AllSettedStreamResult<T, Context> = {
+					...promiseSettledResult,
+					context,
 				};
 
-				allSettledStreamTaskAwaiter();
+				controller.enqueue(allSettedStreamResult);
+
+				if (settledCount === tasks.length) {
+					controller.close();
+				}
+			};
+
+			let settledCount = 0;
+			for (const task of tasks) {
+				allSettledStreamTaskAwaiter(task);
 			}
 		},
 
