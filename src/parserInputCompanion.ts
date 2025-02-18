@@ -6,6 +6,7 @@ export type ParserInputCompanion<Sequence, Element> = {
 	length(sequence: Sequence): number;
 	at(sequence: Sequence, index: number): Element | undefined;
 	subsequence(sequence: Sequence, start: number, end: number): Sequence;
+	indexOf(sequence: Sequence, element: Element, fromIndex?: number): number;
 };
 
 export class StringParserInputCompanion implements ParserInputCompanion<string, string> {
@@ -31,6 +32,10 @@ export class StringParserInputCompanion implements ParserInputCompanion<string, 
 
 	subsequence(sequence: string, start: number, end: number): string {
 		return sequence.slice(start, end);
+	}
+
+	indexOf(sequence: string, element: string, fromIndex?: number): number {
+		return sequence.indexOf(element, fromIndex);
 	}
 }
 
@@ -59,6 +64,10 @@ export class Uint8ArrayParserInputCompanion implements ParserInputCompanion<Uint
 
 	subsequence(sequence: Uint8Array, start: number, end: number): Uint8Array {
 		return sequence.subarray(start, end);
+	}
+
+	indexOf(sequence: Uint8Array, element: number, fromIndex?: number): number {
+		return sequence.indexOf(element, fromIndex);
 	}
 }
 

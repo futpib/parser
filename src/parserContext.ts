@@ -26,6 +26,7 @@ export type ParserContext<Sequence, Element> = {
 	length(sequence: Sequence): number;
 	at(sequence: Sequence, index: number): Element | undefined;
 	subsequence(sequence: Sequence, start: number, end: number): Sequence;
+	indexOf(sequence: Sequence, element: Element, fromIndex?: number): number;
 
 	get position(): number;
 	peek(offset: number): Promise<Element | undefined>;
@@ -91,6 +92,10 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 	subsequence(sequence: Sequence, start: number, end: number): Sequence {
 		return this._parserInputCompanion.subsequence(sequence, start, end);
+	}
+
+	indexOf(sequence: Sequence, element: Element, fromIndex?: number): number {
+		return this._parserInputCompanion.indexOf(sequence, element, fromIndex);
 	}
 
 	get position() {

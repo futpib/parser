@@ -17,6 +17,7 @@ import { getIsoTypedNumberArray, IndexIntoFieldIds, IndexIntoMethodIds, IndexInt
 import { Iso } from 'monocle-ts';
 import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
+import { createElementTerminatedArrayParserUnsafe } from './elementTerminatedArrayParser.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
 
@@ -558,12 +559,9 @@ type DexStringDataItem = {
 const stringDataItemParser: Parser<DexStringDataItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
-		promiseCompose(
-			createTerminatedArrayParserUnsafe(
-				nonNullByteParser,
-				nullByteParser,
-			),
-			([ stringData ]) => stringData,
+		createElementTerminatedArrayParserUnsafe(
+			nonNullByteParser,
+			0,
 		),
 	]),
 	([ utf16Size, data ]) => ({
