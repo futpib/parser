@@ -4,11 +4,10 @@ import { createElementParser } from './elementParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
-import { cloneParser, getParserName, setParserName, type Parser } from './parser.js';
+import { cloneParser, setParserName, type Parser } from './parser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createQuantifierParser } from './quantifierParser.js';
-import { createTerminatedArrayParserUnsafe } from './terminatedArrayParser.js';
 import { createTupleParser } from './tupleParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createSkipToParser } from './skipToParser.js';
@@ -18,6 +17,7 @@ import { Iso } from 'monocle-ts';
 import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createElementTerminatedSequenceParser } from './elementTerminatedSequenceParser.js';
+import { createElementTerminatedArrayParserUnsafe } from './elementTerminatedArrayParser.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
 
@@ -1924,12 +1924,9 @@ type DexDebugByteCodeItem = DexDebugByteCodeValueItem[];
 
 type DexDebugByteCode = DexDebugByteCodeValue[];
 
-const debugByteCodeParser: Parser<DexDebugByteCodeItem, Uint8Array> = promiseCompose(
-	createTerminatedArrayParserUnsafe(
-		dexDebugByteCodeValueParser,
-		nullByteParser,
-	),
-	([ values ]) => values,
+const debugByteCodeParser: Parser<DexDebugByteCodeItem, Uint8Array> = createElementTerminatedArrayParserUnsafe(
+	dexDebugByteCodeValueParser,
+	0,
 );
 
 setParserName(debugByteCodeParser, 'debugByteCodeParser');
