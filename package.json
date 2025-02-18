@@ -54,6 +54,7 @@
   "packageManager": "yarn@4.5.3",
   "dependencies": {
     "fp-ts": "^2.16.9",
+    "mem": "^10.0.0",
     "monocle-ts": "^2.3.13",
     "newtype-ts": "^0.3.5",
     "p-mutex": "^0.1.0"

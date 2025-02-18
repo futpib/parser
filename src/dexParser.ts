@@ -4,19 +4,19 @@ import { createElementParser } from './elementParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
-import { cloneParser, setParserName, type Parser } from './parser.js';
+import { cloneParser, getParserName, setParserName, type Parser } from './parser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createQuantifierParser } from './quantifierParser.js';
-import { createTerminatedArrayParser } from './terminatedArrayParser.js';
+import { createTerminatedArrayParserUnsafe } from './terminatedArrayParser.js';
 import { createTupleParser } from './tupleParser.js';
-import { createUnionParser } from './unionParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createSkipToParser } from './skipToParser.js';
 import { createLookaheadParser } from './lookaheadParser.js';
 import { getIsoTypedNumberArray, IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoPrototypeIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds, isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler, isoOffsetToAnnotationItem, isoOffsetToAnnotationsDirectoryItem, isoOffsetToAnnotationSetItem, isoOffsetToAnnotationSetRefListItem, isoOffsetToClassDataItem, isoOffsetToCodeItem, isoOffsetToDebugInfoItem, isoOffsetToEncodedArrayItem, isoOffsetToStringDataItem, isoOffsetToTypeList, OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, OffsetToAnnotationItem, OffsetToAnnotationsDirectoryItem, OffsetToAnnotationSetItem, OffsetToAnnotationSetRefListItem, OffsetToClassDataItem, OffsetToCodeItem, OffsetToDebugInfoItem, OffsetToEncodedArrayItem, OffsetToStringDataItem, OffsetToTypeList, TypedNumberArray } from './dexParser/typedNumbers.js';
 import { Iso } from 'monocle-ts';
 import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
+import { createDisjunctionParser } from './disjunctionParser.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
 
@@ -559,7 +559,7 @@ const stringDataItemParser: Parser<DexStringDataItem, Uint8Array> = promiseCompo
 	createTupleParser([
 		uleb128NumberParser,
 		promiseCompose(
-			createTerminatedArrayParser(
+			createTerminatedArrayParserUnsafe(
 				nonNullByteParser,
 				nullByteParser,
 			),
@@ -1000,6 +1000,20 @@ const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			);
 		}
 
+		if (size === 3) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const firstByte = uint8Array[0];
+					const firstBit = (firstByte & 0b10000000) >> 7;
+					const extensionByte = firstBit === 1 ? 0xff : 0x00;
+
+					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
+					return buffer.readInt32LE(0);
+				},
+			);
+		}
+
 		invariant(size === 4, '(encodedValueIntParser) Unexpected size: %s', size);
 
 		return promiseCompose(
@@ -1035,6 +1049,20 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 				(uint8Array) => {
 					const buffer = Buffer.from(uint8Array);
 					return BigInt(buffer.readInt16LE(0));
+				},
+			);
+		}
+
+		if (size === 3) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const firstByte = uint8Array[0];
+					const firstBit = (firstByte & 0b10000000) >> 7;
+					const extensionByte = firstBit === 1 ? 0xff : 0x00;
+
+					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
+					return BigInt(buffer.readInt32LE(0));
 				},
 			);
 		}
@@ -1527,7 +1555,7 @@ setParserName(encodedValueBooleanParser, 'encodedValueBooleanParser');
 
 type DexEncodedValue = number | DexEncodedValue[] | undefined;
 
-const encodedValueParser: Parser<DexEncodedValue, Uint8Array> = createUnionParser([
+const encodedValueParser: Parser<DexEncodedValue, Uint8Array> = createDisjunctionParser([
 	encodedValueByteParser,
 	encodedValueShortParser,
 	encodedValueCharParser,
@@ -1900,7 +1928,7 @@ type DexDebugByteCodeItem = DexDebugByteCodeValueItem[];
 type DexDebugByteCode = DexDebugByteCodeValue[];
 
 const debugByteCodeParser: Parser<DexDebugByteCodeItem, Uint8Array> = promiseCompose(
-	createTerminatedArrayParser(
+	createTerminatedArrayParserUnsafe(
 		dexDebugByteCodeValueParser,
 		nullByteParser,
 	),

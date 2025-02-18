@@ -45,7 +45,7 @@ testProp.serial(
 			};
 		};
 
-		const actualNaive = await naiveTotalTimer.timeAsync(() => runParser(
+		const actualNaive = await naiveTotalTimer.measureAsync(() => runParser(
 			createTestWrapperParser(fixedLengthSequenceParserNaive),
 			sequence,
 			stringParserInputCompanion,
@@ -53,7 +53,7 @@ testProp.serial(
 
 		t.true(actualNaive.result.length === Number(length));
 
-		const actual = await totalTimer.timeAsync(() => runParser(
+		const actual = await totalTimer.measureAsync(() => runParser(
 			createTestWrapperParser(fixedLengthSequenceParser),
 			sequence,
 			stringParserInputCompanion,

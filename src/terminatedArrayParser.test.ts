@@ -1,7 +1,7 @@
 import test from 'ava';
 import * as fc from 'fast-check';
 import { testProp } from '@fast-check/ava';
-import { createTerminatedArrayParser, createTerminatedArrayParserNaive } from './terminatedArrayParser.js';
+import { createTerminatedArrayParser, createTerminatedArrayParserNaive, createTerminatedArrayParserUnsafe } from './terminatedArrayParser.js';
 import { Parser, runParser } from './parser.js';
 import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { HighResolutionTotalTimer } from './highResolutionTimer.js';
@@ -78,7 +78,8 @@ testProp(
 );
 
 const naiveTotalTimer = new HighResolutionTotalTimer();
-const totalTimer = new HighResolutionTotalTimer();
+const optimizedTotalTimer = new HighResolutionTotalTimer();
+const unsafeTotalTimer = new HighResolutionTotalTimer();
 
 testProp.serial(
 	'terminatedArrayParser',
@@ -137,7 +138,7 @@ testProp.serial(
 			};
 		};
 
-		const actualNaive = await naiveTotalTimer.timeAsync(() => runParser(
+		const actualNaive = await naiveTotalTimer.measureAsync(() => runParser(
 			createTestWrapperParser(terminatedArrayParserNaive),
 			string,
 			stringParserInputCompanion,
@@ -145,7 +146,7 @@ testProp.serial(
 
 		t.is(actualNaive.string.length + actualNaive.terminator.length, string.length);
 
-		const actual = await totalTimer.timeAsync(() => runParser(
+		const actual = await optimizedTotalTimer.measureAsync(() => runParser(
 			createTestWrapperParser(terminatedArrayParser),
 			string,
 			stringParserInputCompanion,
@@ -162,8 +163,96 @@ test.serial(
 	'terminatedArrayParser performance',
 	t => {
 		t.true(
-			totalTimer.time * 1n < naiveTotalTimer.time,
-			`Naive: ${naiveTotalTimer.time / 1000000n}ms, Optimized: ${totalTimer.time / 1000000n}ms`,
+			optimizedTotalTimer.time * 1n < naiveTotalTimer.time,
+			`Naive: ${naiveTotalTimer.time / 1000000n}ms, Optimized: ${optimizedTotalTimer.time / 1000000n}ms`,
+		);
+	},
+);
+
+testProp.serial(
+	'terminatedArrayParserUnsafe',
+	[
+		fc
+			.integer({
+				min: 1,
+				max: 2 ** 8,
+			})
+			.chain(terminatorLength => (
+				fc
+					.string({
+						minLength: terminatorLength,
+					})
+					.map(string => ({
+						string,
+						terminator: string.slice(0 - terminatorLength)
+					}))
+					.filter(({ string, terminator }) => string.split(terminator).length === 2)
+			))
+	],
+	async (t, { string, terminator }) => {
+		const terminatedArrayParserNaive = createTerminatedArrayParserNaive(
+			promiseCompose(
+				createTupleParser([
+					createNegativeLookaheadParser(createExactSequenceParser(terminator)),
+					createElementParser<string>(),
+				]),
+				([ _, element ]) => element,
+			),
+			createExactSequenceParser(terminator),
+		);
+		const terminatedArrayParserUnsafe = createTerminatedArrayParserUnsafe(
+			promiseCompose(
+				createTupleParser([
+					createNegativeLookaheadParser(createExactSequenceParser(terminator)),
+					createElementParser<string>(),
+				]),
+				([ _, element ]) => element,
+			),
+			createExactSequenceParser(terminator),
+		);
+
+		const createTestWrapperParser = (innerParser: typeof terminatedArrayParserUnsafe): Parser<{
+			string: string;
+			terminator: string;
+			position: number;
+		}, string> => async parserContext => {
+			const [ characters, terminator ] = await innerParser(parserContext);
+
+			return {
+				string: characters.join(''),
+				terminator,
+				nextPeek: await parserContext.peek(0),
+				position: parserContext.position,
+			};
+		};
+
+		const actualNaive = await runParser(
+			createTestWrapperParser(terminatedArrayParserNaive),
+			string,
+			stringParserInputCompanion,
+		);
+
+		t.is(actualNaive.string.length + actualNaive.terminator.length, string.length);
+
+		const actual = await unsafeTotalTimer.measureAsync(() => runParser(
+			createTestWrapperParser(terminatedArrayParserUnsafe),
+			string,
+			stringParserInputCompanion,
+		));
+
+		t.deepEqual(actual, actualNaive);
+	},
+	{
+		verbose: true,
+	},
+);
+
+test.serial(
+	'terminatedArrayParserUnsafe performance',
+	t => {
+		t.true(
+			unsafeTotalTimer.time * 1n < naiveTotalTimer.time,
+			`Naive: ${naiveTotalTimer.time / 1000000n}ms, Unsafe: ${unsafeTotalTimer.time / 1000000n}ms`,
 		);
 	},
 );

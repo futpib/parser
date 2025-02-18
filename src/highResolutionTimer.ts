@@ -33,7 +33,14 @@ export class HighResolutionTotalTimer {
 		return this._total;
 	}
 
-	async timeAsync<T>(fn: () => Promise<T>): Promise<T> {
+	measure<T>(fn: () => T): T {
+		const timer = this.start();
+		const result = fn();
+		timer.end();
+		return result;
+	}
+
+	async measureAsync<T>(fn: () => Promise<T>): Promise<T> {
 		const timer = this.start();
 		const result = await fn();
 		timer.end();

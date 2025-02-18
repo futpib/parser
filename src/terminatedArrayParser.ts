@@ -26,7 +26,7 @@ export const createTerminatedArrayParserNaive = <ElementOutput, TerminatorOutput
 		promiseCompose(terminatorParser, terminatorValue => new Terminated(terminatorValue)),
 	]);
 
-	const terminatedArrayParser: Parser<[ElementOutput[], TerminatorOutput], Sequence> = async parserContext => {
+	const terminatedArrayParserNaive: Parser<[ElementOutput[], TerminatorOutput], Sequence> = async parserContext => {
 		const elements: ElementOutput[] = [];
 
 		while (true) {
@@ -40,9 +40,9 @@ export const createTerminatedArrayParserNaive = <ElementOutput, TerminatorOutput
 		}
 	};
 
-	setParserName(terminatedArrayParser, `${getParserName(elementParser, 'anonymousElement')}*?${getParserName(terminatorParser, 'anonymousTerminator')}`);
+	setParserName(terminatedArrayParserNaive, `${getParserName(elementParser, 'anonymousElement')}*?${getParserName(terminatorParser, 'anonymousTerminator')}`);
 
-	return terminatedArrayParser;
+	return terminatedArrayParserNaive;
 };
 
 export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Sequence>(
@@ -99,4 +99,41 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 	setParserName(terminatedArrayParser, `${getParserName(elementParser, 'anonymousElement')}*?${getParserName(terminatorParser, 'anonymousTerminator')}`);
 
 	return terminatedArrayParser;
+};
+
+export const createTerminatedArrayParserUnsafe = <ElementOutput, TerminatorOutput, Sequence>(
+	elementParser: Parser<ElementOutput, Sequence>,
+	terminatorParser: Parser<TerminatorOutput, Sequence>,
+): Parser<[ElementOutput[], TerminatorOutput], Sequence> => {
+	const terminatedArrayParserUnsafe: Parser<[ElementOutput[], TerminatorOutput], Sequence> = async parserContext => {
+		const elements: ElementOutput[] = [];
+
+		while (true) {
+			const terminatorParserContext = parserContext.lookahead({
+				debugName: getParserName(terminatorParser, 'anonymousTerminator'),
+			});
+
+			try {
+				const terminatorValue = await terminatorParser(terminatorParserContext);
+
+				terminatorParserContext.unlookahead();
+
+				return [ elements, terminatorValue ];
+			} catch (error) {
+				if (!(error instanceof ParserParsingFailedError)) {
+					throw error;
+				}
+			} finally {
+				terminatorParserContext.dispose();
+			}
+
+			const element = await elementParser(parserContext);
+
+			elements.push(element);
+		}
+	};
+
+	setParserName(terminatedArrayParserUnsafe, `${getParserName(elementParser, 'anonymousElement')}*?${getParserName(terminatorParser, 'anonymousTerminator')}`);
+
+	return terminatedArrayParserUnsafe;
 };
