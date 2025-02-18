@@ -1,0 +1,43 @@
+import { Parser, setParserName } from "./parser.js";
+import { DeriveSequenceElement } from "./sequence.js";
+
+export const createElementTerminatedSequenceParser = <Sequence, Element = DeriveSequenceElement<Sequence>>(
+	terminatorElement: Element,
+): Parser<Sequence, Sequence, Element> => {
+	const elementTerminatedSequenceParser: Parser<Sequence, Sequence, Element> = async parserContext => {
+		let start = 0;
+		let window = 1;
+
+		while (true) {
+			const sequence = await parserContext.peekSequence(start, start + window);
+
+			if (sequence === undefined) {
+				window = Math.floor(window / 2);
+
+				parserContext.invariant(!(start === 0 && window === 0), 'Unexpected end of input without terminated sequence');
+				parserContext.invariant(window > 0, 'Unexpected end of input without terminator');
+
+				continue;
+			}
+
+			const terminatorIndex = parserContext.indexOf(sequence, terminatorElement);
+
+			if (terminatorIndex === -1) {
+				start += window;
+				window *= 2;
+
+				continue;
+			}
+
+			const sequence_ = await parserContext.readSequence(0, start + terminatorIndex);
+
+			parserContext.skip(1);
+
+			return sequence_;
+		}
+	};
+
+	setParserName(elementTerminatedSequenceParser, `.*?${JSON.stringify(terminatorElement)}`);
+
+	return elementTerminatedSequenceParser;
+};
