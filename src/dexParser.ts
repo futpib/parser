@@ -1074,6 +1074,20 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 			);
 		}
 
+		if (size === 5) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				(uint8Array) => {
+					const firstByte = uint8Array[0];
+					const firstBit = (firstByte & 0b10000000) >> 7;
+					const extensionByte = firstBit === 1 ? 0xff : 0x00;
+
+					const buffer = Buffer.from([ extensionByte, extensionByte, extensionByte, ...uint8Array ]);
+					return BigInt(buffer.readBigInt64LE(0));
+				},
+			);
+		}
+
 		invariant(size === 8, '(encodedValueLongParser) Unexpected size: %s', size);
 
 		return promiseCompose(
@@ -1716,7 +1730,14 @@ const dexCodeItemParser: Parser<DexCodeItem, Uint8Array> = parserCreatorCompose(
 		return promiseCompose(
 			createTupleParser([
 				setParserName(createFixedLengthSequenceParser(instructionsSize * 2), `instructionsParser(${instructionsSize * 2})`),
-				byteAlign4Parser,
+				(
+					(
+						triesSize !== 0
+							&& instructionsSize % 2 === 1
+					)
+						? byteAlign4Parser
+						: () => undefined
+				),
 				(
 					triesSize !== 0
 						? createQuantifierParser(
