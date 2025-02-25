@@ -1491,13 +1491,13 @@ const encodedValueArrayParser: Parser<DexEncodedValue[], Uint8Array> = promiseCo
 setParserName(encodedValueArrayParser, 'encodedValueArrayParser');
 
 type DexAnnotationElement = {
-	nameIndex: number,
-	value: DexEncodedValue,
+	nameIndex: IndexIntoStringIds;
+	value: DexEncodedValue;
 };
 
 type DexEncodedAnnotation = {
-	typeIndex: number,
-	elements: DexAnnotationElement[],
+	typeIndex: IndexIntoTypeIds;
+	elements: DexAnnotationElement[];
 };
 
 const annotationElementParser: Parser<DexAnnotationElement, Uint8Array> = promiseCompose(
@@ -1505,7 +1505,13 @@ const annotationElementParser: Parser<DexAnnotationElement, Uint8Array> = promis
 		uleb128NumberParser,
 		createParserAccessorParser(() => encodedValueParser),
 	]),
-	([ nameIndex, value ]) => ({ nameIndex, value }),
+	([
+		nameIndex,
+		value,
+	]) => ({
+		nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
+		value,
+	}),
 );
 
 setParserName(annotationElementParser, 'annotationElementParser');
@@ -1527,7 +1533,13 @@ const encodedAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promis
 			),
 		]),
 	)(),
-	([ typeIndex, elements ]) => ({ typeIndex, elements }),
+	([
+		typeIndex,
+		elements,
+	]) => ({
+		typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
+		elements,
+	}),
 );
 
 setParserName(encodedAnnotationParser, 'encodedAnnotationParser');
@@ -2027,6 +2039,17 @@ type DexAnnotationItem = {
 	encodedAnnotation: DexEncodedAnnotation;
 };
 
+type DexAnnotationElement_ = {
+	name: string;
+	value: DexEncodedValue;
+};
+
+type DexAnnotation = {
+	visibility: DexAnnotationItemVisibility;
+	type: string;
+	elements: DexAnnotationElement_[];
+}
+
 const dexAnnotationItemParser: Parser<DexAnnotationItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		dexAnnotationItemVisibilityParser,
@@ -2165,21 +2188,21 @@ const createSkipToThenAnnotationSetRefListsParser = (sizeOffset: SizeOffset): Pa
 
 type DexClassFieldAnnotation = {
 	field: DexField;
-	annotations: undefined | DexAnnotationSetItem;
+	annotations: undefined | DexAnnotation[];
 };
 
 type DexClassMethodAnnotation = {
 	method: DexMethod;
-	annotations: undefined | DexAnnotationSetItem;
+	annotations: undefined | DexAnnotation[];
 };
 
 type DexClassParameterAnnotation = {
 	method: DexMethod;
-	annotations: undefined | (undefined | DexAnnotationItem[])[];
+	annotations: undefined | (undefined | DexAnnotation[])[];
 };
 
 type DexClassAnnotations = {
-	classAnnotations: undefined | DexAnnotationSetItem;
+	classAnnotations: undefined | DexAnnotation[];
 	fieldAnnotations: DexClassFieldAnnotation[];
 	methodAnnotations: DexClassMethodAnnotation[];
 	parameterAnnotations: DexClassParameterAnnotation[];
@@ -2731,6 +2754,34 @@ export const dexParser: Parser<Dex, Uint8Array> = parserCreatorCompose(
 				});
 			}
 
+			function resolveAnnotationOffsetItem({ annotationOffset }: DexAnnotationOffsetItem): DexAnnotation {
+				const annotationItem = annotationItemByOffset.get(annotationOffset);
+				invariant(annotationItem, 'Annotation must be there. Annotation offset: %s', annotationOffset);
+
+				const type = types.at(annotationItem.encodedAnnotation.typeIndex);
+				invariant(type, 'Type must be there. Type id: %s', annotationItem.encodedAnnotation.typeIndex);
+
+				const elements = annotationItem.encodedAnnotation.elements.map((element) => {
+					const name = strings.at(element.nameIndex);
+					invariant(name, 'Name string must be there. String offset: %s', element.nameIndex);
+
+					return {
+						name,
+						value: element.value,
+					};
+				});
+
+				return {
+					visibility: annotationItem.visibility,
+					type,
+					elements,
+				};
+			}
+
+			function resolveAnnotationSetItem(annotationSetItem: undefined | DexAnnotationSetItem): undefined | DexAnnotation[] {
+				return annotationSetItem?.entries.map(resolveAnnotationOffsetItem);
+			}
+
 			const classDefinitions = classDefinitionItems.map((classDefinitionItem) => {
 				const class_ = types.at(classDefinitionItem.classIndex);
 				invariant(class_, 'Class must be there. Class id: %s', classDefinitionItem.classIndex);
@@ -2750,19 +2801,25 @@ export const dexParser: Parser<Dex, Uint8Array> = parserCreatorCompose(
 					classDefinitionItem.annotationsOffset,
 				);
 
-				const annotations = (() => {
+				const annotations: undefined | DexClassAnnotations = (() => {
 					if (!annotationsDirectoryItem) {
 						return undefined;
 					}
 
-					const classAnnotations = annotationSetItemByOffset.get(annotationsDirectoryItem.classAnnotationsOffset);
+					const classAnnotationSetItem = annotationSetItemByOffset.get(annotationsDirectoryItem.classAnnotationsOffset);
 					invariant(
-						isoOffsetToAnnotationSetItem.unwrap(annotationsDirectoryItem.classAnnotationsOffset) === 0 || classAnnotations,
+						isoOffsetToAnnotationSetItem.unwrap(annotationsDirectoryItem.classAnnotationsOffset) === 0 || classAnnotationSetItem,
 						'Class annotations must be there. Class annotations offset: %s',
 						annotationsDirectoryItem.classAnnotationsOffset,
 					);
 
-					const fieldAnnotations = annotationsDirectoryItem.fieldAnnotations.map((fieldAnnotation) => {
+					const classAnnotations = (
+						classAnnotationSetItem
+							? resolveAnnotationSetItem(classAnnotationSetItem)
+							: undefined
+					);
+
+					const fieldAnnotations: DexClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.map((fieldAnnotation) => {
 						const field = fields.at(fieldAnnotation.fieldIndex);
 						invariant(field, 'Field must be there. Field id: %s', fieldAnnotation.fieldIndex);
 
@@ -2773,24 +2830,24 @@ export const dexParser: Parser<Dex, Uint8Array> = parserCreatorCompose(
 							fieldAnnotation.annotationsOffset,
 						);
 
-						return { field, annotations };
+						return { field, annotations: annotations?.entries.map(resolveAnnotationOffsetItem) };
 					});
 
-					const methodAnnotations = annotationsDirectoryItem.methodAnnotations.map((methodAnnotation) => {
+					const methodAnnotations: DexClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.map((methodAnnotation) => {
 						const method = methods.at(methodAnnotation.methodIndex);
 						invariant(method, 'Method must be there. Method id: %s', methodAnnotation.methodIndex);
 
-						const annotations = annotationSetItemByOffset.get(methodAnnotation.annotationsOffset);
+						const annotationSetItem = annotationSetItemByOffset.get(methodAnnotation.annotationsOffset);
 						invariant(
-							isoOffsetToAnnotationSetItem.unwrap(methodAnnotation.annotationsOffset) === 0 || annotations,
+							isoOffsetToAnnotationSetItem.unwrap(methodAnnotation.annotationsOffset) === 0 || annotationSetItem,
 							'Annotations must be there. Annotations offset: %s',
 							methodAnnotation.annotationsOffset,
 						);
 
-						return { method, annotations };
+						return { method, annotations: resolveAnnotationSetItem(annotationSetItem) };
 					});
 
-					const parameterAnnotations = annotationsDirectoryItem.parameterAnnotations.map((parameterAnnotation) => {
+					const parameterAnnotations: DexClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.map((parameterAnnotation) => {
 						const method = methods.at(parameterAnnotation.methodIndex);
 						invariant(method, 'Method must be there. Method id: %s', parameterAnnotation.methodIndex);
 
@@ -2809,18 +2866,7 @@ export const dexParser: Parser<Dex, Uint8Array> = parserCreatorCompose(
 								annotationSetRefItem,
 							);
 
-							const annotationItems = annotationSetItem?.entries.map((annotationOffsetItem) => {
-								const annotationItem = annotationItemByOffset.get(annotationOffsetItem.annotationOffset);
-								invariant(
-									annotationItem,
-									'Annotation must be there. Annotation offset: %s',
-									annotationOffsetItem.annotationOffset,
-								);
-
-								return annotationItem;
-							});
-
-							return annotationItems;
+							return resolveAnnotationSetItem(annotationSetItem);
 						});
 
 						return { method, annotations };
