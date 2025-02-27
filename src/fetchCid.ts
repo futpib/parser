@@ -5,6 +5,35 @@ import envPaths from 'env-paths';
 
 const paths = envPaths('parser.futpib.github.io');
 
+function readableWebStreamOnFinish<T>(readableWebStream: ReadableStream<T>, onFinish: () => void): ReadableStream<T> {
+	const reader = readableWebStream.getReader();
+
+	const stream = new ReadableStream<T>({
+		async start(controller) {
+			try {
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) {
+						break;
+					}
+
+					controller.enqueue(value);
+				}
+			} finally {
+				controller.close();
+				reader.releaseLock();
+				onFinish();
+			}
+		},
+		async cancel(reason) {
+			await reader.cancel(reason);
+			onFinish();
+		},
+	});
+
+	return stream;
+}
+
 class FsCache {
 	private get _basePath() {
 		return path.join(paths.cache, 'fetchCid');
@@ -17,9 +46,16 @@ class FsCache {
 	async get(key: string): Promise<[ ReadableStream<Uint8Array>, ReadableStream<Uint8Array> ] | undefined> {
 		try {
 			const file = await fsPromises.open(this._getKeyPath(key), 'r');
-			return [ file.readableWebStream({
+
+			const stream = file.readableWebStream({
 				type: 'bytes',
-			}) as any, undefined as any ];
+			}) as ReadableStream<Uint8Array>;
+
+			const streamWithClose = readableWebStreamOnFinish(stream, () => {
+				file.close();
+			});
+
+			return [ streamWithClose, undefined as any ];
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 				return undefined;
@@ -71,9 +107,16 @@ const cachedReallyFetchCid = pMemoize(reallyFetchCid, {
 export async function fetchCid(cidOrPath: string): Promise<AsyncIterable<Uint8Array>> {
 	if (cidOrPath.includes('/')) {
 		const file = await fsPromises.open(cidOrPath, 'r');
-		return file.readableWebStream({
+
+		const stream = file.readableWebStream({
 			type: 'bytes',
+		}) as ReadableStream<Uint8Array>;
+
+		const streamWithClose = readableWebStreamOnFinish(stream, () => {
+			file.close();
 		});
+
+		return streamWithClose;
 	}
 
 	const [ readable, unused ] = await cachedReallyFetchCid(cidOrPath);
