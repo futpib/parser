@@ -19,6 +19,7 @@ import { createElementTerminatedSequenceParser } from './elementTerminatedSequen
 import { createElementTerminatedArrayParserUnsafe } from './elementTerminatedArrayParser.js';
 import { createDalvikBytecodeParser, DalvikBytecode } from './dalvikBytecodeParser.js';
 import { ubyteParser, uintParser, uleb128p1NumberParser, ushortParser } from './dalvikExecutableParser/typeParsers.js';
+import { DalvikExecutable, DalvikExecutableAccessFlags, DalvikExecutableAnnotation, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassFieldAnnotation, DalvikExecutableClassMethodAnnotation, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableDebugInfo, DalvikExecutableEncodedValue } from './dalvikExecutable.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
 
@@ -336,28 +337,6 @@ const createSkipToThenMethodIdItemsParser = ({ size, offset }: SizeOffset): Pars
 			([ _, methodIds ]) => isoDalvikExecutableMethodIdItems.wrap(methodIds),
 		)
 );
-
-type DalvikExecutableAccessFlags = {
-	public: boolean,
-	private: boolean,
-	protected: boolean,
-	static: boolean,
-	final: boolean,
-	synchronized: boolean,
-	volatile: boolean,
-	bridge: boolean,
-	transient: boolean,
-	varargs: boolean,
-	native: boolean,
-	interface: boolean,
-	abstract: boolean,
-	strict: boolean,
-	synthetic: boolean,
-	annotation: boolean,
-	enum: boolean,
-	constructor: boolean,
-	declaredSynchronized: boolean,
-};
 
 const uintAccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
 	uintParser,
@@ -1508,8 +1487,6 @@ const encodedValueBooleanParser: Parser<boolean, Uint8Array> = promiseCompose(
 
 setParserName(encodedValueBooleanParser, 'encodedValueBooleanParser');
 
-type DalvikExecutableEncodedValue = number | DalvikExecutableEncodedValue[] | undefined;
-
 const encodedValueParser: Parser<DalvikExecutableEncodedValue, Uint8Array> = createDisjunctionParser([
 	encodedValueByteParser,
 	encodedValueShortParser,
@@ -1539,12 +1516,6 @@ type DalvikExecutableTryItem = {
 	handlerOffset: OffsetFromEncodedCatchHandlerListToEncodedCatchHandler;
 };
 
-type DalvikExecutableTry = {
-	startAddress: number;
-	instructionCount: number;
-	handler: DalvikExecutableEncodedCatchHandler;
-};
-
 const tryItemParser: Parser<DalvikExecutableTryItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uintParser,
@@ -1569,11 +1540,6 @@ type DalvikExecutableEncodedTypeAddressPair_ = {
 	address: number;
 };
 
-type DalvikExecutableEncodedTypeAddressPair = {
-	type: string;
-	address: number;
-};
-
 const encodedTypeAddressPairParser: Parser<DalvikExecutableEncodedTypeAddressPair_, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
@@ -1590,11 +1556,6 @@ const encodedTypeAddressPairParser: Parser<DalvikExecutableEncodedTypeAddressPai
 
 type DalvikExecutableEncodedCatchHandler_ = {
 	handlers: DalvikExecutableEncodedTypeAddressPair_[],
-	catchAllAddress: undefined | number,
-};
-
-type DalvikExecutableEncodedCatchHandler = {
-	handlers: DalvikExecutableEncodedTypeAddressPair[],
 	catchAllAddress: undefined | number,
 };
 
@@ -1651,15 +1612,6 @@ type DalvikExecutableCodeItem<Instructions> = {
 	instructions: Instructions;
 	tryItems: DalvikExecutableTryItem[];
 	handlers: DalvikExecutableEncodedCatchHandlerByRelativeOffset;
-};
-
-type DalvikExecutableCode<Instructions> = {
-	registersSize: number;
-	insSize: number;
-	outsSize: number;
-	debugInfo: undefined | DalvikExecutableDebugInfo;
-	instructions: Instructions;
-	tries: DalvikExecutableTry[];
 };
 
 type CreateInstructionsParser<Instructions> = (size: number) => Parser<Instructions, Uint8Array>;
@@ -1803,52 +1755,6 @@ type DalvikExecutableDebugByteCodeValueItem =
 	}
 ;
 
-type DalvikExecutableDebugByteCodeValue =
-	| {
-		type: 'advancePc';
-		addressDiff: number;
-	}
-	| {
-		type: 'advanceLine';
-		lineDiff: number;
-	}
-	| {
-		type: 'startLocal';
-		registerNum: number;
-		name: undefined | string;
-		type_: undefined | string;
-	}
-	| {
-		type: 'startLocalExtended';
-		registerNum: number;
-		name: undefined | string;
-		type_: undefined | string;
-		signature: undefined | string;
-	}
-	| {
-		type: 'endLocal';
-		registerNum: number;
-	}
-	| {
-		type: 'restartLocal';
-		registerNum: number;
-	}
-	| {
-		type: 'setPrologueEnd';
-	}
-	| {
-		type: 'setEpilogueBegin';
-	}
-	| {
-		type: 'setFile';
-		name: undefined | string;
-	}
-	| {
-		type: 'special';
-		value: number;
-	}
-;
-
 const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByteCodeValueItem, Uint8Array> = parserCreatorCompose(
 	() => ubyteParser,
 	(value): Parser<DalvikExecutableDebugByteCodeValueItem, Uint8Array> => {
@@ -1915,8 +1821,6 @@ setParserName(dalvikExecutableDebugByteCodeValueParser, 'dalvikExecutableDebugBy
 
 type DalvikExecutableDebugByteCodeItem = DalvikExecutableDebugByteCodeValueItem[];
 
-type DalvikExecutableDebugByteCode = DalvikExecutableDebugByteCodeValue[];
-
 const debugByteCodeParser: Parser<DalvikExecutableDebugByteCodeItem, Uint8Array> = createElementTerminatedArrayParserUnsafe(
 	dalvikExecutableDebugByteCodeValueParser,
 	0,
@@ -1931,12 +1835,6 @@ type DalvikExecutableDebugInfoItem = {
 };
 
 const DEX_DEBUG_INFO_ITEM_PARAMETER_NAME_NO_INDEX = -1;
-
-type DalvikExecutableDebugInfo = {
-	lineStart: number;
-	parameterNames: (undefined | string)[];
-	bytecode: DalvikExecutableDebugByteCode;
-};
 
 const debugInfoItemParser: Parser<DalvikExecutableDebugInfoItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
@@ -1999,17 +1897,6 @@ type DalvikExecutableAnnotationItem = {
 	encodedAnnotation: DalvikExecutableEncodedAnnotation;
 };
 
-type DalvikExecutableAnnotationElement_ = {
-	name: string;
-	value: DalvikExecutableEncodedValue;
-};
-
-type DalvikExecutableAnnotation = {
-	visibility: DalvikExecutableAnnotationItemVisibility;
-	type: string;
-	elements: DalvikExecutableAnnotationElement_[];
-}
-
 const dalvikExecutableAnnotationItemParser: Parser<DalvikExecutableAnnotationItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		dalvikExecutableAnnotationItemVisibilityParser,
@@ -2042,35 +1929,6 @@ const dalvikExecutableHeaderAndMapParser: Parser<DalvikExecutableHeaderAndMap, U
 		(mapList) => ({ headerItem, mapList }),
 	),
 )();
-
-type DalvikExecutablePrototype = {
-	shorty: string;
-	returnType: string;
-	parameters: string[];
-};
-
-type DalvikExecutableField = {
-	class: string;
-	type: string;
-	name: string;
-};
-
-type DalvikExecutableFieldWithAccess = {
-	field: DalvikExecutableField;
-	accessFlags: DalvikExecutableAccessFlags;
-};
-
-type DalvikExecutableMethod = {
-	class: string;
-	prototype: DalvikExecutablePrototype;
-	name: string;
-};
-
-type DalvikExecutableMethodWithAccess<Instructions> = {
-	method: DalvikExecutableMethod;
-	accessFlags: DalvikExecutableAccessFlags;
-	code: undefined | DalvikExecutableCode<Instructions>;
-};
 
 type DalvikExecutableAnnotationOffsetItem = {
 	annotationOffset: OffsetToAnnotationItem;
@@ -2145,46 +2003,6 @@ const createSkipToThenAnnotationSetRefListsParser = (sizeOffset: SizeOffset): Pa
 	isoOffset: isoOffsetToAnnotationSetRefListItem,
 	parserName: 'skipToThenAnnotationSetRefListsParser',
 });
-
-type DalvikExecutableClassFieldAnnotation = {
-	field: DalvikExecutableField;
-	annotations: undefined | DalvikExecutableAnnotation[];
-};
-
-type DalvikExecutableClassMethodAnnotation = {
-	method: DalvikExecutableMethod;
-	annotations: undefined | DalvikExecutableAnnotation[];
-};
-
-type DalvikExecutableClassParameterAnnotation = {
-	method: DalvikExecutableMethod;
-	annotations: undefined | (undefined | DalvikExecutableAnnotation[])[];
-};
-
-type DalvikExecutableClassAnnotations = {
-	classAnnotations: undefined | DalvikExecutableAnnotation[];
-	fieldAnnotations: DalvikExecutableClassFieldAnnotation[];
-	methodAnnotations: DalvikExecutableClassMethodAnnotation[];
-	parameterAnnotations: DalvikExecutableClassParameterAnnotation[];
-};
-
-type DalvikExecutableClassData<Instructions> = {
-	staticFields: DalvikExecutableFieldWithAccess[];
-	instanceFields: DalvikExecutableFieldWithAccess[];
-	directMethods: DalvikExecutableMethodWithAccess<Instructions>[];
-	virtualMethods: DalvikExecutableMethodWithAccess<Instructions>[];
-};
-
-type DalvikExecutableClassDefinition<Instructions> = {
-	class: string;
-	accessFlags: DalvikExecutableAccessFlags,
-	superclass: string;
-	interfaces: string[];
-	sourceFile: undefined | string;
-	annotations: undefined | DalvikExecutableClassAnnotations;
-	staticValues: DalvikExecutableEncodedValue[];
-	classData: undefined | DalvikExecutableClassData<Instructions>;
-};
 
 type DalvikExecutableMapItemType =
 	| 'headerItem'
@@ -2489,11 +2307,6 @@ const createDalvikExecutableDataParser = <Instructions>({
 	setParserName(dalvikExecutableDataParser, 'dalvikExecutableDataParser');
 
 	return dalvikExecutableDataParser;
-};
-
-type DalvikExecutable<Instructions> = {
-	classDefinitions: DalvikExecutableClassDefinition<Instructions>[];
-	link: undefined | Uint8Array,
 };
 
 export const createDalvikExecutableParser = <Instructions>({
