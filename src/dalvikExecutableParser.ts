@@ -11,14 +11,14 @@ import { createTupleParser } from './tupleParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createSkipToParser } from './skipToParser.js';
 import { createLookaheadParser } from './lookaheadParser.js';
-import { getIsoTypedNumberArray, IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoPrototypeIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds, isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler, isoOffsetToAnnotationItem, isoOffsetToAnnotationsDirectoryItem, isoOffsetToAnnotationSetItem, isoOffsetToAnnotationSetRefListItem, isoOffsetToClassDataItem, isoOffsetToCodeItem, isoOffsetToDebugInfoItem, isoOffsetToEncodedArrayItem, isoOffsetToStringDataItem, isoOffsetToTypeList, OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, OffsetToAnnotationItem, OffsetToAnnotationsDirectoryItem, OffsetToAnnotationSetItem, OffsetToAnnotationSetRefListItem, OffsetToClassDataItem, OffsetToCodeItem, OffsetToDebugInfoItem, OffsetToEncodedArrayItem, OffsetToStringDataItem, OffsetToTypeList, TypedNumberArray } from './dexParser/typedNumbers.js';
+import { getIsoTypedNumberArray, IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoPrototypeIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds, isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler, isoOffsetToAnnotationItem, isoOffsetToAnnotationsDirectoryItem, isoOffsetToAnnotationSetItem, isoOffsetToAnnotationSetRefListItem, isoOffsetToClassDataItem, isoOffsetToCodeItem, isoOffsetToDebugInfoItem, isoOffsetToEncodedArrayItem, isoOffsetToStringDataItem, isoOffsetToTypeList, OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, OffsetToAnnotationItem, OffsetToAnnotationsDirectoryItem, OffsetToAnnotationSetItem, OffsetToAnnotationSetRefListItem, OffsetToClassDataItem, OffsetToCodeItem, OffsetToDebugInfoItem, OffsetToEncodedArrayItem, OffsetToStringDataItem, OffsetToTypeList, TypedNumberArray } from './dalvikExecutableParser/typedNumbers.js';
 import { Iso } from 'monocle-ts';
 import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createElementTerminatedSequenceParser } from './elementTerminatedSequenceParser.js';
 import { createElementTerminatedArrayParserUnsafe } from './elementTerminatedArrayParser.js';
 import { createDalvikBytecodeParser, DalvikBytecode } from './dalvikBytecodeParser.js';
-import { ubyteParser, uintParser, uleb128p1NumberParser, ushortParser } from './dexParser/typeParsers.js';
+import { ubyteParser, uintParser, uleb128p1NumberParser, ushortParser } from './dalvikExecutableParser/typeParsers.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
 
@@ -30,7 +30,7 @@ const createByteAlignParser = (byteAlignment: number): Parser<void, Uint8Array> 
 
 const byteAlign4Parser: Parser<void, Uint8Array> = createByteAlignParser(4);
 
-const dexHeaderVersionParser: Parser<number, Uint8Array> = promiseCompose(
+const dalvikExecutableHeaderVersionParser: Parser<number, Uint8Array> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser<Uint8Array>(Buffer.from('dex\n', 'utf8')),
 		createFixedLengthSequenceParser(3),
@@ -57,7 +57,7 @@ const sizeOffsetParser: Parser<SizeOffset, Uint8Array> = promiseCompose(
 	([ size, offset ]) => ({ size, offset }),
 );
 
-type DexHeaderItem = {
+type DalvikExecutableHeaderItem = {
 	version: number,
 	checksum: number,
 	sha1Hash: Uint8Array,
@@ -75,9 +75,9 @@ type DexHeaderItem = {
 	data: SizeOffset,
 };
 
-const dexHeaderItemParser: Parser<DexHeaderItem, Uint8Array> = promiseCompose(
+const dalvikExecutableHeaderItemParser: Parser<DalvikExecutableHeaderItem, Uint8Array> = promiseCompose(
 	createTupleParser([
-		dexHeaderVersionParser,
+		dalvikExecutableHeaderVersionParser,
 		uintParser,
 		createFixedLengthSequenceParser(20),
 		uintParser,
@@ -128,85 +128,85 @@ const dexHeaderItemParser: Parser<DexHeaderItem, Uint8Array> = promiseCompose(
 	}),
 );
 
-type DexStringIdItem = OffsetToStringDataItem;
+type DalvikExecutableStringIdItem = OffsetToStringDataItem;
 
-const dexStringIdItemParser: Parser<DexStringIdItem, Uint8Array> = promiseCompose(
+const dalvikExecutableStringIdItemParser: Parser<DalvikExecutableStringIdItem, Uint8Array> = promiseCompose(
 	cloneParser(uintParser),
 	(offset) => isoOffsetToStringDataItem.wrap(offset),
 );
 
-type DexStringIdItems = TypedNumberArray<IndexIntoStringIds, DexStringIdItem>;
+type DalvikExecutableStringIdItems = TypedNumberArray<IndexIntoStringIds, DalvikExecutableStringIdItem>;
 
-const isoDexStringIdItems = getIsoTypedNumberArray<IndexIntoStringIds, DexStringIdItem>();
+const isoDalvikExecutableStringIdItems = getIsoTypedNumberArray<IndexIntoStringIds, DalvikExecutableStringIdItem>();
 
-const createSkipToThenStringIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexStringIdItems, Uint8Array> => (
+const createSkipToThenStringIdItemsParser = ({ size, offset }: SizeOffset): Parser<DalvikExecutableStringIdItems, Uint8Array> => (
 	size === 0
-		? (() => isoDexStringIdItems.wrap([]))
+		? (() => isoDalvikExecutableStringIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					dexStringIdItemParser,
+					dalvikExecutableStringIdItemParser,
 					size,
 				),
 			]),
-			([ _, stringIds ]) => isoDexStringIdItems.wrap(stringIds),
+			([ _, stringIds ]) => isoDalvikExecutableStringIdItems.wrap(stringIds),
 		)
 );
 
-type DexTypeIdItem = IndexIntoStringIds;
+type DalvikExecutableTypeIdItem = IndexIntoStringIds;
 
-const dexTypeIdItemParser: Parser<DexTypeIdItem, Uint8Array> = promiseCompose(
+const dalvikExecutableTypeIdItemParser: Parser<DalvikExecutableTypeIdItem, Uint8Array> = promiseCompose(
 	cloneParser(uintParser),
 	(index) => isoIndexIntoStringIds.wrap(index),
 );
 
-type DexTypeIdItems = TypedNumberArray<IndexIntoTypeIds, DexTypeIdItem>;
+type DalvikExecutableTypeIdItems = TypedNumberArray<IndexIntoTypeIds, DalvikExecutableTypeIdItem>;
 
-const isoDexTypeIdItems = getIsoTypedNumberArray<IndexIntoTypeIds, DexTypeIdItem>();
+const isoDalvikExecutableTypeIdItems = getIsoTypedNumberArray<IndexIntoTypeIds, DalvikExecutableTypeIdItem>();
 
-const createSkipToThenTypeIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexTypeIdItems, Uint8Array> => (
+const createSkipToThenTypeIdItemsParser = ({ size, offset }: SizeOffset): Parser<DalvikExecutableTypeIdItems, Uint8Array> => (
 	size === 0
-		? (() => isoDexTypeIdItems.wrap([]))
+		? (() => isoDalvikExecutableTypeIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					dexTypeIdItemParser,
+					dalvikExecutableTypeIdItemParser,
 					size,
 				),
 			]),
-			([ _, typeIds ]) => isoDexTypeIdItems.wrap(typeIds),
+			([ _, typeIds ]) => isoDalvikExecutableTypeIdItems.wrap(typeIds),
 		)
 );
 
-type DexPrototypeIdItem = {
+type DalvikExecutablePrototypeIdItem = {
 	shortyIndex: IndexIntoStringIds;
 	returnTypeIndex: IndexIntoTypeIds;
 	parametersOffset: OffsetToTypeList;
 };
 
-const prototypeIdItemParser: Parser<DexPrototypeIdItem, Uint8Array> = promiseCompose(
+const prototypeIdItemParser: Parser<DalvikExecutablePrototypeIdItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		byteAlign4Parser,
 		uintParser,
 		uintParser,
 		uintParser,
 	]),
-	([ _, shortyIndex, returnTypeIndex, parametersOffset ]): DexPrototypeIdItem => ({
+	([ _, shortyIndex, returnTypeIndex, parametersOffset ]): DalvikExecutablePrototypeIdItem => ({
 		shortyIndex: isoIndexIntoStringIds.wrap(shortyIndex),
 		returnTypeIndex: isoIndexIntoTypeIds.wrap(returnTypeIndex),
 		parametersOffset: isoOffsetToTypeList.wrap(parametersOffset),
 	}),
 );
 
-type DexPrototypeIdItems = TypedNumberArray<IndexIntoPrototypeIds, DexPrototypeIdItem>;
+type DalvikExecutablePrototypeIdItems = TypedNumberArray<IndexIntoPrototypeIds, DalvikExecutablePrototypeIdItem>;
 
-const isoDexPrototypeIdItems = getIsoTypedNumberArray<IndexIntoPrototypeIds, DexPrototypeIdItem>();
+const isoDalvikExecutablePrototypeIdItems = getIsoTypedNumberArray<IndexIntoPrototypeIds, DalvikExecutablePrototypeIdItem>();
 
-const createSkipToThenPrototypeIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexPrototypeIdItems, Uint8Array> => (
+const createSkipToThenPrototypeIdItemsParser = ({ size, offset }: SizeOffset): Parser<DalvikExecutablePrototypeIdItems, Uint8Array> => (
 	size === 0
-		? (() => isoDexPrototypeIdItems.wrap([]))
+		? (() => isoDalvikExecutablePrototypeIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
@@ -215,7 +215,7 @@ const createSkipToThenPrototypeIdItemsParser = ({ size, offset }: SizeOffset): P
 					size,
 				),
 			]),
-			([ _, prototypeIds ]) => isoDexPrototypeIdItems.wrap(prototypeIds),
+			([ _, prototypeIds ]) => isoDalvikExecutablePrototypeIdItems.wrap(prototypeIds),
 		)
 );
 
@@ -261,83 +261,83 @@ const createSkipToThenItemByOffsetParser = <Offset, Item>({
 	return skipToThenItemByOffsetParser;
 };
 
-type DexFieldIdItem = {
+type DalvikExecutableFieldIdItem = {
 	classIndex: IndexIntoTypeIds;
 	typeIndex: IndexIntoTypeIds;
 	nameIndex: IndexIntoStringIds;
 };
 
-const dexFieldIdItemParser: Parser<DexFieldIdItem, Uint8Array> = promiseCompose(
+const dalvikExecutableFieldIdItemParser: Parser<DalvikExecutableFieldIdItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		ushortParser,
 		ushortParser,
 		uintParser,
 	]),
-	([ classIndex, typeIndex, nameIndex ]): DexFieldIdItem => ({
+	([ classIndex, typeIndex, nameIndex ]): DalvikExecutableFieldIdItem => ({
 		classIndex: isoIndexIntoTypeIds.wrap(classIndex),
 		typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
 		nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
 	}),
 );
 
-type DexFieldIdItems = TypedNumberArray<IndexIntoFieldIds, DexFieldIdItem>;
+type DalvikExecutableFieldIdItems = TypedNumberArray<IndexIntoFieldIds, DalvikExecutableFieldIdItem>;
 
-const isoDexFieldIdItems = getIsoTypedNumberArray<IndexIntoFieldIds, DexFieldIdItem>();
+const isoDalvikExecutableFieldIdItems = getIsoTypedNumberArray<IndexIntoFieldIds, DalvikExecutableFieldIdItem>();
 
-const createSkipToThenFieldIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexFieldIdItems, Uint8Array> => (
+const createSkipToThenFieldIdItemsParser = ({ size, offset }: SizeOffset): Parser<DalvikExecutableFieldIdItems, Uint8Array> => (
 	size === 0
-		? (() => isoDexFieldIdItems.wrap([]))
+		? (() => isoDalvikExecutableFieldIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					dexFieldIdItemParser,
+					dalvikExecutableFieldIdItemParser,
 					size,
 				),
 			]),
-			([ _, fieldIds ]) => isoDexFieldIdItems.wrap(fieldIds),
+			([ _, fieldIds ]) => isoDalvikExecutableFieldIdItems.wrap(fieldIds),
 		)
 );
 
-type DexMethodIdItem = {
+type DalvikExecutableMethodIdItem = {
 	classIndex: IndexIntoTypeIds;
 	prototypeIndex: IndexIntoPrototypeIds;
 	nameIndex: IndexIntoStringIds;
 };
 
-const dexMethodIdItemParser: Parser<DexMethodIdItem, Uint8Array> = promiseCompose(
+const dalvikExecutableMethodIdItemParser: Parser<DalvikExecutableMethodIdItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		ushortParser,
 		ushortParser,
 		uintParser,
 	]),
-	([ classIndex, prototypeIndex, nameIndex ]): DexMethodIdItem => ({
+	([ classIndex, prototypeIndex, nameIndex ]): DalvikExecutableMethodIdItem => ({
 		classIndex: isoIndexIntoTypeIds.wrap(classIndex),
 		prototypeIndex: isoIndexIntoPrototypeIds.wrap(prototypeIndex),
 		nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
 	}),
 );
 
-type DexMethodIdItems = TypedNumberArray<IndexIntoMethodIds, DexMethodIdItem>;
+type DalvikExecutableMethodIdItems = TypedNumberArray<IndexIntoMethodIds, DalvikExecutableMethodIdItem>;
 
-const isoDexMethodIdItems = getIsoTypedNumberArray<IndexIntoMethodIds, DexMethodIdItem>();
+const isoDalvikExecutableMethodIdItems = getIsoTypedNumberArray<IndexIntoMethodIds, DalvikExecutableMethodIdItem>();
 
-const createSkipToThenMethodIdItemsParser = ({ size, offset }: SizeOffset): Parser<DexMethodIdItems, Uint8Array> => (
+const createSkipToThenMethodIdItemsParser = ({ size, offset }: SizeOffset): Parser<DalvikExecutableMethodIdItems, Uint8Array> => (
 	size === 0
-		? (() => isoDexMethodIdItems.wrap([]))
+		? (() => isoDalvikExecutableMethodIdItems.wrap([]))
 		: promiseCompose(
 			createTupleParser([
 				createSkipToParser(offset),
 				createQuantifierParser(
-					dexMethodIdItemParser,
+					dalvikExecutableMethodIdItemParser,
 					size,
 				),
 			]),
-			([ _, methodIds ]) => isoDexMethodIdItems.wrap(methodIds),
+			([ _, methodIds ]) => isoDalvikExecutableMethodIdItems.wrap(methodIds),
 		)
 );
 
-type DexAccessFlags = {
+type DalvikExecutableAccessFlags = {
 	public: boolean,
 	private: boolean,
 	protected: boolean,
@@ -359,7 +359,7 @@ type DexAccessFlags = {
 	declaredSynchronized: boolean,
 };
 
-const uintAccessFlagsParser: Parser<DexAccessFlags, Uint8Array> = promiseCompose(
+const uintAccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
 	uintParser,
 	(flags) => ({
 		public: Boolean(flags & 0b00000001),
@@ -384,7 +384,7 @@ const uintAccessFlagsParser: Parser<DexAccessFlags, Uint8Array> = promiseCompose
 	}),
 );
 
-const uleb128AccessFlagsParser: Parser<DexAccessFlags, Uint8Array> = promiseCompose(
+const uleb128AccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
 	uleb128NumberParser,
 	flags => ({
 		public: Boolean(flags & 0b00000001),
@@ -409,9 +409,9 @@ const uleb128AccessFlagsParser: Parser<DexAccessFlags, Uint8Array> = promiseComp
 	}),
 );
 
-type DexClassDefinitionItem = {
+type DalvikExecutableClassDefinitionItem = {
 	classIndex: IndexIntoTypeIds;
-	accessFlags: DexAccessFlags;
+	accessFlags: DalvikExecutableAccessFlags;
 	superclassIndex: IndexIntoTypeIds;
 	interfacesOffset: OffsetToTypeList;
 	sourceFileIndex: undefined | IndexIntoStringIds;
@@ -422,7 +422,7 @@ type DexClassDefinitionItem = {
 
 const DEX_CLASS_DEFINITION_ITEM_SOURCE_FILE_NO_INDEX = 0xffffffff;
 
-const createSkipToThenClassDefinitionItemsParser = ({ size, offset }: SizeOffset): Parser<DexClassDefinitionItem[], Uint8Array> => (
+const createSkipToThenClassDefinitionItemsParser = ({ size, offset }: SizeOffset): Parser<DalvikExecutableClassDefinitionItem[], Uint8Array> => (
 	size === 0
 		? (() => [])
 		: promiseCompose(
@@ -449,7 +449,7 @@ const createSkipToThenClassDefinitionItemsParser = ({ size, offset }: SizeOffset
 							annotationsOffset,
 							classDataOffset,
 							staticValuesOffset,
-						]): DexClassDefinitionItem => ({
+						]): DalvikExecutableClassDefinitionItem => ({
 							classIndex: isoIndexIntoTypeIds.wrap(classIndex),
 							accessFlags,
 							superclassIndex: isoIndexIntoTypeIds.wrap(superclassIndex),
@@ -483,12 +483,12 @@ const createRawDataParser = ({ size, offset }: SizeOffset): Parser<undefined | U
 		)
 );
 
-type DexStringDataItem = {
+type DalvikExecutableStringDataItem = {
 	utf16Size: number;
 	data: Uint8Array;
 };
 
-const stringDataItemParser: Parser<DexStringDataItem, Uint8Array> = promiseCompose(
+const stringDataItemParser: Parser<DalvikExecutableStringDataItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
 		createElementTerminatedSequenceParser(
@@ -501,9 +501,9 @@ const stringDataItemParser: Parser<DexStringDataItem, Uint8Array> = promiseCompo
 	}),
 );
 
-type DexStringDataItemString = string;
+type DalvikExecutableStringDataItemString = string;
 
-const stringDataItemStringParser: Parser<DexStringDataItemString, Uint8Array> = promiseCompose(
+const stringDataItemStringParser: Parser<DalvikExecutableStringDataItemString, Uint8Array> = promiseCompose(
 	stringDataItemParser,
 	({ utf16Size, data }) => {
 		const mutf8Decoder = new MUtf8Decoder();
@@ -513,9 +513,9 @@ const stringDataItemStringParser: Parser<DexStringDataItemString, Uint8Array> = 
 	},
 );
 
-type DexStringDataItemStringByOffset = Map<OffsetToStringDataItem, DexStringDataItemString>;
+type DalvikExecutableStringDataItemStringByOffset = Map<OffsetToStringDataItem, DalvikExecutableStringDataItemString>;
 
-const createSkipToThenStringsParser = (sizeOffset: SizeOffset): Parser<DexStringDataItemStringByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenStringsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableStringDataItemStringByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
 	itemParser: stringDataItemStringParser,
 	byteAlign4: false,
@@ -523,47 +523,47 @@ const createSkipToThenStringsParser = (sizeOffset: SizeOffset): Parser<DexString
 	parserName: 'skipToThenStringsParser',
 });
 
-type DexTypeItem = IndexIntoTypeIds;
+type DalvikExecutableTypeItem = IndexIntoTypeIds;
 
-const dexTypeItemParser: Parser<DexTypeItem, Uint8Array> = promiseCompose(
+const dalvikExecutableTypeItemParser: Parser<DalvikExecutableTypeItem, Uint8Array> = promiseCompose(
 	cloneParser(ushortParser),
 	(index) => isoIndexIntoTypeIds.wrap(index),
 );
 
-type DexTypeList = TypedNumberArray<IndexIntoTypeIds, DexTypeItem>;
+type DalvikExecutableTypeList = TypedNumberArray<IndexIntoTypeIds, DalvikExecutableTypeItem>;
 
-const isoDexTypeList = getIsoTypedNumberArray<IndexIntoTypeIds, DexTypeItem>();
+const isoDalvikExecutableTypeList = getIsoTypedNumberArray<IndexIntoTypeIds, DalvikExecutableTypeItem>();
 
-const dexTypeListParser: Parser<DexTypeList, Uint8Array> = parserCreatorCompose(
+const dalvikExecutableTypeListParser: Parser<DalvikExecutableTypeList, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
 		byteAlign4Parser,
 		uintParser,
 	]),
 	([ _, size ]) => promiseCompose(
 		createQuantifierParser(
-			dexTypeItemParser,
+			dalvikExecutableTypeItemParser,
 			size,
 		),
-		(typeItems) => isoDexTypeList.wrap(typeItems),
+		(typeItems) => isoDalvikExecutableTypeList.wrap(typeItems),
 	),
 )();
 
-type DexTypeListByOffset = Map<OffsetToTypeList, DexTypeList>;
+type DalvikExecutableTypeListByOffset = Map<OffsetToTypeList, DalvikExecutableTypeList>;
 
-const createSkipToThenTypeListByOffsetParser = (sizeOffset: SizeOffset): Parser<DexTypeListByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenTypeListByOffsetParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableTypeListByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
-	itemParser: dexTypeListParser,
+	itemParser: dalvikExecutableTypeListParser,
 	byteAlign4: true,
 	isoOffset: isoOffsetToTypeList,
 	parserName: 'skipToThenTypeListByOffsetParser',
 });
 
-type DexFieldAnnotation = {
+type DalvikExecutableFieldAnnotation = {
 	fieldIndex: IndexIntoFieldIds;
 	annotationsOffset: OffsetToAnnotationSetItem;
 };
 
-const fieldAnnotationParser: Parser<DexFieldAnnotation, Uint8Array> = promiseCompose(
+const fieldAnnotationParser: Parser<DalvikExecutableFieldAnnotation, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uintParser,
 		uintParser,
@@ -577,17 +577,17 @@ const fieldAnnotationParser: Parser<DexFieldAnnotation, Uint8Array> = promiseCom
 	}),
 );
 
-const createFieldAnnotationsParser = (fieldsSize: number): Parser<DexFieldAnnotation[], Uint8Array> => createQuantifierParser(
+const createFieldAnnotationsParser = (fieldsSize: number): Parser<DalvikExecutableFieldAnnotation[], Uint8Array> => createQuantifierParser(
 	fieldAnnotationParser,
 	fieldsSize,
 );
 
-type DexMethodAnnotation = {
+type DalvikExecutableMethodAnnotation = {
 	methodIndex: IndexIntoMethodIds;
 	annotationsOffset: OffsetToAnnotationSetItem;
 };
 
-const methodAnnotationParser: Parser<DexMethodAnnotation, Uint8Array> = promiseCompose(
+const methodAnnotationParser: Parser<DalvikExecutableMethodAnnotation, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uintParser,
 		uintParser,
@@ -601,17 +601,17 @@ const methodAnnotationParser: Parser<DexMethodAnnotation, Uint8Array> = promiseC
 	}),
 );
 
-const createMethodAnnotationsParser = (methodsSize: number): Parser<DexMethodAnnotation[], Uint8Array> => createQuantifierParser(
+const createMethodAnnotationsParser = (methodsSize: number): Parser<DalvikExecutableMethodAnnotation[], Uint8Array> => createQuantifierParser(
 	methodAnnotationParser,
 	methodsSize,
 );
 
-type DexParameterAnnotation = {
+type DalvikExecutableParameterAnnotation = {
 	methodIndex: IndexIntoMethodIds;
 	annotationsOffset: OffsetToAnnotationSetRefListItem;
 };
 
-const parameterAnnotationParser: Parser<DexParameterAnnotation, Uint8Array> = promiseCompose(
+const parameterAnnotationParser: Parser<DalvikExecutableParameterAnnotation, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uintParser,
 		uintParser,
@@ -625,19 +625,19 @@ const parameterAnnotationParser: Parser<DexParameterAnnotation, Uint8Array> = pr
 	}),
 );
 
-const createParameterAnnotationsParser = (parametersSize: number): Parser<DexParameterAnnotation[], Uint8Array> => createQuantifierParser(
+const createParameterAnnotationsParser = (parametersSize: number): Parser<DalvikExecutableParameterAnnotation[], Uint8Array> => createQuantifierParser(
 	parameterAnnotationParser,
 	parametersSize,
 );
 
-type DexAnnotationsDirectoryItem = {
+type DalvikExecutableAnnotationsDirectoryItem = {
 	classAnnotationsOffset: OffsetToAnnotationSetItem;
-	fieldAnnotations: DexFieldAnnotation[];
-	methodAnnotations: DexMethodAnnotation[];
-	parameterAnnotations: DexParameterAnnotation[];
+	fieldAnnotations: DalvikExecutableFieldAnnotation[];
+	methodAnnotations: DalvikExecutableMethodAnnotation[];
+	parameterAnnotations: DalvikExecutableParameterAnnotation[];
 };
 
-const annotationsDirectoryItemParser: Parser<DexAnnotationsDirectoryItem, Uint8Array> = parserCreatorCompose(
+const annotationsDirectoryItemParser: Parser<DalvikExecutableAnnotationsDirectoryItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
 		byteAlign4Parser,
 		uintParser,
@@ -672,9 +672,9 @@ const annotationsDirectoryItemParser: Parser<DexAnnotationsDirectoryItem, Uint8A
 	),
 )();
 
-type DexAnnotationsDirectoryItemByOffset = Map<OffsetToAnnotationsDirectoryItem, DexAnnotationsDirectoryItem>;
+type DalvikExecutableAnnotationsDirectoryItemByOffset = Map<OffsetToAnnotationsDirectoryItem, DalvikExecutableAnnotationsDirectoryItem>;
 
-const createSkipToThenAnnotationsDirectoryItemsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationsDirectoryItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenAnnotationsDirectoryItemsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableAnnotationsDirectoryItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
 	itemParser: annotationsDirectoryItemParser,
 	byteAlign4: true,
@@ -682,12 +682,12 @@ const createSkipToThenAnnotationsDirectoryItemsParser = (sizeOffset: SizeOffset)
 	parserName: 'skipToThenAnnotationsDirectoryItemsParser',
 });
 
-type DexEncodedFieldDiff = {
+type DalvikExecutableEncodedFieldDiff = {
 	fieldIndexDiff: number;
-	accessFlags: DexAccessFlags;
+	accessFlags: DalvikExecutableAccessFlags;
 };
 
-const encodedFieldParser: Parser<DexEncodedFieldDiff, Uint8Array> = promiseCompose(
+const encodedFieldParser: Parser<DalvikExecutableEncodedFieldDiff, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
 		uleb128AccessFlagsParser,
@@ -695,12 +695,12 @@ const encodedFieldParser: Parser<DexEncodedFieldDiff, Uint8Array> = promiseCompo
 	([ fieldIndexDiff, accessFlags ]) => ({ fieldIndexDiff, accessFlags }),
 );
 
-type DexEncodedField = {
+type DalvikExecutableEncodedField = {
 	fieldIndex: IndexIntoFieldIds;
-	accessFlags: DexAccessFlags;
+	accessFlags: DalvikExecutableAccessFlags;
 };
 
-const createEncodedFieldsParser = (fieldsSize: number): Parser<DexEncodedField[], Uint8Array> => promiseCompose(
+const createEncodedFieldsParser = (fieldsSize: number): Parser<DalvikExecutableEncodedField[], Uint8Array> => promiseCompose(
 	createQuantifierParser(
 		encodedFieldParser,
 		fieldsSize,
@@ -717,13 +717,13 @@ const createEncodedFieldsParser = (fieldsSize: number): Parser<DexEncodedField[]
 	},
 );
 
-type DexEncodedMethodDiff = {
+type DalvikExecutableEncodedMethodDiff = {
 	methodIndexDiff: number;
-	accessFlags: DexAccessFlags;
+	accessFlags: DalvikExecutableAccessFlags;
 	codeOffset: OffsetToCodeItem;
 };
 
-const encodedMethodParser: Parser<DexEncodedMethodDiff, Uint8Array> = promiseCompose(
+const encodedMethodParser: Parser<DalvikExecutableEncodedMethodDiff, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
 		uleb128AccessFlagsParser,
@@ -740,13 +740,13 @@ const encodedMethodParser: Parser<DexEncodedMethodDiff, Uint8Array> = promiseCom
 	}),
 );
 
-type DexEncodedMethod = {
+type DalvikExecutableEncodedMethod = {
 	methodIndex: IndexIntoMethodIds;
-	accessFlags: DexAccessFlags;
+	accessFlags: DalvikExecutableAccessFlags;
 	codeOffset: OffsetToCodeItem;
 };
 
-const createEncodedMethodsParser = (methodsSize: number): Parser<DexEncodedMethod[], Uint8Array> => promiseCompose(
+const createEncodedMethodsParser = (methodsSize: number): Parser<DalvikExecutableEncodedMethod[], Uint8Array> => promiseCompose(
 	createQuantifierParser(
 		encodedMethodParser,
 		methodsSize,
@@ -764,14 +764,14 @@ const createEncodedMethodsParser = (methodsSize: number): Parser<DexEncodedMetho
 	},
 );
 
-type DexClassDataItem = {
-	staticFields: DexEncodedField[],
-	instanceFields: DexEncodedField[],
-	directMethods: DexEncodedMethod[],
-	virtualMethods: DexEncodedMethod[],
+type DalvikExecutableClassDataItem = {
+	staticFields: DalvikExecutableEncodedField[],
+	instanceFields: DalvikExecutableEncodedField[],
+	directMethods: DalvikExecutableEncodedMethod[],
+	virtualMethods: DalvikExecutableEncodedMethod[],
 };
 
-const classDataItemParser: Parser<DexClassDataItem, Uint8Array> = parserCreatorCompose(
+const classDataItemParser: Parser<DalvikExecutableClassDataItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
 		uleb128NumberParser,
 		uleb128NumberParser,
@@ -804,9 +804,9 @@ const classDataItemParser: Parser<DexClassDataItem, Uint8Array> = parserCreatorC
 	),
 )();
 
-type DexClassDataItemByOffset = Map<OffsetToClassDataItem, DexClassDataItem>;
+type DalvikExecutableClassDataItemByOffset = Map<OffsetToClassDataItem, DalvikExecutableClassDataItem>;
 
-const createSkipToThenClassDataItemsParser = (sizeOffset: SizeOffset): Parser<DexClassDataItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenClassDataItemsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableClassDataItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
 	itemParser: classDataItemParser,
 	byteAlign4: false,
@@ -1395,9 +1395,9 @@ const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
 
 setParserName(encodedValueEnumParser, 'encodedValueEnumParser');
 
-type DexEncodedArray = DexEncodedValue[];
+type DalvikExecutableEncodedArray = DalvikExecutableEncodedValue[];
 
-const encodedArrayParser: Parser<DexEncodedArray, Uint8Array> = parserCreatorCompose(
+const encodedArrayParser: Parser<DalvikExecutableEncodedArray, Uint8Array> = parserCreatorCompose(
 	() => uleb128NumberParser,
 	(size) => createQuantifierParser(
 		encodedValueParser,
@@ -1407,7 +1407,7 @@ const encodedArrayParser: Parser<DexEncodedArray, Uint8Array> = parserCreatorCom
 
 setParserName(encodedArrayParser, 'encodedArrayParser');
 
-const encodedValueArrayParser: Parser<DexEncodedValue[], Uint8Array> = promiseCompose(
+const encodedValueArrayParser: Parser<DalvikExecutableEncodedValue[], Uint8Array> = promiseCompose(
 	createTupleParser([
 		parserCreatorCompose(
 			() => createEncodedValueArgParser(0x1c),
@@ -1422,17 +1422,17 @@ const encodedValueArrayParser: Parser<DexEncodedValue[], Uint8Array> = promiseCo
 
 setParserName(encodedValueArrayParser, 'encodedValueArrayParser');
 
-type DexAnnotationElement = {
+type DalvikExecutableAnnotationElement = {
 	nameIndex: IndexIntoStringIds;
-	value: DexEncodedValue;
+	value: DalvikExecutableEncodedValue;
 };
 
-type DexEncodedAnnotation = {
+type DalvikExecutableEncodedAnnotation = {
 	typeIndex: IndexIntoTypeIds;
-	elements: DexAnnotationElement[];
+	elements: DalvikExecutableAnnotationElement[];
 };
 
-const annotationElementParser: Parser<DexAnnotationElement, Uint8Array> = promiseCompose(
+const annotationElementParser: Parser<DalvikExecutableAnnotationElement, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
 		createParserAccessorParser(() => encodedValueParser),
@@ -1448,7 +1448,7 @@ const annotationElementParser: Parser<DexAnnotationElement, Uint8Array> = promis
 
 setParserName(annotationElementParser, 'annotationElementParser');
 
-const encodedAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promiseCompose(
+const encodedAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Uint8Array> = promiseCompose(
 	parserCreatorCompose(
 		() => createTupleParser([
 			uleb128NumberParser,
@@ -1476,7 +1476,7 @@ const encodedAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promis
 
 setParserName(encodedAnnotationParser, 'encodedAnnotationParser');
 
-const encodedValueAnnotationParser: Parser<DexEncodedAnnotation, Uint8Array> = promiseCompose(
+const encodedValueAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Uint8Array> = promiseCompose(
 	createTupleParser([
 		parserCreatorCompose(
 			() => createEncodedValueArgParser(0x1d),
@@ -1508,9 +1508,9 @@ const encodedValueBooleanParser: Parser<boolean, Uint8Array> = promiseCompose(
 
 setParserName(encodedValueBooleanParser, 'encodedValueBooleanParser');
 
-type DexEncodedValue = number | DexEncodedValue[] | undefined;
+type DalvikExecutableEncodedValue = number | DalvikExecutableEncodedValue[] | undefined;
 
-const encodedValueParser: Parser<DexEncodedValue, Uint8Array> = createDisjunctionParser([
+const encodedValueParser: Parser<DalvikExecutableEncodedValue, Uint8Array> = createDisjunctionParser([
 	encodedValueByteParser,
 	encodedValueShortParser,
 	encodedValueCharParser,
@@ -1533,19 +1533,19 @@ const encodedValueParser: Parser<DexEncodedValue, Uint8Array> = createDisjunctio
 
 setParserName(encodedValueParser, 'encodedValueParser');
 
-type DexTryItem = {
+type DalvikExecutableTryItem = {
 	startAddress: number;
 	instructionCount: number;
 	handlerOffset: OffsetFromEncodedCatchHandlerListToEncodedCatchHandler;
 };
 
-type DexTry = {
+type DalvikExecutableTry = {
 	startAddress: number;
 	instructionCount: number;
-	handler: DexEncodedCatchHandler;
+	handler: DalvikExecutableEncodedCatchHandler;
 };
 
-const tryItemParser: Parser<DexTryItem, Uint8Array> = promiseCompose(
+const tryItemParser: Parser<DalvikExecutableTryItem, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uintParser,
 		ushortParser,
@@ -1564,12 +1564,12 @@ const tryItemParser: Parser<DexTryItem, Uint8Array> = promiseCompose(
 
 setParserName(tryItemParser, 'tryItemParser');
 
-type DexEncodedTypeAddressPair = {
+type DalvikExecutableEncodedTypeAddressPair = {
 	typeIndex: IndexIntoTypeIds;
 	address: number;
 };
 
-const encodedTypeAddressPairParser: Parser<DexEncodedTypeAddressPair, Uint8Array> = promiseCompose(
+const encodedTypeAddressPairParser: Parser<DalvikExecutableEncodedTypeAddressPair, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
 		uleb128NumberParser,
@@ -1583,12 +1583,12 @@ const encodedTypeAddressPairParser: Parser<DexEncodedTypeAddressPair, Uint8Array
 	}),
 );
 
-type DexEncodedCatchHandler = {
-	handlers: DexEncodedTypeAddressPair[],
+type DalvikExecutableEncodedCatchHandler = {
+	handlers: DalvikExecutableEncodedTypeAddressPair[],
 	catchAllAddress: undefined | number,
 };
 
-const encodedCatchHandlerParser: Parser<DexEncodedCatchHandler, Uint8Array> = parserCreatorCompose(
+const encodedCatchHandlerParser: Parser<DalvikExecutableEncodedCatchHandler, Uint8Array> = parserCreatorCompose(
 	() => sleb128NumberParser,
 	size => promiseCompose(
 		createTupleParser([
@@ -1611,11 +1611,11 @@ const encodedCatchHandlerParser: Parser<DexEncodedCatchHandler, Uint8Array> = pa
 
 setParserName(encodedCatchHandlerParser, 'encodedCatchHandlerParser');
 
-type DexEncodedCatchHandlerByRelativeOffset = Map<OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, DexEncodedCatchHandler>;
+type DalvikExecutableEncodedCatchHandlerByRelativeOffset = Map<OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, DalvikExecutableEncodedCatchHandler>;
 
-const encodedCatchHandlerListParser: Parser<DexEncodedCatchHandlerByRelativeOffset, Uint8Array> = async (parserContext) => {
+const encodedCatchHandlerListParser: Parser<DalvikExecutableEncodedCatchHandlerByRelativeOffset, Uint8Array> = async (parserContext) => {
 	const listOffset = parserContext.position;
-	const handlers: DexEncodedCatchHandlerByRelativeOffset = new Map();
+	const handlers: DalvikExecutableEncodedCatchHandlerByRelativeOffset = new Map();
 
 	const size = await uleb128NumberParser(parserContext);
 
@@ -1633,33 +1633,33 @@ const encodedCatchHandlerListParser: Parser<DexEncodedCatchHandlerByRelativeOffs
 
 setParserName(encodedCatchHandlerListParser, 'encodedCatchHandlerListParser');
 
-type DexCodeItem<Instructions> = {
+type DalvikExecutableCodeItem<Instructions> = {
 	registersSize: number;
 	insSize: number;
 	outsSize: number;
 	debugInfoOffset: OffsetToDebugInfoItem;
 	instructions: Instructions;
-	tryItems: DexTryItem[];
-	handlers: DexEncodedCatchHandlerByRelativeOffset;
+	tryItems: DalvikExecutableTryItem[];
+	handlers: DalvikExecutableEncodedCatchHandlerByRelativeOffset;
 };
 
-type DexCode<Instructions> = {
+type DalvikExecutableCode<Instructions> = {
 	registersSize: number;
 	insSize: number;
 	outsSize: number;
-	debugInfo: undefined | DexDebugInfo;
+	debugInfo: undefined | DalvikExecutableDebugInfo;
 	instructions: Instructions;
-	tries: DexTry[];
+	tries: DalvikExecutableTry[];
 };
 
 type CreateInstructionsParser<Instructions> = (size: number) => Parser<Instructions, Uint8Array>;
 
-const createDexCodeItemParser = <Instructions>({
+const createDalvikExecutableCodeItemParser = <Instructions>({
 	createInstructionsParser,
 }: {
 	createInstructionsParser: CreateInstructionsParser<Instructions>;
-}): Parser<DexCodeItem<Instructions>, Uint8Array> => {
-	const dexCodeItemParser = parserCreatorCompose(
+}): Parser<DalvikExecutableCodeItem<Instructions>, Uint8Array> => {
+	const dalvikExecutableCodeItemParser = parserCreatorCompose(
 		() => createTupleParser([
 			byteAlign4Parser,
 			ushortParser,
@@ -1724,12 +1724,12 @@ const createDexCodeItemParser = <Instructions>({
 		},
 	)();
 
-	setParserName(dexCodeItemParser, 'dexCodeItemParser');
+	setParserName(dalvikExecutableCodeItemParser, 'dalvikExecutableCodeItemParser');
 
-	return dexCodeItemParser;
+	return dalvikExecutableCodeItemParser;
 };
 
-type DexCodeItemByOffset<Instructions> = Map<OffsetToCodeItem, DexCodeItem<Instructions>>;
+type DalvikExecutableCodeItemByOffset<Instructions> = Map<OffsetToCodeItem, DalvikExecutableCodeItem<Instructions>>;
 
 const createSkipToThenCodeItemsParser = <Instructions>({
 	sizeOffset,
@@ -1737,9 +1737,9 @@ const createSkipToThenCodeItemsParser = <Instructions>({
 }: {
 	sizeOffset: SizeOffset;
 	createInstructionsParser: CreateInstructionsParser<Instructions>;
-}): Parser<DexCodeItemByOffset<Instructions>, Uint8Array> => createSkipToThenItemByOffsetParser({
+}): Parser<DalvikExecutableCodeItemByOffset<Instructions>, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
-	itemParser: createDexCodeItemParser({
+	itemParser: createDalvikExecutableCodeItemParser({
 		createInstructionsParser,
 	}),
 	byteAlign4: true,
@@ -1747,7 +1747,7 @@ const createSkipToThenCodeItemsParser = <Instructions>({
 	parserName: 'skipToThenCodeItemsParser',
 });
 
-type DexDebugByteCodeValueItem =
+type DalvikExecutableDebugByteCodeValueItem =
 	| {
 		type: 'advancePc';
 		addressDiff: number;
@@ -1793,7 +1793,7 @@ type DexDebugByteCodeValueItem =
 	}
 ;
 
-type DexDebugByteCodeValue =
+type DalvikExecutableDebugByteCodeValue =
 	| {
 		type: 'advancePc';
 		addressDiff: number;
@@ -1839,9 +1839,9 @@ type DexDebugByteCodeValue =
 	}
 ;
 
-const dexDebugByteCodeValueParser: Parser<DexDebugByteCodeValueItem, Uint8Array> = parserCreatorCompose(
+const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByteCodeValueItem, Uint8Array> = parserCreatorCompose(
 	() => ubyteParser,
-	(value): Parser<DexDebugByteCodeValueItem, Uint8Array> => {
+	(value): Parser<DalvikExecutableDebugByteCodeValueItem, Uint8Array> => {
 		switch (value) {
 			case 0x01: return promiseCompose(
 				uleb128NumberParser,
@@ -1901,34 +1901,34 @@ const dexDebugByteCodeValueParser: Parser<DexDebugByteCodeValueItem, Uint8Array>
 	}
 )();
 
-setParserName(dexDebugByteCodeValueParser, 'dexDebugByteCodeValueParser');
+setParserName(dalvikExecutableDebugByteCodeValueParser, 'dalvikExecutableDebugByteCodeValueParser');
 
-type DexDebugByteCodeItem = DexDebugByteCodeValueItem[];
+type DalvikExecutableDebugByteCodeItem = DalvikExecutableDebugByteCodeValueItem[];
 
-type DexDebugByteCode = DexDebugByteCodeValue[];
+type DalvikExecutableDebugByteCode = DalvikExecutableDebugByteCodeValue[];
 
-const debugByteCodeParser: Parser<DexDebugByteCodeItem, Uint8Array> = createElementTerminatedArrayParserUnsafe(
-	dexDebugByteCodeValueParser,
+const debugByteCodeParser: Parser<DalvikExecutableDebugByteCodeItem, Uint8Array> = createElementTerminatedArrayParserUnsafe(
+	dalvikExecutableDebugByteCodeValueParser,
 	0,
 );
 
 setParserName(debugByteCodeParser, 'debugByteCodeParser');
 
-type DexDebugInfoItem = {
+type DalvikExecutableDebugInfoItem = {
 	lineStart: number;
 	parameterNames: (undefined | IndexIntoStringIds)[];
-	bytecode: DexDebugByteCodeItem;
+	bytecode: DalvikExecutableDebugByteCodeItem;
 };
 
 const DEX_DEBUG_INFO_ITEM_PARAMETER_NAME_NO_INDEX = -1;
 
-type DexDebugInfo = {
+type DalvikExecutableDebugInfo = {
 	lineStart: number;
 	parameterNames: (undefined | string)[];
-	bytecode: DexDebugByteCode;
+	bytecode: DalvikExecutableDebugByteCode;
 };
 
-const debugInfoItemParser: Parser<DexDebugInfoItem, Uint8Array> = parserCreatorCompose(
+const debugInfoItemParser: Parser<DalvikExecutableDebugInfoItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
 		uleb128NumberParser,
 		uleb128NumberParser,
@@ -1954,9 +1954,9 @@ const debugInfoItemParser: Parser<DexDebugInfoItem, Uint8Array> = parserCreatorC
 
 setParserName(debugInfoItemParser, 'debugInfoItemParser');
 
-type DexDebugInfoItemByOffset = Map<OffsetToDebugInfoItem, DexDebugInfoItem>;
+type DalvikExecutableDebugInfoItemByOffset = Map<OffsetToDebugInfoItem, DalvikExecutableDebugInfoItem>;
 
-const createSkipToThenDebugInfoItemsParser = (sizeOffset: SizeOffset): Parser<DexDebugInfoItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenDebugInfoItemsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableDebugInfoItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
 	itemParser: debugInfoItemParser,
 	byteAlign4: false,
@@ -1964,13 +1964,13 @@ const createSkipToThenDebugInfoItemsParser = (sizeOffset: SizeOffset): Parser<De
 	parserName: 'skipToThenDebugInfoItemsParser',
 });
 
-type DexAnnotationItemVisibility =
+type DalvikExecutableAnnotationItemVisibility =
 	| 'build'
 	| 'runtime'
 	| 'system'
 ;
 
-const dexAnnotationItemVisibilityParser: Parser<DexAnnotationItemVisibility, Uint8Array> = promiseCompose(
+const dalvikExecutableAnnotationItemVisibilityParser: Parser<DalvikExecutableAnnotationItemVisibility, Uint8Array> = promiseCompose(
 	ubyteParser,
 	(visibility) => {
 		switch (visibility) {
@@ -1982,201 +1982,201 @@ const dexAnnotationItemVisibilityParser: Parser<DexAnnotationItemVisibility, Uin
 	},
 );
 
-setParserName(dexAnnotationItemVisibilityParser, 'dexAnnotationItemVisibilityParser');
+setParserName(dalvikExecutableAnnotationItemVisibilityParser, 'dalvikExecutableAnnotationItemVisibilityParser');
 
-type DexAnnotationItem = {
-	visibility: DexAnnotationItemVisibility;
-	encodedAnnotation: DexEncodedAnnotation;
+type DalvikExecutableAnnotationItem = {
+	visibility: DalvikExecutableAnnotationItemVisibility;
+	encodedAnnotation: DalvikExecutableEncodedAnnotation;
 };
 
-type DexAnnotationElement_ = {
+type DalvikExecutableAnnotationElement_ = {
 	name: string;
-	value: DexEncodedValue;
+	value: DalvikExecutableEncodedValue;
 };
 
-type DexAnnotation = {
-	visibility: DexAnnotationItemVisibility;
+type DalvikExecutableAnnotation = {
+	visibility: DalvikExecutableAnnotationItemVisibility;
 	type: string;
-	elements: DexAnnotationElement_[];
+	elements: DalvikExecutableAnnotationElement_[];
 }
 
-const dexAnnotationItemParser: Parser<DexAnnotationItem, Uint8Array> = promiseCompose(
+const dalvikExecutableAnnotationItemParser: Parser<DalvikExecutableAnnotationItem, Uint8Array> = promiseCompose(
 	createTupleParser([
-		dexAnnotationItemVisibilityParser,
+		dalvikExecutableAnnotationItemVisibilityParser,
 		encodedAnnotationParser,
 	]),
 	([ visibility, encodedAnnotation ]) => ({ visibility, encodedAnnotation }),
 );
 
-setParserName(dexAnnotationItemParser, 'dexAnnotationItemParser');
+setParserName(dalvikExecutableAnnotationItemParser, 'dalvikExecutableAnnotationItemParser');
 
-type DexAnnotationItemByOffset = Map<OffsetToAnnotationItem, DexAnnotationItem>;
+type DalvikExecutableAnnotationItemByOffset = Map<OffsetToAnnotationItem, DalvikExecutableAnnotationItem>;
 
-const createSkipToThenAnnotationItemsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenAnnotationItemsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableAnnotationItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
-	itemParser: dexAnnotationItemParser,
+	itemParser: dalvikExecutableAnnotationItemParser,
 	byteAlign4: false,
 	isoOffset: isoOffsetToAnnotationItem,
 	parserName: 'skipToThenAnnotationItemsParser',
 });
 
-type DexHeaderAndMap = {
-	headerItem: DexHeaderItem;
-	mapList: DexMapList;
+type DalvikExecutableHeaderAndMap = {
+	headerItem: DalvikExecutableHeaderItem;
+	mapList: DalvikExecutableMapList;
 };
 
-const dexHeaderAndMapParser: Parser<DexHeaderAndMap, Uint8Array> = parserCreatorCompose(
-	() => dexHeaderItemParser,
+const dalvikExecutableHeaderAndMapParser: Parser<DalvikExecutableHeaderAndMap, Uint8Array> = parserCreatorCompose(
+	() => dalvikExecutableHeaderItemParser,
 	(headerItem) => promiseCompose(
-		createLookaheadParser(createDexMapListParser(headerItem.mapOffset)),
+		createLookaheadParser(createDalvikExecutableMapListParser(headerItem.mapOffset)),
 		(mapList) => ({ headerItem, mapList }),
 	),
 )();
 
-type DexPrototype = {
+type DalvikExecutablePrototype = {
 	shorty: string;
 	returnType: string;
 	parameters: string[];
 };
 
-type DexField = {
+type DalvikExecutableField = {
 	class: string;
 	type: string;
 	name: string;
 };
 
-type DexFieldWithAccess = {
-	field: DexField;
-	accessFlags: DexAccessFlags;
+type DalvikExecutableFieldWithAccess = {
+	field: DalvikExecutableField;
+	accessFlags: DalvikExecutableAccessFlags;
 };
 
-type DexMethod = {
+type DalvikExecutableMethod = {
 	class: string;
-	prototype: DexPrototype;
+	prototype: DalvikExecutablePrototype;
 	name: string;
 };
 
-type DexMethodWithAccess<Instructions> = {
-	method: DexMethod;
-	accessFlags: DexAccessFlags;
-	code: undefined | DexCode<Instructions>;
+type DalvikExecutableMethodWithAccess<Instructions> = {
+	method: DalvikExecutableMethod;
+	accessFlags: DalvikExecutableAccessFlags;
+	code: undefined | DalvikExecutableCode<Instructions>;
 };
 
-type DexAnnotationOffsetItem = {
+type DalvikExecutableAnnotationOffsetItem = {
 	annotationOffset: OffsetToAnnotationItem;
 }
 
-const dexAnnotationOffsetItemParser: Parser<DexAnnotationOffsetItem, Uint8Array> = promiseCompose(
+const dalvikExecutableAnnotationOffsetItemParser: Parser<DalvikExecutableAnnotationOffsetItem, Uint8Array> = promiseCompose(
 	uintParser,
 	(annotationOffset) => ({
 		annotationOffset: isoOffsetToAnnotationItem.wrap(annotationOffset),
 	}),
 );
 
-type DexAnnotationSetItem = {
-	entries: DexAnnotationOffsetItem[];
+type DalvikExecutableAnnotationSetItem = {
+	entries: DalvikExecutableAnnotationOffsetItem[];
 };
 
-const dexAnnotationSetItemParser: Parser<DexAnnotationSetItem, Uint8Array> = parserCreatorCompose(
+const dalvikExecutableAnnotationSetItemParser: Parser<DalvikExecutableAnnotationSetItem, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
 		byteAlign4Parser,
 		uintParser,
 	]),
 	([ _, size ]) => promiseCompose(
 		createQuantifierParser(
-			dexAnnotationOffsetItemParser,
+			dalvikExecutableAnnotationOffsetItemParser,
 			size,
 		),
 		(entries) => ({ entries }),
 	),
 )();
 
-type DexAnnotationSetItemByOffset = Map<OffsetToAnnotationSetItem, DexAnnotationSetItem>;
+type DalvikExecutableAnnotationSetItemByOffset = Map<OffsetToAnnotationSetItem, DalvikExecutableAnnotationSetItem>;
 
-const createSkipToThenAnnotationSetItemsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationSetItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenAnnotationSetItemsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableAnnotationSetItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
-	itemParser: dexAnnotationSetItemParser,
+	itemParser: dalvikExecutableAnnotationSetItemParser,
 	byteAlign4: true,
 	isoOffset: isoOffsetToAnnotationSetItem,
 	parserName: 'skipToThenAnnotationSetItemsParser',
 });
 
-type DexAnnotationSetRefItem = OffsetToAnnotationSetItem;
+type DalvikExecutableAnnotationSetRefItem = OffsetToAnnotationSetItem;
 
-const dexAnnotationSetRefItemParser: Parser<DexAnnotationSetRefItem, Uint8Array> = promiseCompose(
+const dalvikExecutableAnnotationSetRefItemParser: Parser<DalvikExecutableAnnotationSetRefItem, Uint8Array> = promiseCompose(
 	uintParser,
 	(annotationsOffset) => isoOffsetToAnnotationSetItem.wrap(annotationsOffset),
 );
 
-type DexAnnotationSetRefList = {
-	list: DexAnnotationSetRefItem[];
+type DalvikExecutableAnnotationSetRefList = {
+	list: DalvikExecutableAnnotationSetRefItem[];
 };
 
-const dexAnnotationSetRefListParser: Parser<DexAnnotationSetRefList, Uint8Array> = parserCreatorCompose(
+const dalvikExecutableAnnotationSetRefListParser: Parser<DalvikExecutableAnnotationSetRefList, Uint8Array> = parserCreatorCompose(
 	() => createTupleParser([
 		byteAlign4Parser,
 		uintParser,
 	]),
 	([ _, size ]) => promiseCompose(
 		createQuantifierParser(
-			dexAnnotationSetRefItemParser,
+			dalvikExecutableAnnotationSetRefItemParser,
 			size,
 		),
 		(list) => ({ list }),
 	),
 )();
 
-type DexAnnotationSetRefListItemByOffset = Map<OffsetToAnnotationSetRefListItem, DexAnnotationSetRefList>;
+type DalvikExecutableAnnotationSetRefListItemByOffset = Map<OffsetToAnnotationSetRefListItem, DalvikExecutableAnnotationSetRefList>;
 
-const createSkipToThenAnnotationSetRefListsParser = (sizeOffset: SizeOffset): Parser<DexAnnotationSetRefListItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenAnnotationSetRefListsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableAnnotationSetRefListItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
-	itemParser: dexAnnotationSetRefListParser,
+	itemParser: dalvikExecutableAnnotationSetRefListParser,
 	byteAlign4: true,
 	isoOffset: isoOffsetToAnnotationSetRefListItem,
 	parserName: 'skipToThenAnnotationSetRefListsParser',
 });
 
-type DexClassFieldAnnotation = {
-	field: DexField;
-	annotations: undefined | DexAnnotation[];
+type DalvikExecutableClassFieldAnnotation = {
+	field: DalvikExecutableField;
+	annotations: undefined | DalvikExecutableAnnotation[];
 };
 
-type DexClassMethodAnnotation = {
-	method: DexMethod;
-	annotations: undefined | DexAnnotation[];
+type DalvikExecutableClassMethodAnnotation = {
+	method: DalvikExecutableMethod;
+	annotations: undefined | DalvikExecutableAnnotation[];
 };
 
-type DexClassParameterAnnotation = {
-	method: DexMethod;
-	annotations: undefined | (undefined | DexAnnotation[])[];
+type DalvikExecutableClassParameterAnnotation = {
+	method: DalvikExecutableMethod;
+	annotations: undefined | (undefined | DalvikExecutableAnnotation[])[];
 };
 
-type DexClassAnnotations = {
-	classAnnotations: undefined | DexAnnotation[];
-	fieldAnnotations: DexClassFieldAnnotation[];
-	methodAnnotations: DexClassMethodAnnotation[];
-	parameterAnnotations: DexClassParameterAnnotation[];
+type DalvikExecutableClassAnnotations = {
+	classAnnotations: undefined | DalvikExecutableAnnotation[];
+	fieldAnnotations: DalvikExecutableClassFieldAnnotation[];
+	methodAnnotations: DalvikExecutableClassMethodAnnotation[];
+	parameterAnnotations: DalvikExecutableClassParameterAnnotation[];
 };
 
-type DexClassData<Instructions> = {
-	staticFields: DexFieldWithAccess[];
-	instanceFields: DexFieldWithAccess[];
-	directMethods: DexMethodWithAccess<Instructions>[];
-	virtualMethods: DexMethodWithAccess<Instructions>[];
+type DalvikExecutableClassData<Instructions> = {
+	staticFields: DalvikExecutableFieldWithAccess[];
+	instanceFields: DalvikExecutableFieldWithAccess[];
+	directMethods: DalvikExecutableMethodWithAccess<Instructions>[];
+	virtualMethods: DalvikExecutableMethodWithAccess<Instructions>[];
 };
 
-type DexClassDefinition<Instructions> = {
+type DalvikExecutableClassDefinition<Instructions> = {
 	class: string;
-	accessFlags: DexAccessFlags,
+	accessFlags: DalvikExecutableAccessFlags,
 	superclass: string;
 	interfaces: string[];
 	sourceFile: undefined | string;
-	annotations: undefined | DexClassAnnotations;
-	staticValues: DexEncodedValue[];
-	classData: undefined | DexClassData<Instructions>;
+	annotations: undefined | DalvikExecutableClassAnnotations;
+	staticValues: DalvikExecutableEncodedValue[];
+	classData: undefined | DalvikExecutableClassData<Instructions>;
 };
 
-type DexMapItemType =
+type DalvikExecutableMapItemType =
 	| 'headerItem'
 	| 'stringIdItem'
 	| 'typeIdItem'
@@ -2200,7 +2200,7 @@ type DexMapItemType =
 	| 'hiddenApiClassDataItem'
 ;
 
-const dexMapItemTypeParser: Parser<DexMapItemType, Uint8Array> = promiseCompose(
+const dalvikExecutableMapItemTypeParser: Parser<DalvikExecutableMapItemType, Uint8Array> = promiseCompose(
 	ushortParser,
 	(type) => {
 		switch (type) {
@@ -2230,15 +2230,15 @@ const dexMapItemTypeParser: Parser<DexMapItemType, Uint8Array> = promiseCompose(
 	},
 );
 
-type DexMapItem = {
-	type: DexMapItemType;
+type DalvikExecutableMapItem = {
+	type: DalvikExecutableMapItemType;
 	size: number;
 	offset: number;
 };
 
-const dexMapItemParser: Parser<DexMapItem, Uint8Array> = promiseCompose(
+const dalvikExecutableMapItemParser: Parser<DalvikExecutableMapItem, Uint8Array> = promiseCompose(
 	createTupleParser([
-		dexMapItemTypeParser,
+		dalvikExecutableMapItemTypeParser,
 		ushortParser,
 		uintParser,
 		uintParser,
@@ -2246,39 +2246,39 @@ const dexMapItemParser: Parser<DexMapItem, Uint8Array> = promiseCompose(
 	([ type, _unused, size, offset ]) => ({ type, size, offset }),
 );
 
-type DexMapList = DexMapItem[];
+type DalvikExecutableMapList = DalvikExecutableMapItem[];
 
-const dexMapListParser: Parser<DexMapList, Uint8Array> = parserCreatorCompose(
+const dalvikExecutableMapListParser: Parser<DalvikExecutableMapList, Uint8Array> = parserCreatorCompose(
 	() => uintParser,
 	size => {
 		return createQuantifierParser(
-			dexMapItemParser,
+			dalvikExecutableMapItemParser,
 			size,
 		);
 	},
 )();
 
-setParserName(dexMapListParser, 'dexMapListParser');
+setParserName(dalvikExecutableMapListParser, 'dalvikExecutableMapListParser');
 
-const createDexMapListParser = (mapOffset: number): Parser<DexMapList, Uint8Array> => {
-	const dexMapParser = promiseCompose(
+const createDalvikExecutableMapListParser = (mapOffset: number): Parser<DalvikExecutableMapList, Uint8Array> => {
+	const dalvikExecutableMapParser = promiseCompose(
 		createTupleParser([
 			createSkipToParser(mapOffset),
-			dexMapListParser,
+			dalvikExecutableMapListParser,
 		]),
 		([ _, map ]) => map,
 	);
 
-	setParserName(dexMapParser, 'dexMapParser');
+	setParserName(dalvikExecutableMapParser, 'dalvikExecutableMapParser');
 
-	return dexMapParser;
+	return dalvikExecutableMapParser;
 };
 
-type DexEncodedArrayItem = DexEncodedArray;
+type DalvikExecutableEncodedArrayItem = DalvikExecutableEncodedArray;
 
-type DexEncodedArrayItemByOffset = Map<OffsetToEncodedArrayItem, DexEncodedArrayItem>;
+type DalvikExecutableEncodedArrayItemByOffset = Map<OffsetToEncodedArrayItem, DalvikExecutableEncodedArrayItem>;
 
-const createSkipToThenEncodedArrayItemsParser = (sizeOffset: SizeOffset): Parser<DexEncodedArrayItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
+const createSkipToThenEncodedArrayItemsParser = (sizeOffset: SizeOffset): Parser<DalvikExecutableEncodedArrayItemByOffset, Uint8Array> => createSkipToThenItemByOffsetParser({
 	sizeOffset,
 	itemParser: encodedArrayParser,
 	byteAlign4: false,
@@ -2286,63 +2286,63 @@ const createSkipToThenEncodedArrayItemsParser = (sizeOffset: SizeOffset): Parser
 	parserName: 'skipToThenEncodedArrayItemsParser',
 });
 
-type DexCallSiteIdItem = unknown; // TODO
+type DalvikExecutableCallSiteIdItem = unknown; // TODO
 
-type DexMethodHandleItem = unknown; // TODO
+type DalvikExecutableMethodHandleItem = unknown; // TODO
 
-type DexHiddenApiClassDataItem = unknown; // TODO
+type DalvikExecutableHiddenApiClassDataItem = unknown; // TODO
 
-type DexData<Instructions> = {
-	headerItem: DexHeaderItem;
-	stringIdItems: DexStringIdItems;
-	typeIdItems: DexTypeIdItems;
-	prototypeIdItems: DexPrototypeIdItems;
-	fieldIdItems: DexFieldIdItems;
-	methodIdItems: DexMethodIdItems;
-	classDefinitionItems: DexClassDefinitionItem[];
-	callSiteIdItems: DexCallSiteIdItem[];
-	methodHandleItems: DexMethodHandleItem[];
-	mapList: DexMapList;
-	typeListByOffset: DexTypeListByOffset;
-	annotationSetRefListItemByOffset: DexAnnotationSetRefListItemByOffset;
-	annotationSetItemByOffset: DexAnnotationSetItemByOffset;
-	classDataItemByOffset: DexClassDataItemByOffset;
-	codeItemByOffset: DexCodeItemByOffset<Instructions>;
-	stringDataItemStringByOffset: DexStringDataItemStringByOffset;
-	debugInfoItemByOffset: DexDebugInfoItemByOffset;
-	annotationItemByOffset: DexAnnotationItemByOffset;
-	encodedArrayItemByOffset: DexEncodedArrayItemByOffset;
-	annotationsDirectoryItemByOffset: DexAnnotationsDirectoryItemByOffset;
-	hiddenApiClassDataItems: DexHiddenApiClassDataItem[];
+type DalvikExecutableData<Instructions> = {
+	headerItem: DalvikExecutableHeaderItem;
+	stringIdItems: DalvikExecutableStringIdItems;
+	typeIdItems: DalvikExecutableTypeIdItems;
+	prototypeIdItems: DalvikExecutablePrototypeIdItems;
+	fieldIdItems: DalvikExecutableFieldIdItems;
+	methodIdItems: DalvikExecutableMethodIdItems;
+	classDefinitionItems: DalvikExecutableClassDefinitionItem[];
+	callSiteIdItems: DalvikExecutableCallSiteIdItem[];
+	methodHandleItems: DalvikExecutableMethodHandleItem[];
+	mapList: DalvikExecutableMapList;
+	typeListByOffset: DalvikExecutableTypeListByOffset;
+	annotationSetRefListItemByOffset: DalvikExecutableAnnotationSetRefListItemByOffset;
+	annotationSetItemByOffset: DalvikExecutableAnnotationSetItemByOffset;
+	classDataItemByOffset: DalvikExecutableClassDataItemByOffset;
+	codeItemByOffset: DalvikExecutableCodeItemByOffset<Instructions>;
+	stringDataItemStringByOffset: DalvikExecutableStringDataItemStringByOffset;
+	debugInfoItemByOffset: DalvikExecutableDebugInfoItemByOffset;
+	annotationItemByOffset: DalvikExecutableAnnotationItemByOffset;
+	encodedArrayItemByOffset: DalvikExecutableEncodedArrayItemByOffset;
+	annotationsDirectoryItemByOffset: DalvikExecutableAnnotationsDirectoryItemByOffset;
+	hiddenApiClassDataItems: DalvikExecutableHiddenApiClassDataItem[];
 };
 
-const createDexDataParser = <Instructions>({
+const createDalvikExecutableDataParser = <Instructions>({
 	headerItem,
 	mapList,
 	createInstructionsParser,
-}: DexHeaderAndMap & {
+}: DalvikExecutableHeaderAndMap & {
 	createInstructionsParser: CreateInstructionsParser<Instructions>;
-}): Parser<DexData<Instructions>, Uint8Array> => {
-	const dexDataParser: Parser<DexData<Instructions>, Uint8Array> = async (parserContext) => {
-		let stringIdItems: DexStringIdItems = isoDexStringIdItems.wrap([]);
-		let typeIdItems: DexTypeIdItems = isoDexTypeIdItems.wrap([]);
-		let prototypeIdItems: DexPrototypeIdItems = isoDexPrototypeIdItems.wrap([]);
-		let fieldIdItems: DexFieldIdItems = isoDexFieldIdItems.wrap([]);
-		let methodIdItems: DexMethodIdItems = isoDexMethodIdItems.wrap([]);
-		let classDefinitionItems: DexClassDefinitionItem[] = [];
-		let callSiteIdItems: DexCallSiteIdItem[] = [];
-		let methodHandleItems: DexMethodHandleItem[] = [];
-		let typeListByOffset: DexTypeListByOffset = new Map();
-		let annotationSetRefListItemByOffset: DexAnnotationSetRefListItemByOffset = new Map();
-		let annotationSetItemByOffset: DexAnnotationSetItemByOffset = new Map();
-		let classDataItemByOffset: DexClassDataItemByOffset = new Map();
-		let codeItemByOffset: DexCodeItemByOffset<Instructions> = new Map();
-		let stringDataItemStringByOffset: DexStringDataItemStringByOffset = new Map();
-		let debugInfoItemByOffset: DexDebugInfoItemByOffset = new Map();
-		let annotationItemByOffset: DexAnnotationItemByOffset = new Map();
-		let encodedArrayItemByOffset: DexEncodedArrayItemByOffset = new Map();
-		let annotationsDirectoryItemByOffset: DexAnnotationsDirectoryItemByOffset = new Map();
-		let hiddenApiClassDataItems: DexHiddenApiClassDataItem[] = [];
+}): Parser<DalvikExecutableData<Instructions>, Uint8Array> => {
+	const dalvikExecutableDataParser: Parser<DalvikExecutableData<Instructions>, Uint8Array> = async (parserContext) => {
+		let stringIdItems: DalvikExecutableStringIdItems = isoDalvikExecutableStringIdItems.wrap([]);
+		let typeIdItems: DalvikExecutableTypeIdItems = isoDalvikExecutableTypeIdItems.wrap([]);
+		let prototypeIdItems: DalvikExecutablePrototypeIdItems = isoDalvikExecutablePrototypeIdItems.wrap([]);
+		let fieldIdItems: DalvikExecutableFieldIdItems = isoDalvikExecutableFieldIdItems.wrap([]);
+		let methodIdItems: DalvikExecutableMethodIdItems = isoDalvikExecutableMethodIdItems.wrap([]);
+		let classDefinitionItems: DalvikExecutableClassDefinitionItem[] = [];
+		let callSiteIdItems: DalvikExecutableCallSiteIdItem[] = [];
+		let methodHandleItems: DalvikExecutableMethodHandleItem[] = [];
+		let typeListByOffset: DalvikExecutableTypeListByOffset = new Map();
+		let annotationSetRefListItemByOffset: DalvikExecutableAnnotationSetRefListItemByOffset = new Map();
+		let annotationSetItemByOffset: DalvikExecutableAnnotationSetItemByOffset = new Map();
+		let classDataItemByOffset: DalvikExecutableClassDataItemByOffset = new Map();
+		let codeItemByOffset: DalvikExecutableCodeItemByOffset<Instructions> = new Map();
+		let stringDataItemStringByOffset: DalvikExecutableStringDataItemStringByOffset = new Map();
+		let debugInfoItemByOffset: DalvikExecutableDebugInfoItemByOffset = new Map();
+		let annotationItemByOffset: DalvikExecutableAnnotationItemByOffset = new Map();
+		let encodedArrayItemByOffset: DalvikExecutableEncodedArrayItemByOffset = new Map();
+		let annotationsDirectoryItemByOffset: DalvikExecutableAnnotationsDirectoryItemByOffset = new Map();
+		let hiddenApiClassDataItems: DalvikExecutableHiddenApiClassDataItem[] = [];
 
 		for (const dexMapItem of mapList) {
 			if (dexMapItem.type === 'headerItem') {
@@ -2476,28 +2476,28 @@ const createDexDataParser = <Instructions>({
 		};
 	};
 
-	setParserName(dexDataParser, 'dexDataParser');
+	setParserName(dalvikExecutableDataParser, 'dalvikExecutableDataParser');
 
-	return dexDataParser;
+	return dalvikExecutableDataParser;
 };
 
-type Dex<Instructions> = {
-	classDefinitions: DexClassDefinition<Instructions>[];
+type DalvikExecutable<Instructions> = {
+	classDefinitions: DalvikExecutableClassDefinition<Instructions>[];
 	link: undefined | Uint8Array,
 };
 
-export const createDexParser = <Instructions>({
+export const createDalvikExecutableParser = <Instructions>({
 	createInstructionsParser,
 }: {
 	createInstructionsParser: CreateInstructionsParser<Instructions>;
-}): Parser<Dex<Instructions>, Uint8Array> => parserCreatorCompose(
-	() => dexHeaderAndMapParser,
+}): Parser<DalvikExecutable<Instructions>, Uint8Array> => parserCreatorCompose(
+	() => dalvikExecutableHeaderAndMapParser,
 	({
 		headerItem,
 		mapList,
 	}) => promiseCompose(
 		createTupleParser([
-			createLookaheadParser(createDexDataParser({
+			createLookaheadParser(createDalvikExecutableDataParser({
 				headerItem,
 				mapList,
 				createInstructionsParser,
@@ -2550,7 +2550,7 @@ export const createDexParser = <Instructions>({
 			]);
 
 			for (const [ offset, typeIndexes ] of typeListByOffset) {
-				const typeNames = isoDexTypeList.unwrap(typeIndexes).map((typeIndex) => {
+				const typeNames = isoDalvikExecutableTypeList.unwrap(typeIndexes).map((typeIndex) => {
 					const type = types.at(typeIndex);
 					invariant(type, 'Type must be there. Type id: %s', typeIndex);
 
@@ -2599,7 +2599,7 @@ export const createDexParser = <Instructions>({
 				return { class: class_, prototype, name };
 			});
 
-			const debugInfoByOffset = new Map<OffsetToDebugInfoItem, undefined | DexDebugInfo>([
+			const debugInfoByOffset = new Map<OffsetToDebugInfoItem, undefined | DalvikExecutableDebugInfo>([
 				[ isoOffsetToDebugInfoItem.wrap(0), undefined ],
 			]);
 
@@ -2638,7 +2638,7 @@ export const createDexParser = <Instructions>({
 				});
 			}
 
-			const codeByOffset = new Map<OffsetToCodeItem, undefined | DexCode<Instructions>>([
+			const codeByOffset = new Map<OffsetToCodeItem, undefined | DalvikExecutableCode<Instructions>>([
 				[ isoOffsetToCodeItem.wrap(0), undefined ],
 			]);
 
@@ -2664,7 +2664,7 @@ export const createDexParser = <Instructions>({
 				});
 			}
 
-			const classDataByOffset = new Map<OffsetToClassDataItem, undefined | DexClassData<Instructions>>([
+			const classDataByOffset = new Map<OffsetToClassDataItem, undefined | DalvikExecutableClassData<Instructions>>([
 				[ isoOffsetToClassDataItem.wrap(0), undefined ],
 			]);
 
@@ -2718,7 +2718,7 @@ export const createDexParser = <Instructions>({
 				});
 			}
 
-			function resolveAnnotationOffsetItem({ annotationOffset }: DexAnnotationOffsetItem): DexAnnotation {
+			function resolveAnnotationOffsetItem({ annotationOffset }: DalvikExecutableAnnotationOffsetItem): DalvikExecutableAnnotation {
 				const annotationItem = annotationItemByOffset.get(annotationOffset);
 				invariant(annotationItem, 'Annotation must be there. Annotation offset: %s', annotationOffset);
 
@@ -2742,7 +2742,7 @@ export const createDexParser = <Instructions>({
 				};
 			}
 
-			function resolveAnnotationSetItem(annotationSetItem: undefined | DexAnnotationSetItem): undefined | DexAnnotation[] {
+			function resolveAnnotationSetItem(annotationSetItem: undefined | DalvikExecutableAnnotationSetItem): undefined | DalvikExecutableAnnotation[] {
 				return annotationSetItem?.entries.map(resolveAnnotationOffsetItem);
 			}
 
@@ -2765,7 +2765,7 @@ export const createDexParser = <Instructions>({
 					classDefinitionItem.annotationsOffset,
 				);
 
-				const annotations: undefined | DexClassAnnotations = (() => {
+				const annotations: undefined | DalvikExecutableClassAnnotations = (() => {
 					if (!annotationsDirectoryItem) {
 						return undefined;
 					}
@@ -2783,7 +2783,7 @@ export const createDexParser = <Instructions>({
 							: undefined
 					);
 
-					const fieldAnnotations: DexClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.map((fieldAnnotation) => {
+					const fieldAnnotations: DalvikExecutableClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.map((fieldAnnotation) => {
 						const field = fields.at(fieldAnnotation.fieldIndex);
 						invariant(field, 'Field must be there. Field id: %s', fieldAnnotation.fieldIndex);
 
@@ -2797,7 +2797,7 @@ export const createDexParser = <Instructions>({
 						return { field, annotations: annotations?.entries.map(resolveAnnotationOffsetItem) };
 					});
 
-					const methodAnnotations: DexClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.map((methodAnnotation) => {
+					const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.map((methodAnnotation) => {
 						const method = methods.at(methodAnnotation.methodIndex);
 						invariant(method, 'Method must be there. Method id: %s', methodAnnotation.methodIndex);
 
@@ -2811,7 +2811,7 @@ export const createDexParser = <Instructions>({
 						return { method, annotations: resolveAnnotationSetItem(annotationSetItem) };
 					});
 
-					const parameterAnnotations: DexClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.map((parameterAnnotation) => {
+					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.map((parameterAnnotation) => {
 						const method = methods.at(parameterAnnotation.methodIndex);
 						invariant(method, 'Method must be there. Method id: %s', parameterAnnotation.methodIndex);
 
@@ -2869,8 +2869,8 @@ export const createDexParser = <Instructions>({
 	),
 )();
 
-export const dexParser: Parser<Dex<DalvikBytecode>, Uint8Array> = createDexParser({
+export const dalvikExecutableParser: Parser<DalvikExecutable<DalvikBytecode>, Uint8Array> = createDalvikExecutableParser({
 	createInstructionsParser: createDalvikBytecodeParser,
 });
 
-setParserName(dexParser, 'dexParser');
+setParserName(dalvikExecutableParser, 'dalvikExecutableParser');

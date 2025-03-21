@@ -1,11 +1,11 @@
 import test from 'ava';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
-import { createDexParser, dexParser } from './dexParser.js';
+import { createDalvikExecutableParser, dalvikExecutableParser } from './dalvikExecutableParser.js';
 import { fetchCid } from './fetchCid.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 
-const dexParserRawInstructions = createDexParser({
+const dalvikExecutableParserRawInstructions = createDalvikExecutableParser({
 	createInstructionsParser: createFixedLengthSequenceParser,
 });
 
@@ -20,7 +20,7 @@ for (const [ dexCid, shouldSnapshot ] of [
 		async t => {
 			const dexStream = await fetchCid(dexCid);
 
-			const actual = await runParser(dexParserRawInstructions, dexStream, uint8ArrayParserInputCompanion, {
+			const actual = await runParser(dalvikExecutableParserRawInstructions, dexStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',
 			});
 
@@ -45,7 +45,7 @@ for (const [ dexCid, shouldSnapshot ] of [
 		async t => {
 			const dexStream = await fetchCid(dexCid);
 
-			const actual = await runParser(dexParser, dexStream, uint8ArrayParserInputCompanion, {
+			const actual = await runParser(dalvikExecutableParser, dexStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',
 			});
 

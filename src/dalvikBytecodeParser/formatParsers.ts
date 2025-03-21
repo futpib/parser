@@ -1,5 +1,5 @@
 import { Iso } from "monocle-ts";
-import { byteParser, intParser, shortParser, ubyteParser, ushortParser } from "../dexParser/typeParsers.js";
+import { byteParser, intParser, shortParser, ubyteParser, ushortParser } from "../dalvikExecutableParser/typeParsers.js";
 import { createElementParser } from "../elementParser.js";
 import { Parser, setParserName } from "../parser.js";
 import { promiseCompose } from "../promiseCompose.js";
