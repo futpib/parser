@@ -1,3 +1,5 @@
+import { promiseSettled } from "./promiseSettled.js";
+
 type AllSettledStreamFulfilledResult<T, Context> = {
 	status: 'fulfilled';
 	value: T;
@@ -33,7 +35,7 @@ export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T
 				promise,
 				context,
 			}: AllSettledStreamTask<T, Context>) => {
-				const [ promiseSettledResult ] = await Promise.allSettled([ promise ]);
+				const promiseSettledResult = await promiseSettled(promise);
 
 				if (
 					promiseSettledResult.status === 'rejected'

@@ -1,6 +1,7 @@
 import { getParserName, setParserName, type Parser } from './parser.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
+import { promiseSettled } from './promiseSettled.js';
 
 export const createDisjunctionParser = <
 	Output,
@@ -18,7 +19,7 @@ export const createDisjunctionParser = <
 				debugName: getParserName(childParser, 'anonymousDisjunctionChild'),
 			});
 
-			const [ childParserResult ] = await Promise.allSettled([ childParser(childParserContext) ]);
+			const childParserResult = await promiseSettled<Output>(childParser(childParserContext));
 
 			if (childParserResult.status === 'fulfilled') {
 				const successfulParserOutput = childParserResult.value;
@@ -40,7 +41,7 @@ export const createDisjunctionParser = <
 			}
 		}
 
-		parserContext.invariantJoin(
+		return parserContext.invariantJoin(
 			false,
 			parserParsingFailedErrors,
 			'No disjunction child parser succeeded.',
