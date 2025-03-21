@@ -41,7 +41,7 @@ for (const [ dexCid, shouldSnapshot ] of [
 	// [ 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false ],
 ] as const) {
 	test.serial(
-		'dex (with parsed instructions)' + dexCid,
+		'dex (with parsed instructions) ' + dexCid,
 		async t => {
 			const dexStream = await fetchCid(dexCid);
 

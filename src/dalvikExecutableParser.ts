@@ -1564,12 +1564,17 @@ const tryItemParser: Parser<DalvikExecutableTryItem, Uint8Array> = promiseCompos
 
 setParserName(tryItemParser, 'tryItemParser');
 
-type DalvikExecutableEncodedTypeAddressPair = {
+type DalvikExecutableEncodedTypeAddressPair_ = {
 	typeIndex: IndexIntoTypeIds;
 	address: number;
 };
 
-const encodedTypeAddressPairParser: Parser<DalvikExecutableEncodedTypeAddressPair, Uint8Array> = promiseCompose(
+type DalvikExecutableEncodedTypeAddressPair = {
+	type: string;
+	address: number;
+};
+
+const encodedTypeAddressPairParser: Parser<DalvikExecutableEncodedTypeAddressPair_, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
 		uleb128NumberParser,
@@ -1583,12 +1588,17 @@ const encodedTypeAddressPairParser: Parser<DalvikExecutableEncodedTypeAddressPai
 	}),
 );
 
+type DalvikExecutableEncodedCatchHandler_ = {
+	handlers: DalvikExecutableEncodedTypeAddressPair_[],
+	catchAllAddress: undefined | number,
+};
+
 type DalvikExecutableEncodedCatchHandler = {
 	handlers: DalvikExecutableEncodedTypeAddressPair[],
 	catchAllAddress: undefined | number,
 };
 
-const encodedCatchHandlerParser: Parser<DalvikExecutableEncodedCatchHandler, Uint8Array> = parserCreatorCompose(
+const encodedCatchHandlerParser: Parser<DalvikExecutableEncodedCatchHandler_, Uint8Array> = parserCreatorCompose(
 	() => sleb128NumberParser,
 	size => promiseCompose(
 		createTupleParser([
@@ -1611,7 +1621,7 @@ const encodedCatchHandlerParser: Parser<DalvikExecutableEncodedCatchHandler, Uin
 
 setParserName(encodedCatchHandlerParser, 'encodedCatchHandlerParser');
 
-type DalvikExecutableEncodedCatchHandlerByRelativeOffset = Map<OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, DalvikExecutableEncodedCatchHandler>;
+type DalvikExecutableEncodedCatchHandlerByRelativeOffset = Map<OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, DalvikExecutableEncodedCatchHandler_>;
 
 const encodedCatchHandlerListParser: Parser<DalvikExecutableEncodedCatchHandlerByRelativeOffset, Uint8Array> = async (parserContext) => {
 	const listOffset = parserContext.position;
@@ -2652,8 +2662,21 @@ export const createDalvikExecutableParser = <Instructions>({
 					debugInfo: debugInfo,
 					instructions: codeItem.instructions,
 					tries: codeItem.tryItems.map((tryItem) => {
-						const handler = codeItem.handlers.get(tryItem.handlerOffset);
-						invariant(handler, 'Handler must be there. Handler offset: %s', tryItem.handlerOffset);
+						const handler_ = codeItem.handlers.get(tryItem.handlerOffset);
+						invariant(handler_, 'Handler must be there. Handler offset: %s', tryItem.handlerOffset);
+
+						const handler = {
+							...handler_,
+							handlers: handler_.handlers.map((encodedHandler) => {
+								const type = types.at(encodedHandler.typeIndex);
+								invariant(type, 'Type must be there. Type id: %s', encodedHandler.typeIndex);
+
+								return {
+									type,
+									address: encodedHandler.address,
+								};
+							}),
+						};
 
 						return {
 							startAddress: tryItem.startAddress,
