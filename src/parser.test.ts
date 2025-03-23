@@ -4,6 +4,7 @@ import { createUnionParser } from './unionParser.js';
 import { type Parser, runParser } from './parser.js';
 import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import {
+    ParserError,
 	ParserParsingInvariantError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinError, ParserParsingJoinFurthestError, ParserParsingJoinNoneError,
 } from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
@@ -12,6 +13,7 @@ import { createDisjunctionParser } from './disjunctionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createElementParser } from './elementParser.js';
+import { toAsyncIterable } from './toAsyncIterable.js';
 
 const aUnionParser = createUnionParser<string, string>([
 	createExactSequenceParser('1'),
@@ -175,4 +177,44 @@ test('throws on parserInputCompanion type mismatch', async t => {
 	await t.throwsAsync(runParser(anythingParser, asyncIteratorFromString('anything'), uint8ArrayParserInputCompanion), {
 		message: /input companion/,
 	});
+});
+
+test('thrown error has input reader state', async t => {
+	const error = await t.throwsAsync(
+		runParser(
+			createTupleParser([
+				createExactSequenceParser('foo'),
+				createExactSequenceParser('bar'),
+			]),
+			(async function * () {
+				yield 'foo';
+				yield 'qux';
+				yield 'bar';
+			})(),
+			stringParserInputCompanion,
+		),
+		{
+			instanceOf: ParserError,
+		},
+	);
+
+	t.is(error.position, 4);
+
+	invariant(error.inputReaderSate, 'error.inputReaderSate');
+
+	const {
+		consumedBufferedSequences,
+		unconsumedBufferedSequences,
+		unbufferedSequences,
+	} = error.inputReaderSate;
+
+	const unbufferedSequencesArray = [];
+
+	for await (const sequence of toAsyncIterable(unbufferedSequences)) {
+		unbufferedSequencesArray.push(sequence);
+	}
+
+	t.deepEqual(consumedBufferedSequences, [ 'q' ]);
+	t.deepEqual(unconsumedBufferedSequences, [ 'ux' ]);
+	t.deepEqual(unbufferedSequencesArray, [ 'bar' ]);
 });

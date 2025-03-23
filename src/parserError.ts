@@ -1,8 +1,10 @@
+import { InputReaderState } from "./inputReader.js";
 
 export class ParserError extends Error {
 	name = 'ParserError';
 
 	public position: undefined | number = undefined;
+	public inputReaderSate: undefined | InputReaderState<unknown> = undefined;
 }
 
 export class ParserImplementationError extends ParserError {

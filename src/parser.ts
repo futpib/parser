@@ -4,6 +4,7 @@ import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
 import { type DeriveSequenceElement } from './sequence.js';
 import { ParserError } from './parserError.js';
+import { toAsyncIterator } from './toAsyncIterator.js';
 
 export type Parser<
 	Output,
@@ -57,53 +58,6 @@ export type RunParserOptions<
 	errorJoinMode?: 'none' | 'deepest' | 'furthest' | 'all';
 };
 
-function isAsyncIterable<T>(value: any): value is AsyncIterable<T> {
-	return value && typeof value[Symbol.asyncIterator] === 'function';
-}
-
-function isIterable<T>(value: any): value is Iterable<T> {
-	return value && typeof value[Symbol.iterator] === 'function';
-}
-
-function isIterator<T>(value: any): value is Iterator<T> {
-	return value && typeof value.next === 'function';
-}
-
-function iteratorToAsyncIterator<T>(iterator: Iterator<T>): AsyncIterator<T> {
-	return {
-		next: async () => iterator.next(),
-	};
-}
-
-function toAsyncIterator<T>(value: AsyncIterator<T> | AsyncIterable<T> | Iterable<T> | T): AsyncIterator<T> {
-	if (
-		typeof value === 'string'
-		|| value instanceof Uint8Array
-	) {
-		return (async function * () {
-			yield value as any;
-		})();
-	}
-
-	if (isAsyncIterable(value)) {
-		return value[Symbol.asyncIterator]();
-	}
-
-	if (isIterable(value)) {
-		return iteratorToAsyncIterator(value[Symbol.iterator]());
-	}
-
-	if (isIterator<T>(value)) {
-		return iteratorToAsyncIterator(value);
-	}
-
-	invariant(
-		false,
-		'Value must be an async iterator, async iterable, iterable or iterator got %s.',
-		value,
-	);
-}
-
 export async function runParser<
 	Output,
 	Sequence,
@@ -125,11 +79,14 @@ export async function runParser<
 	try {
 		return await parser(parserContext);
 	} catch (error) {
-		if (
-			error instanceof ParserError
-				&& error.position === undefined
-		) {
-			error.position = parserContext.position;
+		if (error instanceof ParserError) {
+			if (error.position === undefined) {
+				error.position = parserContext.position;
+			}
+
+			if (error.inputReaderSate === undefined) {
+				error.inputReaderSate = inputReader.toInputReaderState();
+			}
 		}
 
 		throw error;

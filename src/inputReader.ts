@@ -4,6 +4,12 @@ import { type SequenceBuffer, SequenceBufferImplementation } from './sequenceBuf
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 
+export type InputReaderState<Sequence> = {
+	consumedBufferedSequences: Sequence[];
+	unconsumedBufferedSequences: Sequence[];
+	unbufferedSequences: AsyncIterator<Sequence>;
+};
+
 export type InputReader<Sequence, Element> = {
 	get position(): number;
 
@@ -12,6 +18,8 @@ export type InputReader<Sequence, Element> = {
 	skip(offset: number): void;
 
 	lookahead(): InputReader<Sequence, Element>;
+
+	toInputReaderState(): InputReaderState<Sequence>;
 };
 
 let inputReaderId = 0;
@@ -121,6 +129,21 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 	lookahead(): InputReader<Sequence, Element> {
 		return new InputReaderLookaheadImplementation(this);
 	}
+
+	toInputReaderState() {
+		const {
+			consumedBufferedSequences,
+			unconsumedBufferedSequences,
+		} = this._sequenceBuffer.toSequenceBufferState();
+
+		const unbufferedSequences = this._inputAsyncIterator;
+
+		return {
+			consumedBufferedSequences,
+			unconsumedBufferedSequences,
+			unbufferedSequences,
+		};
+	}
 }
 
 class InputReaderLookaheadImplementation<Sequence, Element> implements InputReader<Sequence, Element> {
@@ -184,5 +207,9 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 		);
 
 		return lookahead;
+	}
+
+	toInputReaderState() {
+		return invariant(false, 'Not implemented');
 	}
 }

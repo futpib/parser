@@ -1,11 +1,18 @@
 import invariant from 'invariant';
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 
+export type SequenceBufferState<Sequence> = {
+	consumedBufferedSequences: Sequence[];
+	unconsumedBufferedSequences: Sequence[];
+};
+
 export type SequenceBuffer<Sequence, Element> = {
 	push(sequence: Sequence): void;
 	peek(offset: number): Element | undefined;
 	peekSequence(start: number, end: number): Sequence | undefined;
 	skip(offset: number): void;
+
+	toSequenceBufferState(): SequenceBufferState<Sequence>;
 };
 
 export class SequenceBufferImplementation<Sequence, Element> implements SequenceBuffer<Sequence, Element> {
@@ -94,5 +101,32 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 
 	skip(offset: number) {
 		this._indexInFirstSequence += offset;
+	}
+
+	toSequenceBufferState(): SequenceBufferState<Sequence> {
+		if (this._sequences.length === 0) {
+			return {
+				consumedBufferedSequences: [],
+				unconsumedBufferedSequences: [],
+			};
+		}
+
+		if (this._indexInFirstSequence === 0) {
+			return {
+				consumedBufferedSequences: [],
+				unconsumedBufferedSequences: this._sequences.slice(),
+			};
+		}
+
+		const firstSequence = this._sequences[0];
+		const firstSequenceLength = this._parserInputCompanion.length(firstSequence);
+
+		const consumedFirstSequence = this._parserInputCompanion.subsequence(firstSequence, 0, this._indexInFirstSequence);
+		const unconsumedFirstSequence = this._parserInputCompanion.subsequence(firstSequence, this._indexInFirstSequence, firstSequenceLength);
+
+		return {
+			consumedBufferedSequences: [consumedFirstSequence],
+			unconsumedBufferedSequences: [unconsumedFirstSequence, ...this._sequences.slice(1)],
+		};
 	}
 }

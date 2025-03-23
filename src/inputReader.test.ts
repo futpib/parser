@@ -1,7 +1,8 @@
 import test from 'ava';
-import { InputReaderImplementation } from './inputReader.js';
+import { InputReaderImplementation, InputReaderState } from './inputReader.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { ParserImplementationError } from './parserError.js';
+import { toAsyncIterable } from './toAsyncIterable.js';
 
 test('inputReader', async t => {
 	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
@@ -354,3 +355,73 @@ test('inputReader.lookahead skip position', async t => {
 	t.is(await lookahead.peek(0), 'c');
 	t.is(await lookahead1.peek(0), 'd');
 });
+
+const END_OF_CONSUMED_SEQUENCES = Symbol('END_OF_CONSUMED_SEQUENCES');
+const END_OF_BUFFERED_SEQUENCES = Symbol('END_OF_BUFFERED_SEQUENCES');
+
+async function inputReaderStateToArray<Sequence>({
+	unconsumedBufferedSequences,
+	consumedBufferedSequences,
+	unbufferedSequences,
+}: InputReaderState<Sequence>): Promise<(Sequence | typeof END_OF_CONSUMED_SEQUENCES | typeof END_OF_BUFFERED_SEQUENCES)[]> {
+	const unconsumedBufferedSequencesArray = unconsumedBufferedSequences.slice();
+	const consumedBufferedSequencesArray = consumedBufferedSequences.slice();
+
+	const unbufferedSequencesArray = [];
+	for await (const sequence of toAsyncIterable(unbufferedSequences)) {
+		unbufferedSequencesArray.push(sequence);
+	}
+
+	return [
+		...consumedBufferedSequencesArray,
+		END_OF_CONSUMED_SEQUENCES,
+		...unconsumedBufferedSequencesArray,
+		END_OF_BUFFERED_SEQUENCES,
+		...unbufferedSequencesArray,
+	];
+}
+
+for (const [
+	input,
+	position,
+	expected,
+] of [
+	[
+		[ '', 'abc', 'def', '', 'gh' ],
+		0,
+		[ END_OF_CONSUMED_SEQUENCES, 'abc', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ],
+	],
+	[
+		[ '', 'abc', 'def', '', 'gh' ],
+		1,
+		[ 'a', END_OF_CONSUMED_SEQUENCES, 'bc', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ],
+	],
+	[
+		[ '', 'abc', 'def', '', 'gh' ],
+		2,
+		[ 'ab', END_OF_CONSUMED_SEQUENCES, 'c', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ],
+	],
+	[
+		[ '', 'abc', 'def', '', 'gh' ],
+		3,
+		[ END_OF_CONSUMED_SEQUENCES, 'def', END_OF_BUFFERED_SEQUENCES, '', 'gh' ],
+	],
+	[
+		[ '', 'abc', 'def', '', 'gh' ],
+		4,
+		[ 'd', END_OF_CONSUMED_SEQUENCES, 'ef', END_OF_BUFFERED_SEQUENCES, '', 'gh' ],
+	],
+] as const) {
+	test('inputReader.toInputReaderState ' + JSON.stringify({ input, position }), async t => {
+		const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
+			yield * input;
+		})());
+
+		inputReader.skip(position);
+		await inputReader.peek(0);
+
+		const actual = await inputReaderStateToArray(inputReader.toInputReaderState());
+
+		t.deepEqual(actual, expected);
+	});
+}
