@@ -206,7 +206,12 @@ test('thrown error has input reader state', async t => {
 		consumedBufferedSequences,
 		unconsumedBufferedSequences,
 		unbufferedSequences,
+		position,
+		...inputReaderStateRest
 	} = error.inputReaderSate;
+
+	t.is(position, 4);
+	t.deepEqual(inputReaderStateRest, {});
 
 	const unbufferedSequencesArray = [];
 

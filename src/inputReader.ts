@@ -5,6 +5,7 @@ import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 
 export type InputReaderState<Sequence> = {
+	position: number;
 	consumedBufferedSequences: Sequence[];
 	unconsumedBufferedSequences: Sequence[];
 	unbufferedSequences: AsyncIterator<Sequence>;
@@ -136,12 +137,11 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 			unconsumedBufferedSequences,
 		} = this._sequenceBuffer.toSequenceBufferState();
 
-		const unbufferedSequences = this._inputAsyncIterator;
-
 		return {
 			consumedBufferedSequences,
 			unconsumedBufferedSequences,
-			unbufferedSequences,
+			unbufferedSequences: this._inputAsyncIterator,
+			position: this._position,
 		};
 	}
 }
