@@ -33,8 +33,16 @@ const cstringParser: Parser<string, Uint8Array> = promiseCompose(
 );
 
 const doubleParser: Parser<number, Uint8Array> = promiseCompose(buffer8Parser, buffer => buffer.readDoubleLE(0));
+
+setParserName(doubleParser, 'doubleParser');
+
 const int32Parser: Parser<number, Uint8Array> = promiseCompose(buffer4Parser, buffer => buffer.readInt32LE(0));
+
+setParserName(int32Parser, 'int32Parser');
+
 const uint32Parser: Parser<number, Uint8Array> = promiseCompose(buffer4Parser, buffer => buffer.readUInt32LE(0));
+
+setParserName(uint32Parser, 'uint32Parser');
 
 const createFixedLengthStringParser = (length: number): Parser<string, Uint8Array> => promiseCompose(
 	createFixedLengthBufferParser(length),
@@ -55,6 +63,8 @@ const bsonStringParser: Parser<string, Uint8Array> = async parserContext => {
 	return createFixedLengthNullTerminatedStringParser(stringSize - 1)(parserContext);
 };
 
+setParserName(bsonStringParser, 'bsonStringParser');
+
 const bsonArrayParser = promiseCompose(
 	createTupleParser([
 		createSkipParser(4),
@@ -62,6 +72,8 @@ const bsonArrayParser = promiseCompose(
 	]),
 	([ _, elements ]) => elements.map(([ _, value ]) => value),
 );
+
+setParserName(bsonArrayParser, 'bsonArrayParser');
 
 const bsonBooleanParser: Parser<boolean, Uint8Array> = async parserContext => {
 	const booleanValue = await parserContext.read(0);

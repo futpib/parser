@@ -69,7 +69,13 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 
 					parserImplementationInvariant(
 						false,
-						'Both element and terminator parsers matched.',
+						[
+							'Both element and terminator parsers matched.',
+							'Element parser: %s',
+							'Terminator parser: %s',
+						],
+						getParserName(elementParser, 'anonymousElement'),
+						getParserName(terminatorParser, 'anonymousTerminator'),
 					);
 				} catch (error) {
 					if (!(error instanceof ParserParsingFailedError)) {
