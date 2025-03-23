@@ -9,16 +9,7 @@ import { runParser } from './parser.js';
 import { zipParser } from './zipParser.js';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { arbitraryZip } from './arbitraryZip.js';
-
-async function hasExecutable(executable: string) {
-	const hasExecutable = execa(executable).then(() => true, () => false);
-
-	if (!hasExecutable) {
-		console.warn(`Executable %o not found`, executable);
-	}
-
-	return hasExecutable;
-}
+import { hasExecutable } from './hasExecutable.js';
 
 const hasZipinfoPromise = hasExecutable('zipinfo');
 const has7zPromise = hasExecutable('7z');
