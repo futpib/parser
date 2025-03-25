@@ -183,8 +183,14 @@ test('inputReader skip while peeking', async t => {
 
 	inputReader.skip(1);
 
+	const peekAfterSkipPromise = inputReader.peek(0);
+	const peekSequenceAfterSkipPromise = inputReader.peekSequence(0, 5);
+
 	t.is(await peekPromise, 'a');
 	t.is(await inputReader.peek(0), 'b');
+
+	t.is(await peekAfterSkipPromise, 'b');
+	t.is(await peekSequenceAfterSkipPromise, 'bcdef');
 });
 
 test('inputReader skip while peeking sequence', async t => {
@@ -196,8 +202,14 @@ test('inputReader skip while peeking sequence', async t => {
 
 	inputReader.skip(1);
 
-	t.is(await peekPromise, 'bcde');
-	t.is(await inputReader.peekSequence(1, 5), 'bcde');
+	const peekAfterSkipPromise = inputReader.peek(0);
+	const peekSequenceAfterSkipPromise = inputReader.peekSequence(0, 4);
+
+	t.is(await peekPromise, 'bcde', 'peekPromise');
+	t.is(await inputReader.peekSequence(0, 4), 'bcde', 'inputReader.peekSequence(0, 4)');
+
+	t.is(await peekAfterSkipPromise, 'b', 'peekAfterSkipPromise');
+	t.is(await peekSequenceAfterSkipPromise, 'bcde', 'peekSequenceAfterSkipPromise');
 });
 
 test('inputReader.lookahead', async t => {

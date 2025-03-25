@@ -155,10 +155,6 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	lookahead(options: LookaheadOptions = {}): ParserContext<Sequence, Element> {
 		const lookaheadInputReader = this._inputReader.lookahead();
 
-		if (this.position !== lookaheadInputReader.position) {
-			debugger;
-		}
-
 		parserImplementationInvariant(
 			this.position === lookaheadInputReader.position,
 			'lookahead this.position (%s) === lookaheadInputReader.position (%s)',
@@ -166,7 +162,9 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 			lookaheadInputReader.position,
 		);
 
-		const lookaheadParserContext = new ParserContextImplementation(
+		const ParserContext = this._options.parserContextClass ?? ParserContextImplementation;
+
+		const lookaheadParserContext = new ParserContext<Sequence, Element>(
 			this._parserInputCompanion,
 			lookaheadInputReader,
 			this,
@@ -183,10 +181,6 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 				].join(''),
 			},
 		);
-
-		if (this.position !== lookaheadParserContext.position) {
-			debugger;
-		}
 
 		parserImplementationInvariant(
 			this.position === lookaheadParserContext.position,

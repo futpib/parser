@@ -99,6 +99,9 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		parserImplementationInvariant(start >= 0, 'start >= 0');
 		parserImplementationInvariant(end >= start, 'end >= start');
 
+		start += this._uncommitedSkipOffset;
+		end += this._uncommitedSkipOffset;
+
 		const sequence = this._sequenceBuffer.peekSequence(start, end);
 
 		if (sequence !== undefined) {

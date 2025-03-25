@@ -1,4 +1,4 @@
-import invariant from 'invariant';
+import { Class } from 'type-fest';
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
@@ -56,6 +56,7 @@ export type RunParserOptions<
 	Element = DeriveSequenceElement<Sequence>,
 > = {
 	errorJoinMode?: 'none' | 'deepest' | 'furthest' | 'all';
+	parserContextClass?: Class<ParserContext<Sequence, Element>>;
 };
 
 export async function runParser<
@@ -71,7 +72,10 @@ export async function runParser<
 	const inputAsyncIterator = toAsyncIterator(input);
 
 	const inputReader = new InputReaderImplementation<Sequence, Element>(parserInputCompanion, inputAsyncIterator);
-	const parserContext = new ParserContextImplementation<Sequence, Element>(parserInputCompanion, inputReader, undefined, {
+
+	const ParserContext = options.parserContextClass ?? ParserContextImplementation;
+
+	const parserContext = new ParserContext<Sequence, Element>(parserInputCompanion, inputReader, undefined, {
 		...options,
 		debugName: 'root',
 	});
