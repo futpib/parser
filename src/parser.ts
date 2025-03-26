@@ -3,8 +3,9 @@ import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
 import { type DeriveSequenceElement } from './sequence.js';
-import { ParserError } from './parserError.js';
+import { ParserError, ParserUnexpectedRemainingInputError } from './parserError.js';
 import { toAsyncIterator } from './toAsyncIterator.js';
+import { inputReaderStateCompanion } from './inputReaderState.js';
 
 export type Parser<
 	Output,
@@ -59,29 +60,27 @@ export type RunParserOptions<
 	parserContextClass?: Class<ParserContext<Sequence, Element>>;
 };
 
-export async function runParser<
+export type RunParserWithRemainingInputResult<
+	Output,
+	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
+> = {
+	output: Output;
+	position: number;
+	remainingInput: undefined | AsyncIterable<Sequence>;
+};
+
+async function withEnrichedParserError<
 	Output,
 	Sequence,
 	Element = DeriveSequenceElement<Sequence>,
 >(
-	parser: Parser<Output, Sequence, Element>,
-	input: AsyncIterator<Sequence> | AsyncIterable<Sequence> | Iterable<Sequence> | Sequence,
-	parserInputCompanion: ParserInputCompanion<Sequence, Element>,
-	options: RunParserOptions<Output, Sequence, Element> = {},
+	parserContext: ParserContext<Sequence, Element>,
+	inputReader: InputReaderImplementation<Sequence, Element>,
+	f: () => Promise<Output>,
 ): Promise<Output> {
-	const inputAsyncIterator = toAsyncIterator(input);
-
-	const inputReader = new InputReaderImplementation<Sequence, Element>(parserInputCompanion, inputAsyncIterator);
-
-	const ParserContext = options.parserContextClass ?? ParserContextImplementation;
-
-	const parserContext = new ParserContext<Sequence, Element>(parserInputCompanion, inputReader, undefined, {
-		...options,
-		debugName: 'root',
-	});
-
 	try {
-		return await parser(parserContext);
+		return await f();
 	} catch (error) {
 		if (error instanceof ParserError) {
 			if (error.position === undefined) {
@@ -95,4 +94,114 @@ export async function runParser<
 
 		throw error;
 	}
+}
+
+type RunParserInternalResult<
+	Output,
+	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
+> = {
+	outputPromise: Promise<Output>;
+	parserContext: ParserContext<Sequence, Element>;
+	inputReader: InputReaderImplementation<Sequence, Element>;
+};
+
+function runParserInternal<
+	Output,
+	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
+>(
+	parser: Parser<Output, Sequence, Element>,
+	input: AsyncIterator<Sequence> | AsyncIterable<Sequence> | Iterable<Sequence> | Sequence,
+	parserInputCompanion: ParserInputCompanion<Sequence, Element>,
+	options: RunParserOptions<Output, Sequence, Element> = {},
+): RunParserInternalResult<Output, Sequence, Element> {
+	const inputAsyncIterator = toAsyncIterator(input);
+
+	const inputReader = new InputReaderImplementation<Sequence, Element>(parserInputCompanion, inputAsyncIterator);
+
+	const ParserContext = options.parserContextClass ?? ParserContextImplementation;
+
+	const parserContext = new ParserContext<Sequence, Element>(parserInputCompanion, inputReader, undefined, {
+		...options,
+		debugName: 'root',
+	});
+
+	const outputPromise = (async () => {
+		try {
+			return await parser(parserContext);
+		} finally {
+			await parserContext.peek(0);
+		}
+	})();
+
+	return {
+		outputPromise,
+		parserContext,
+		inputReader,
+	};
+}
+
+export async function runParserWithRemainingInput<
+	Output,
+	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
+>(
+	parser: Parser<Output, Sequence, Element>,
+	input: AsyncIterator<Sequence> | AsyncIterable<Sequence> | Iterable<Sequence> | Sequence,
+	parserInputCompanion: ParserInputCompanion<Sequence, Element>,
+	options: RunParserOptions<Output, Sequence, Element> = {},
+): Promise<RunParserWithRemainingInputResult<Output, Sequence, Element>> {
+	const {
+		outputPromise,
+		parserContext,
+		inputReader,
+	} = runParserInternal(parser, input, parserInputCompanion, options);
+
+	return await withEnrichedParserError(parserContext, inputReader, async () => {
+		const output = await outputPromise;
+
+		const inputReaderState = inputReader.toInputReaderState();
+
+		const remainingInput = (
+			inputReaderStateCompanion.isDone(inputReaderState)
+				? undefined
+				: inputReaderStateCompanion.toRemainingInputAsyncIterator(inputReaderState)
+		);
+
+		return {
+			output,
+			position: parserContext.position,
+			remainingInput,
+		};
+	});
+}
+
+export async function runParser<
+	Output,
+	Sequence,
+	Element = DeriveSequenceElement<Sequence>,
+>(
+	parser: Parser<Output, Sequence, Element>,
+	input: AsyncIterator<Sequence> | AsyncIterable<Sequence> | Iterable<Sequence> | Sequence,
+	parserInputCompanion: ParserInputCompanion<Sequence, Element>,
+	options: RunParserOptions<Output, Sequence, Element> = {},
+): Promise<Output> {
+	const {
+		outputPromise,
+		parserContext,
+		inputReader,
+	} = runParserInternal(parser, input, parserInputCompanion, options);
+
+	return await withEnrichedParserError(parserContext, inputReader, async () => {
+		const output = await outputPromise;
+
+		const inputReaderState = inputReader.toInputReaderState();
+
+		if (!inputReaderStateCompanion.isDone(inputReaderState)) {
+			throw new ParserUnexpectedRemainingInputError('Unexpected remaining input', 0, parserContext.position);
+		}
+
+		return output;
+	});
 }

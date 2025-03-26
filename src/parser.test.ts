@@ -1,11 +1,17 @@
 import test from 'ava';
 import invariant from 'invariant';
 import { createUnionParser } from './unionParser.js';
-import { type Parser, runParser } from './parser.js';
+import { type Parser, runParser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import {
-    ParserError,
-	ParserParsingInvariantError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinError, ParserParsingJoinFurthestError, ParserParsingJoinNoneError,
+	ParserError,
+	ParserParsingInvariantError,
+	ParserParsingJoinAllError,
+	ParserParsingJoinDeepestError,
+	ParserParsingJoinError,
+	ParserParsingJoinFurthestError,
+    ParserParsingJoinNoneError,
+    ParserUnexpectedRemainingInputError,
 } from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -46,6 +52,16 @@ const sampleParser = promiseCompose(
 
 async function * asyncIteratorFromString(string: string) {
 	yield string;
+}
+
+async function stringFromAsyncIterable(asyncIterable: AsyncIterable<string>) {
+	let string = '';
+
+	for await (const chunk of asyncIterable) {
+		string += chunk;
+	}
+
+	return string;
 }
 
 function sortChildErrors(error: ParserParsingJoinNoneError) {
@@ -215,11 +231,67 @@ test('thrown error has input reader state', async t => {
 
 	const unbufferedSequencesArray = [];
 
-	for await (const sequence of toAsyncIterable(unbufferedSequences)) {
-		unbufferedSequencesArray.push(sequence);
+	if (unbufferedSequences) {
+		for await (const sequence of toAsyncIterable(unbufferedSequences)) {
+			unbufferedSequencesArray.push(sequence);
+		}
 	}
 
 	t.deepEqual(consumedBufferedSequences, [ 'q' ]);
 	t.deepEqual(unconsumedBufferedSequences, [ 'ux' ]);
 	t.deepEqual(unbufferedSequencesArray, [ 'bar' ]);
+});
+
+test('runParser throws with remaining input', async t => {
+	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const error = await t.throwsAsync(() => runParser(parser, 'foobar', stringParserInputCompanion), {
+		instanceOf: ParserUnexpectedRemainingInputError,
+		message: /remaining input/,
+	});
+
+	t.is(error.position, 3);
+
+	const {
+		position,
+		consumedBufferedSequences,
+		unconsumedBufferedSequences,
+		unbufferedSequences,
+		...inputReaderStateRest
+	} = error.inputReaderSate!;
+
+	t.deepEqual(inputReaderStateRest, {});
+	t.is(position, 3);
+	t.deepEqual(consumedBufferedSequences, [ 'foo' ]);
+	t.deepEqual(unconsumedBufferedSequences, [ 'bar' ]);
+	t.truthy(unbufferedSequences);
+});
+
+test('runParser does not throw without remaining input', async t => {
+	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const output = await runParser(parser, 'foo', stringParserInputCompanion);
+
+	t.deepEqual(output, 'foo');
+});
+
+test('runParserWithRemainingInput with remaining input', async t => {
+	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const {
+		output,
+		remainingInput,
+		position,
+		...resultRest
+	} = await runParserWithRemainingInput(parser, 'foobar', stringParserInputCompanion);
+
+	t.deepEqual(resultRest, {});
+	t.deepEqual(output, 'foo');
+	t.deepEqual(await stringFromAsyncIterable(remainingInput!), 'bar');
+	t.is(position, 3);
+});
+
+test('runParserWithRemainingInput without remaining input', async t => {
+	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const { output, remainingInput } = await runParserWithRemainingInput(parser, 'foo', stringParserInputCompanion);
+
+	t.deepEqual(output, 'foo');
+	t.is(remainingInput, undefined);
 });

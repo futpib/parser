@@ -84,8 +84,8 @@ test('sequenceBuffer', t => {
 	t.is(sequenceBuffer.peek(2), undefined);
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
-		consumedBufferedSequences: ['abc'],
-		unconsumedBufferedSequences: ['', 'def', ''],
+		consumedBufferedSequences: ['d'],
+		unconsumedBufferedSequences: ['ef', ''],
 	});
 
 	sequenceBuffer.push('gh');
@@ -103,5 +103,18 @@ test('sequenceBuffer', t => {
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
 		consumedBufferedSequences: ['d'],
 		unconsumedBufferedSequences: ['ef', '', 'gh'],
+	});
+});
+
+test('skip more then first sequence length', t => {
+	const sequenceBuffer = new SequenceBufferImplementation(stringParserInputCompanion);
+
+	sequenceBuffer.push('a');
+	sequenceBuffer.push('b');
+	sequenceBuffer.skip(2);
+
+	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
+		consumedBufferedSequences: [],
+		unconsumedBufferedSequences: [],
 	});
 });

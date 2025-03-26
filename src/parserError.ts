@@ -1,4 +1,4 @@
-import { InputReaderState } from "./inputReader.js";
+import { InputReaderState } from "./inputReaderState.js";
 
 export class ParserError extends Error {
 	name = 'ParserError';
@@ -81,4 +81,8 @@ export class ParserParsingInvariantError extends ParserParsingFailedError {
 
 export class ParserUnexpectedEndOfInputError extends ParserParsingFailedError {
 	name = 'ParserUnexpectedEndOfInputError';
+}
+
+export class ParserUnexpectedRemainingInputError extends ParserParsingFailedError {
+	name = 'ParserUnexpectedRemainingInputError';
 }

@@ -3,13 +3,7 @@ import invariant from 'invariant';
 import { type SequenceBuffer, SequenceBufferImplementation } from './sequenceBuffer.js';
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-
-export type InputReaderState<Sequence> = {
-	position: number;
-	consumedBufferedSequences: Sequence[];
-	unconsumedBufferedSequences: Sequence[];
-	unbufferedSequences: AsyncIterator<Sequence>;
-};
+import { InputReaderState } from './inputReaderState.js';
 
 export type InputReader<Sequence, Element> = {
 	get position(): number;
@@ -30,6 +24,7 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 
 	private _position = 0;
 	private _uncommitedSkipOffset = 0;
+	private _inputAsyncIteratorDone = false;
 
 	private readonly _promiseMutex = new PromiseMutex();
 
@@ -76,6 +71,8 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 				const inputIteratorResult = await this._inputAsyncIterator.next();
 
 				if (inputIteratorResult.done) {
+					this._inputAsyncIteratorDone = true;
+
 					return undefined;
 				}
 
@@ -143,7 +140,7 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		return {
 			consumedBufferedSequences,
 			unconsumedBufferedSequences,
-			unbufferedSequences: this._inputAsyncIterator,
+			unbufferedSequences: this._inputAsyncIteratorDone ? undefined : this._inputAsyncIterator,
 			position: this._position,
 		};
 	}

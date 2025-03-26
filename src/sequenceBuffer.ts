@@ -28,9 +28,7 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 		);
 	}
 
-	push(sequence: Sequence) {
-		this._sequences.push(sequence);
-
+	private _shift() {
 		while (this._sequences.length > 0) {
 			const firstSequence = this._sequences[0];
 			const firstSequenceLength = this._parserInputCompanion.length(firstSequence);
@@ -47,6 +45,12 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 			this._sequences.shift();
 			this._indexInFirstSequence -= firstSequenceLength;
 		}
+	}
+
+	push(sequence: Sequence) {
+		this._sequences.push(sequence);
+
+		this._shift();
 	}
 
 	peek(offset: number): Element | undefined {
@@ -101,6 +105,8 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 
 	skip(offset: number) {
 		this._indexInFirstSequence += offset;
+
+		this._shift();
 	}
 
 	toSequenceBufferState(): SequenceBufferState<Sequence> {
@@ -124,9 +130,15 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 		const consumedFirstSequence = this._parserInputCompanion.subsequence(firstSequence, 0, this._indexInFirstSequence);
 		const unconsumedFirstSequence = this._parserInputCompanion.subsequence(firstSequence, this._indexInFirstSequence, firstSequenceLength);
 
+		const unconsumedFirstSequenceLength = this._parserInputCompanion.length(unconsumedFirstSequence);
+
 		return {
 			consumedBufferedSequences: [consumedFirstSequence],
-			unconsumedBufferedSequences: [unconsumedFirstSequence, ...this._sequences.slice(1)],
+			unconsumedBufferedSequences: (
+				unconsumedFirstSequenceLength === 0
+					? this._sequences.slice(1)
+					: [unconsumedFirstSequence, ...this._sequences.slice(1)]
+			),
 		};
 	}
 }

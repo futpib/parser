@@ -2,7 +2,7 @@ import test from 'ava';
 import * as fc from 'fast-check';
 import { testProp } from '@fast-check/ava';
 import { createFixedLengthSequenceParser, createFixedLengthSequenceParserNaive } from './fixedLengthSequenceParser.js';
-import { Parser, runParser } from './parser.js';
+import { Parser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { HighResolutionTotalTimer } from './highResolutionTimer.js';
 import { arbitrarilySlicedAsyncIterable } from './arbitrarilySlicedAsyncInterable.js';
@@ -45,7 +45,7 @@ testProp.serial(
 			};
 		};
 
-		const actualNaive = await naiveTotalTimer.measureAsync(() => runParser(
+		const { output: actualNaive } = await naiveTotalTimer.measureAsync(() => runParserWithRemainingInput(
 			createTestWrapperParser(fixedLengthSequenceParserNaive),
 			sequence,
 			stringParserInputCompanion,
@@ -53,7 +53,7 @@ testProp.serial(
 
 		t.true(actualNaive.result.length === Number(length));
 
-		const actual = await totalTimer.measureAsync(() => runParser(
+		const { output: actual } = await totalTimer.measureAsync(() => runParserWithRemainingInput(
 			createTestWrapperParser(fixedLengthSequenceParser),
 			sequence,
 			stringParserInputCompanion,

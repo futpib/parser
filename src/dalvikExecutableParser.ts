@@ -2320,11 +2320,11 @@ export const createDalvikExecutableParser = <Instructions>({
 		mapList,
 	}) => promiseCompose(
 		createTupleParser([
-			createLookaheadParser(createDalvikExecutableDataParser({
+			createDalvikExecutableDataParser({
 				headerItem,
 				mapList,
 				createInstructionsParser,
-			})),
+			}),
 			createRawDataParser(headerItem.link),
 		]),
 		async ([

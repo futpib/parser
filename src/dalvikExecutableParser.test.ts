@@ -1,6 +1,6 @@
 import test from 'ava';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
-import { runParser } from './parser.js';
+import { runParser, runParserWithRemainingInput } from './parser.js';
 import { createDalvikExecutableParser, dalvikExecutableParser } from './dalvikExecutableParser.js';
 import { fetchCid } from './fetchCid.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
@@ -20,9 +20,17 @@ for (const [ dexCid, shouldSnapshot ] of [
 		async t => {
 			const dexStream = await fetchCid(dexCid);
 
-			const actual = await runParser(dalvikExecutableParserRawInstructions, dexStream, uint8ArrayParserInputCompanion, {
+			const { output: actual, remainingInput } = await runParserWithRemainingInput(dalvikExecutableParserRawInstructions, dexStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',
 			});
+
+			// if (remainingInput) {
+			// 	for await (const buffer of remainingInput) {
+			// 		console.log(buffer);
+			// 	}
+
+			// 	t.fail('remainingInput');
+			// }
 
 			if (shouldSnapshot) {
 				t.snapshot(actual);
@@ -45,7 +53,7 @@ for (const [ dexCid, shouldSnapshot ] of [
 		async t => {
 			const dexStream = await fetchCid(dexCid);
 
-			const actual = await runParser(dalvikExecutableParser, dexStream, uint8ArrayParserInputCompanion, {
+			const { output: actual, remainingInput } = await runParserWithRemainingInput(dalvikExecutableParser, dexStream, uint8ArrayParserInputCompanion, {
 				errorJoinMode: 'all',
 			});
 

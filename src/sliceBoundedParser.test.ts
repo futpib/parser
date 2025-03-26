@@ -3,9 +3,19 @@ import { createArrayParser } from './arrayParser.js';
 import { createElementParser } from './elementParser.js';
 import { createTupleParser } from './tupleParser.js';
 import { createSliceBoundedParser } from './sliceBoundedParser.js';
-import { runParser } from './parser.js';
+import { runParser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { createExactElementParser } from './exactElementParser.js';
+
+async function stringFromAsyncIterable(asyncIterable: AsyncIterable<string>) {
+	let string = '';
+
+	for await (const chunk of asyncIterable) {
+		string += chunk;
+	}
+
+	return string;
+}
 
 const anythingParser = createArrayParser(createElementParser<string>());
 
@@ -47,13 +57,14 @@ test('sliceBoundedParser mustConsumeAll: false', async t => {
 		createElementParser(),
 	]);
 
-	const result = await runParser(parser, 'abcd', stringParserInputCompanion);
+	const { output, remainingInput } = await runParserWithRemainingInput(parser, 'abcd', stringParserInputCompanion);
 
-	t.deepEqual(result, [
+	t.deepEqual(output, [
 		'a',
 		[
 			'b',
 		],
 		'c',
 	]);
+	t.deepEqual(await stringFromAsyncIterable(remainingInput!), 'd');
 });

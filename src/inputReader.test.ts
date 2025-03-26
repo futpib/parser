@@ -1,8 +1,9 @@
 import test from 'ava';
-import { InputReaderImplementation, InputReaderState } from './inputReader.js';
+import { InputReaderImplementation } from './inputReader.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { ParserImplementationError } from './parserError.js';
 import { toAsyncIterable } from './toAsyncIterable.js';
+import { InputReaderState } from './inputReaderState.js';
 
 test('inputReader', async t => {
 	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
@@ -380,8 +381,10 @@ async function inputReaderStateToArray<Sequence>({
 	const consumedBufferedSequencesArray = consumedBufferedSequences.slice();
 
 	const unbufferedSequencesArray = [];
-	for await (const sequence of toAsyncIterable(unbufferedSequences)) {
-		unbufferedSequencesArray.push(sequence);
+	if (unbufferedSequences) {
+		for await (const sequence of toAsyncIterable(unbufferedSequences)) {
+			unbufferedSequencesArray.push(sequence);
+		}
 	}
 
 	return [
@@ -422,6 +425,11 @@ for (const [
 		[ '', 'abc', 'def', '', 'gh' ],
 		4,
 		[ 'd', END_OF_CONSUMED_SEQUENCES, 'ef', END_OF_BUFFERED_SEQUENCES, '', 'gh' ],
+	],
+	[
+		[ '', 'abc', 'def', '', 'gh' ],
+		8,
+		[ END_OF_CONSUMED_SEQUENCES, END_OF_BUFFERED_SEQUENCES ],
 	],
 ] as const) {
 	test('inputReader.toInputReaderState ' + JSON.stringify({ input, position }), async t => {
