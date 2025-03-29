@@ -1,11 +1,23 @@
 import { getParserName, type Parser, setParserName } from './parser.js';
 import { ParserParsingFailedError } from './parserError.js';
+import { promiseCompose } from './promiseCompose.js';
+import { createTupleParser } from './tupleParser.js';
 
 export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 	elementParser: Parser<ElementOutput, Sequence>,
 	separatorParser: Parser<unknown, Sequence>,
 ): Parser<ElementOutput[], Sequence> => {
+	const separatorThenElementParser: Parser<ElementOutput, Sequence> = promiseCompose(
+		createTupleParser([
+			separatorParser,
+			elementParser,
+		]),
+		([ , element ]) => element,
+	);
+
 	const separatedArrayParser: Parser<ElementOutput[], Sequence> = async parserContext => {
+		let parser = elementParser;
+
 		const elements: ElementOutput[] = [];
 
 		while (true) {
@@ -13,7 +25,7 @@ export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 			const initialPosition = elementParserContext.position;
 
 			try {
-				const element = await elementParser(elementParserContext);
+				const element = await parser(elementParserContext);
 
 				if (elementParserContext.position === initialPosition) {
 					break;
@@ -31,21 +43,7 @@ export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 				elementParserContext.dispose();
 			}
 
-			const separatorParserContext = parserContext.lookahead();
-
-			try {
-				await separatorParser(separatorParserContext);
-
-				separatorParserContext.unlookahead();
-			} catch (error) {
-				if (error instanceof ParserParsingFailedError) {
-					break;
-				}
-
-				throw error;
-			} finally {
-				separatorParserContext.dispose();
-			}
+			parser = separatorThenElementParser
 		}
 
 		return elements;
