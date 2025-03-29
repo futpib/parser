@@ -13,6 +13,7 @@ import { createArrayParser } from './arrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createElementParser } from './elementParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
+import { createSeparatedArrayParser } from './separatedArrayParser.js';
 
 const whitespaceParser: Parser<unknown, string> = createArrayParser(
 	createUnionParser([
@@ -189,30 +190,17 @@ const jsonArrayParser: Parser<JsonArray, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('['),
 		whitespaceParser,
-		promiseCompose(
-			createTerminatedArrayParser(
-				createDisjunctionParser<JsonValue, string>([
-					promiseCompose(
-						createTupleParser([
-							createParserAccessorParser(() => jsonValueParser),
-							whitespaceParser,
-							createExactSequenceParser(','),
-							whitespaceParser,
-						]),
-						([ value ]) => value,
-					),
-					promiseCompose(
-						createTupleParser([
-							createParserAccessorParser(() => jsonValueParser),
-							whitespaceParser,
-						]),
-						([ value ]) => value,
-					),
-				]),
-				createExactSequenceParser(']'),
-			),
-			([ values ]) => values,
+		createSeparatedArrayParser(
+			createParserAccessorParser(() => jsonValueParser),
+			createTupleParser([
+				whitespaceParser,
+				createExactSequenceParser(','),
+				whitespaceParser,
+			]),
 		),
+		whitespaceParser,
+		createExactSequenceParser(']'),
+		whitespaceParser,
 	]),
 	([ _bracket, _whitespace, values ]) => values,
 );
