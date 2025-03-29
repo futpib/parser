@@ -1,9 +1,11 @@
 import test from 'ava';
 import { createUnionParser } from './unionParser.js';
-import { Parser, runParser } from './parser.js';
+import { Parser, runParser, setParserName } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { createArrayParser } from './arrayParser.js';
 import { createExactElementParser } from './exactElementParser.js';
+import { createExactSequenceParser } from './exactSequenceParser.js';
+import { ParserError } from './parserError.js';
 
 test('union of union of union', async t => {
 	const parser: Parser<string, string> = createUnionParser([
@@ -57,4 +59,21 @@ test('sync and async child parsers', async t => {
 	});
 
 	t.deepEqual(result, 'aBcD'.split(''));
+});
+
+test('multiple parsers succeeded error', async t => {
+	const parser = createUnionParser([
+		setParserName(createExactSequenceParser('foo'), 'foo1'),
+		setParserName(createExactSequenceParser('foo'), 'foo2'),
+	]);
+
+	const error = await t.throwsAsync(runParser(parser, 'foo', stringParserInputCompanion, {
+		errorJoinMode: 'all',
+	}), {
+		instanceOf: ParserError,
+	});
+
+	t.true(error.message.includes('foo'));
+	t.true(error.message.includes('foo1'));
+	t.true(error.message.includes('foo2'));
 });

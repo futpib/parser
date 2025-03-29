@@ -22,15 +22,25 @@ export const createUnionParser = <
 ): Parser<Output, Sequence, Element> => {
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
+	type TaskContext = {
+		childParser: Parser<unknown, Sequence, Element>,
+		childParserContext: ParserContext<Sequence, Element>,
+	};
+
 	const unionParser: Parser<Output, Sequence, Element> = async parserContext => {
-		let runningChildParserContexts: Array<ParserContext<Sequence, Element>> = [];
+		let runningChildParserContexts: TaskContext[] = [];
 
 		const createChildParserTask = (childParser: Parser<unknown, Sequence, Element>) => {
 			const childParserContext = parserContext.lookahead({
 				debugName: getParserName(childParser, 'anonymousUnionChild'),
 			});
 
-			runningChildParserContexts.push(childParserContext);
+			const context: TaskContext = {
+				childParser,
+				childParserContext,
+			};
+
+			runningChildParserContexts.push(context);
 
 			const getChildParserPromise = (async () => childParser(childParserContext) as Promise<Output>);
 
@@ -38,15 +48,15 @@ export const createUnionParser = <
 
 			return {
 				promise,
-				context: childParserContext,
+				context,
 			};
 		};
 
-		const childParserResults = allSettledStream<Output, ParserContext<Sequence, Element>>(childParsers.map(createChildParserTask));
+		const childParserResults = allSettledStream<Output, TaskContext>(childParsers.map(createChildParserTask));
 
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 		const successfulParserOutputs: Output[] = [];
-		const successfulParserContexts: Array<ParserContext<Sequence, Element>> = [];
+		const successfulTaskContexts: TaskContext[] = [];
 		let didUnlookahead = false;
 
 		for await (const childParserResult of childParserResults) {
@@ -56,7 +66,7 @@ export const createUnionParser = <
 
 			if (childParserResult.status === 'fulfilled') {
 				successfulParserOutputs.push(childParserResult.value);
-				successfulParserContexts.push(childParserResult.context);
+				successfulTaskContexts.push(childParserResult.context);
 			} else {
 				const error = childParserResult.reason;
 
@@ -74,7 +84,7 @@ export const createUnionParser = <
 				parserImplementationInvariant(!didUnlookahead, 'Union parser unlookaheaded multiple times.');
 				didUnlookahead = true;
 				const [ runningChildParserContext ] = runningChildParserContexts;
-				runningChildParserContext.unlookahead();
+				runningChildParserContext.childParserContext.unlookahead();
 			}
 		}
 
@@ -85,8 +95,12 @@ export const createUnionParser = <
 				'Successful parser outputs, indented, separated by newlines:',
 				'%s',
 				'End of successful parser outputs.',
+				'Successful parser names, indented, separated by newlines:',
+				'%s',
+				'End of successful parser names.',
 			],
 			() => successfulParserOutputs.map(output => '  ' + JSON.stringify(output, bigintReplacer)).join('\n'),
+			() => successfulTaskContexts.map(taskContext => '  ' + getParserName(taskContext.childParser, 'anonymousUnionChild')).join('\n'),
 		);
 
 		parserContext.invariantJoin(
@@ -95,13 +109,13 @@ export const createUnionParser = <
 			'No union child parser succeeded.',
 		);
 
-		const [ successfulParserContext ] = successfulParserContexts;
+		const [ successfulParserContext ] = successfulTaskContexts;
 
 		if (!didUnlookahead) {
-			successfulParserContext.unlookahead();
+			successfulParserContext.childParserContext.unlookahead();
 		}
 
-		successfulParserContext.dispose();
+		successfulParserContext.childParserContext.dispose();
 
 		const [ successfulParserOutput ] = successfulParserOutputs;
 
