@@ -1,6 +1,5 @@
 /* eslint-disable prefer-arrow-callback */
 
-import invariant from 'invariant';
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { type InputReader } from './inputReader.js';
 import {
@@ -27,6 +26,7 @@ export type ParserContext<Sequence, Element> = {
 	at(sequence: Sequence, index: number): Element | undefined;
 	subsequence(sequence: Sequence, start: number, end: number): Sequence;
 	indexOf(sequence: Sequence, element: Element, fromIndex?: number): number;
+	equals(sequenceA: Sequence, sequenceB: Sequence): boolean;
 
 	get position(): number;
 	peek(offset: number): Promise<Element | undefined>;
@@ -96,6 +96,10 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 	indexOf(sequence: Sequence, element: Element, fromIndex?: number): number {
 		return this._parserInputCompanion.indexOf(sequence, element, fromIndex);
+	}
+
+	equals(sequenceA: Sequence, sequenceB: Sequence): boolean {
+		return this._parserInputCompanion.equals(sequenceA, sequenceB);
 	}
 
 	get position() {

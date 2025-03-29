@@ -10,35 +10,35 @@ import {
 	ParserParsingJoinDeepestError,
 	ParserParsingJoinError,
 	ParserParsingJoinFurthestError,
-    ParserParsingJoinNoneError,
-    ParserUnexpectedRemainingInputError,
+	ParserParsingJoinNoneError,
+	ParserUnexpectedRemainingInputError,
 } from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
-import { createExactSequenceParser } from './exactSequenceParser.js';
+import { createExactSequenceNaiveParser } from './exactSequenceParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createElementParser } from './elementParser.js';
 import { toAsyncIterable } from './toAsyncIterable.js';
 
 const aUnionParser = createUnionParser<string, string>([
-	createExactSequenceParser('1'),
-	createExactSequenceParser('aa'),
-	createExactSequenceParser('AAA'),
+	createExactSequenceNaiveParser('1'),
+	createExactSequenceNaiveParser('aa'),
+	createExactSequenceNaiveParser('AAA'),
 ]);
 
 const abDisjunctionParser = createDisjunctionParser<string, string>([
 	aUnionParser,
-	createExactSequenceParser('2'),
-	createExactSequenceParser('bb'),
-	createExactSequenceParser('BBB'),
+	createExactSequenceNaiveParser('2'),
+	createExactSequenceNaiveParser('bb'),
+	createExactSequenceNaiveParser('BBB'),
 ]);
 
 const abcUnionParser = createUnionParser<string, string>([
 	abDisjunctionParser,
-	createExactSequenceParser('final_3'),
-	createExactSequenceParser('final_cc'),
-	createExactSequenceParser('final_CCC'),
+	createExactSequenceNaiveParser('final_3'),
+	createExactSequenceNaiveParser('final_cc'),
+	createExactSequenceNaiveParser('final_CCC'),
 ]);
 
 const sampleParser = promiseCompose(
@@ -199,8 +199,8 @@ test('thrown error has input reader state', async t => {
 	const error = await t.throwsAsync(
 		runParser(
 			createTupleParser([
-				createExactSequenceParser('foo'),
-				createExactSequenceParser('bar'),
+				createExactSequenceNaiveParser('foo'),
+				createExactSequenceNaiveParser('bar'),
 			]),
 			(async function * () {
 				yield 'foo';
@@ -243,7 +243,7 @@ test('thrown error has input reader state', async t => {
 });
 
 test('runParser throws with remaining input', async t => {
-	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const parser: Parser<string, string> = createExactSequenceNaiveParser('foo');
 	const error = await t.throwsAsync(() => runParser(parser, 'foobar', stringParserInputCompanion), {
 		instanceOf: ParserUnexpectedRemainingInputError,
 		message: /remaining input/,
@@ -267,14 +267,14 @@ test('runParser throws with remaining input', async t => {
 });
 
 test('runParser does not throw without remaining input', async t => {
-	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const parser: Parser<string, string> = createExactSequenceNaiveParser('foo');
 	const output = await runParser(parser, 'foo', stringParserInputCompanion);
 
 	t.deepEqual(output, 'foo');
 });
 
 test('runParserWithRemainingInput with remaining input', async t => {
-	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const parser: Parser<string, string> = createExactSequenceNaiveParser('foo');
 	const {
 		output,
 		remainingInput,
@@ -289,7 +289,7 @@ test('runParserWithRemainingInput with remaining input', async t => {
 });
 
 test('runParserWithRemainingInput without remaining input', async t => {
-	const parser: Parser<string, string> = createExactSequenceParser('foo');
+	const parser: Parser<string, string> = createExactSequenceNaiveParser('foo');
 	const { output, remainingInput } = await runParserWithRemainingInput(parser, 'foo', stringParserInputCompanion);
 
 	t.deepEqual(output, 'foo');

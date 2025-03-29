@@ -7,6 +7,7 @@ export type ParserInputCompanion<Sequence, Element> = {
 	at(sequence: Sequence, index: number): Element | undefined;
 	subsequence(sequence: Sequence, start: number, end: number): Sequence;
 	indexOf(sequence: Sequence, element: Element, fromIndex?: number): number;
+	equals(sequenceA: Sequence, sequenceB: Sequence): boolean;
 };
 
 export class StringParserInputCompanion implements ParserInputCompanion<string, string> {
@@ -36,6 +37,10 @@ export class StringParserInputCompanion implements ParserInputCompanion<string, 
 
 	indexOf(sequence: string, element: string, fromIndex?: number): number {
 		return sequence.indexOf(element, fromIndex);
+	}
+
+	equals(sequenceA: string, sequenceB: string): boolean {
+		return sequenceA === sequenceB;
 	}
 }
 
@@ -68,6 +73,20 @@ export class Uint8ArrayParserInputCompanion implements ParserInputCompanion<Uint
 
 	indexOf(sequence: Uint8Array, element: number, fromIndex?: number): number {
 		return sequence.indexOf(element, fromIndex);
+	}
+
+	equals(sequenceA: Uint8Array, sequenceB: Uint8Array): boolean {
+		if (sequenceA.length !== sequenceB.length) {
+			return false;
+		}
+
+		for (let index = 0; index < sequenceA.length; index++) {
+			if (sequenceA[index] !== sequenceB[index]) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 }
 
