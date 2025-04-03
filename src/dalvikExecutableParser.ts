@@ -2216,6 +2216,7 @@ const createDalvikExecutableDataParser = <Instructions>({
 			}
 
 			if (dexMapItem.type === 'mapList') {
+				await createDalvikExecutableMapListParser(dexMapItem.offset)(parserContext);
 				continue;
 			}
 
