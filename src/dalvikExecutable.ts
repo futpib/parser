@@ -119,7 +119,7 @@ export type DalvikExecutableAnnotation = {
 	elements: DalvikExecutableAnnotationElement[];
 }
 
-type DalvikExecutablePrototype = {
+export type DalvikExecutablePrototype = {
 	shorty: string;
 	returnType: string;
 	parameters: string[];
@@ -136,13 +136,13 @@ type DalvikExecutableFieldWithAccess = {
 	accessFlags: DalvikExecutableAccessFlags;
 };
 
-type DalvikExecutableMethod = {
+export type DalvikExecutableMethod = {
 	class: string;
 	prototype: DalvikExecutablePrototype;
 	name: string;
 };
 
-type DalvikExecutableMethodWithAccess<Instructions> = {
+export type DalvikExecutableMethodWithAccess<Instructions> = {
 	method: DalvikExecutableMethod;
 	accessFlags: DalvikExecutableAccessFlags;
 	code: undefined | DalvikExecutableCode<Instructions>;

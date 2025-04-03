@@ -1,6 +1,5 @@
 import { createArrayParser } from "./arrayParser.js";
 import { createDalvikBytecodeFormat21cParser, createDalvikBytecodeFormat21sParser, createDalvikBytecodeFormat21tParser, createDalvikBytecodeFormat22bParser, createDalvikBytecodeFormat22cParser, createDalvikBytecodeFormat22sParser, createDalvikBytecodeFormat22tParser, dalvikBytecodeFormat23xParser, dalvikBytecodeFormat31iParser, createDalvikBytecodeFormat35cParser, createDalvikBytecodeFormat3rcParser, dalvikBytecodeFormat10tParser, dalvikBytecodeFormat10xParser, dalvikBytecodeFormat11xParser, dalvikBytecodeFormat12xParser, dalvikBytecodeFormat20tParser, dalvikBytecodeFormat22xParser, nibblesParser, dalvikBytecodeFormat32xParser } from "./dalvikBytecodeParser/formatParsers.js";
-import { createDebugLogInputParser } from "./debugLogInputParser.js";
 import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
 import { createExactElementParser } from "./exactElementParser.js";
 import { Parser, setParserName } from "./parser.js";
@@ -1906,7 +1905,7 @@ const dalvikBytecodeOperationCompareParser: Parser<DalvikBytecodeOperationCompar
 
 setParserName(dalvikBytecodeOperationCompareParser, 'dalvikBytecodeOperationCompareParser');
 
-type DalvikBytecodeOperation =
+export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationNoOperation
 
 	| DalvikBytecodeOperationInvoke

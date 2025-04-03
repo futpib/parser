@@ -66,7 +66,7 @@ const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParse
 	)(),
 ]);
 
-const jsonStringParser: Parser<string, string> = promiseCompose(
+export const jsonStringParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('"'),
 		promiseCompose(
@@ -80,7 +80,7 @@ const jsonStringParser: Parser<string, string> = promiseCompose(
 	([ , string ]) => string,
 );
 
-const jsonNumberParser: Parser<number, string> = parserCreatorCompose(
+export const jsonNumberParser: Parser<number, string> = parserCreatorCompose(
 	() => createArrayParser(
 		parserCreatorCompose(
 			() => elementParser,
