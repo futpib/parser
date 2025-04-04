@@ -1910,11 +1910,22 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationNoOperation
 
 	| DalvikBytecodeOperationInvoke
+	| DalvikBytecodeOperationNewInstance
 
 	| DalvikBytecodeOperationReturnVoid
 
 	| DalvikBytecodeOperationMoveResult1
 ;
+
+export const dalvikBytecodeOperationCompanion = {
+	getRegisters(operation: DalvikBytecodeOperation): number[] {
+		if (operation && typeof operation === 'object' && 'registers' in operation) {
+			return operation.registers;
+		}
+
+		return [];
+	},
+};
 
 const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined, Uint8Array> = promiseCompose(
 	createTupleParser([

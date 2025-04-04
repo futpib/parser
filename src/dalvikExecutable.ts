@@ -131,6 +131,19 @@ export type DalvikExecutableField = {
 	name: string;
 };
 
+export function isDalvikExecutableField(x: unknown): x is DalvikExecutableField {
+	return (
+		x !== null
+			&& typeof x === 'object'
+			&& 'class' in x
+			&& 'type' in x
+			&& 'name' in x
+			&& typeof (x as DalvikExecutableField).class === 'string'
+			&& typeof (x as DalvikExecutableField).type === 'string'
+			&& typeof (x as DalvikExecutableField).name === 'string'
+	);
+}
+
 type DalvikExecutableFieldWithAccess = {
 	field: DalvikExecutableField;
 	accessFlags: DalvikExecutableAccessFlags;
@@ -141,6 +154,19 @@ export type DalvikExecutableMethod = {
 	prototype: DalvikExecutablePrototype;
 	name: string;
 };
+
+export function isDalvikExecutableMethod(x: unknown): x is DalvikExecutableMethod {
+	return (
+		x !== null
+			&& typeof x === 'object'
+			&& 'class' in x
+			&& 'prototype' in x
+			&& 'name' in x
+			&& typeof (x as DalvikExecutableMethod).class === 'string'
+			&& typeof (x as DalvikExecutableMethod).prototype === 'object'
+			&& typeof (x as DalvikExecutableMethod).name === 'string'
+	);
+}
 
 export type DalvikExecutableMethodWithAccess<Instructions> = {
 	method: DalvikExecutableMethod;
