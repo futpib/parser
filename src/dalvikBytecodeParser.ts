@@ -1,5 +1,6 @@
 import { createArrayParser } from "./arrayParser.js";
 import { createDalvikBytecodeFormat21cParser, createDalvikBytecodeFormat21sParser, createDalvikBytecodeFormat21tParser, createDalvikBytecodeFormat22bParser, createDalvikBytecodeFormat22cParser, createDalvikBytecodeFormat22sParser, createDalvikBytecodeFormat22tParser, dalvikBytecodeFormat23xParser, dalvikBytecodeFormat31iParser, createDalvikBytecodeFormat35cParser, createDalvikBytecodeFormat3rcParser, dalvikBytecodeFormat10tParser, dalvikBytecodeFormat10xParser, dalvikBytecodeFormat11xParser, dalvikBytecodeFormat12xParser, dalvikBytecodeFormat20tParser, dalvikBytecodeFormat22xParser, nibblesParser, dalvikBytecodeFormat32xParser } from "./dalvikBytecodeParser/formatParsers.js";
+import { DalvikExecutableField, DalvikExecutableMethod } from "./dalvikExecutable.js";
 import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
 import { createExactElementParser } from "./exactElementParser.js";
 import { Parser, setParserName } from "./parser.js";
@@ -29,20 +30,20 @@ const dalvikBytecodeOperationUnusedParser: Parser<void, Uint8Array> = async (par
 setParserName(dalvikBytecodeOperationUnusedParser, 'dalvikBytecodeOperationUnusedParser');
 
 type DalvikBytecodeOperationNoOperation = {
-	type: 'no-operation';
+	operation: 'no-operation';
 };
 
 const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNoOperation, Uint8Array> = promiseCompose(
 	createExactElementParser(0x00),
 	() => ({
-		type: 'no-operation',
+		operation: 'no-operation',
 	}),
 );
 
 setParserName(dalvikBytecodeOperationNoOperationParser, 'dalvikBytecodeOperationNoOperationParser');
 
-const createDalvikBytecodeOperationInvoke = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationInvoke = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	methodIndex: IndexIntoMethodIds;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
@@ -56,7 +57,7 @@ const createDalvikBytecodeOperationInvoke = <T extends string>(type: T, opcode: 
 		_opcode,
 		{ index, registers }
 	]) => ({
-		type,
+		operation,
 		methodIndex: index,
 		registers,
 	}),
@@ -100,8 +101,8 @@ const dalvikBytecodeOperationInvokeParser: Parser<DalvikBytecodeOperationInvoke,
 
 setParserName(dalvikBytecodeOperationInvokeParser, 'dalvikBytecodeOperationInvokeParser');
 
-const createDalvikBytecodeOperationInvokeRange = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationInvokeRange = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	methodIndex: IndexIntoMethodIds;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
@@ -115,7 +116,7 @@ const createDalvikBytecodeOperationInvokeRange = <T extends string>(type: T, opc
 		_opcode,
 		{ index, registers }
 	]) => ({
-		type,
+		operation,
 		methodIndex: index,
 		registers,
 	}),
@@ -160,7 +161,7 @@ const dalvikBytecodeOperationInvokeRangeParser: Parser<DalvikBytecodeOperationIn
 setParserName(dalvikBytecodeOperationInvokeRangeParser, 'dalvikBytecodeOperationInvokeRangeParser');
 
 type DalvikBytecodeOperationGoto = {
-	type: 'goto';
+	operation: 'goto';
 	branchOffset: number;
 };
 
@@ -170,13 +171,13 @@ const dalvikBytecodeOperationGotoParser: Parser<DalvikBytecodeOperationGoto, Uin
 		dalvikBytecodeFormat10tParser,
 	]),
 	([ _opcode, { branchOffset } ]) => ({
-		type: 'goto',
+		operation: 'goto',
 		branchOffset,
 	}),
 );
 
 type DalvikBytecodeOperationGoto16 = {
-	type: 'goto/16';
+	operation: 'goto/16';
 	branchOffset: number;
 };
 
@@ -186,13 +187,13 @@ const dalvikBytecodeOperationGoto16Parser: Parser<DalvikBytecodeOperationGoto16,
 		dalvikBytecodeFormat20tParser,
 	]),
 	([ _opcode, { branchOffset } ]) => ({
-		type: 'goto/16',
+		operation: 'goto/16',
 		branchOffset,
 	}),
 );
 
 type DalvikBytecodeOperationInstanceOf = {
-	type: 'instance-of';
+	operation: 'instance-of';
 	registers: number[];
 	typeIndex: IndexIntoTypeIds;
 };
@@ -205,7 +206,7 @@ const dalvikBytecodeOperationInstanceOfParser: Parser<DalvikBytecodeOperationIns
 		}),
 	]),
 	([ _opcode, { registers, index } ]) => ({
-		type: 'instance-of',
+		operation: 'instance-of',
 		registers,
 		typeIndex: index,
 	}),
@@ -213,8 +214,8 @@ const dalvikBytecodeOperationInstanceOfParser: Parser<DalvikBytecodeOperationIns
 
 setParserName(dalvikBytecodeOperationInstanceOfParser, 'dalvikBytecodeOperationInstanceOfParser');
 
-const createDalvikBytecodeOperationArrayElement = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationArrayElement = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
@@ -222,7 +223,7 @@ const createDalvikBytecodeOperationArrayElement = <T extends string>(type: T, op
 		dalvikBytecodeFormat23xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type,
+		operation,
 		registers,
 	}),
 );
@@ -319,8 +320,8 @@ const dalvikBytecodeOperationArrayElementParser: Parser<DalvikBytecodeOperationA
 
 setParserName(dalvikBytecodeOperationArrayElementParser, 'dalvikBytecodeOperationArrayElementParser');
 
-const createDalvikBytecodeOperationInstanceField = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationInstanceField = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 	fieldIndex: IndexIntoFieldIds;
 }, Uint8Array> => promiseCompose(
@@ -331,7 +332,7 @@ const createDalvikBytecodeOperationInstanceField = <T extends string>(type: T, o
 		}),
 	]),
 	([ _opcode, { registers, index } ]) => ({
-		type,
+		operation,
 		registers,
 		fieldIndex: index,
 	}),
@@ -429,8 +430,8 @@ const dalvikBytecodeOperationInstanceFieldParser: Parser<DalvikBytecodeOperation
 
 setParserName(dalvikBytecodeOperationInstanceFieldParser, 'dalvikBytecodeOperationInstanceFieldParser');
 
-const createDalvikBytecodeOperationStaticField = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationStaticField = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 	fieldIndex: IndexIntoFieldIds;
 }, Uint8Array> => promiseCompose(
@@ -441,7 +442,7 @@ const createDalvikBytecodeOperationStaticField = <T extends string>(type: T, opc
 		}),
 	]),
 	([ _opcode, { registers, index } ]) => ({
-		type,
+		operation,
 		registers,
 		fieldIndex: index,
 	}),
@@ -539,8 +540,8 @@ const dalvikBytecodeOperationStaticFieldParser: Parser<DalvikBytecodeOperationSt
 
 setParserName(dalvikBytecodeOperationStaticFieldParser, 'dalvikBytecodeOperationStaticFieldParser');
 
-const createDalvikBytecodeOperationBinaryOperationLiteral8 = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationBinaryOperationLiteral8 = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 	value: number;
 }, Uint8Array> => promiseCompose(
@@ -549,7 +550,7 @@ const createDalvikBytecodeOperationBinaryOperationLiteral8 = <T extends string>(
 		createDalvikBytecodeFormat22bParser(),
 	]),
 	([ _opcode, { registers, value } ]) => ({
-		type,
+		operation,
 		registers,
 		value,
 	}),
@@ -629,8 +630,8 @@ const dalvikBytecodeOperationBinaryOperationLiteral8Parser: Parser<DalvikBytecod
 
 setParserName(dalvikBytecodeOperationBinaryOperationLiteral8Parser, 'dalvikBytecodeOperationBinaryOperationLiteral8Parser');
 
-const createDalvikBytecodeOperationBinaryOperationLiteral16 = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationBinaryOperationLiteral16 = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 	value: number;
 }, Uint8Array> => promiseCompose(
@@ -639,7 +640,7 @@ const createDalvikBytecodeOperationBinaryOperationLiteral16 = <T extends string>
 		createDalvikBytecodeFormat22sParser(),
 	]),
 	([ _opcode, { registers, value } ]) => ({
-		type,
+		operation,
 		registers,
 		value,
 	}),
@@ -701,8 +702,8 @@ const dalvikBytecodeOperationBinaryOperationLiteral16Parser: Parser<DalvikByteco
 
 setParserName(dalvikBytecodeOperationBinaryOperationLiteral16Parser, 'dalvikBytecodeOperationBinaryOperationLiteral16Parser');
 
-const createDalvikBytecodeOperationBinaryOperationInPlace = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationBinaryOperationInPlace = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
@@ -710,7 +711,7 @@ const createDalvikBytecodeOperationBinaryOperationInPlace = <T extends string>(t
 		dalvikBytecodeFormat12xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type,
+		operation,
 		registers,
 	}),
 );
@@ -909,8 +910,8 @@ const dalvikBytecodeOperationBinaryOperationInPlaceParser: Parser<DalvikBytecode
 
 setParserName(dalvikBytecodeOperationBinaryOperationInPlaceParser, 'dalvikBytecodeOperationBinaryOperationInPlaceParser');
 
-const createDalvikBytecodeOperationBinaryOperation = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationBinaryOperation = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
@@ -918,7 +919,7 @@ const createDalvikBytecodeOperationBinaryOperation = <T extends string>(type: T,
 		dalvikBytecodeFormat23xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type,
+		operation,
 		registers,
 	}),
 );
@@ -1117,8 +1118,8 @@ const dalvikBytecodeOperationBinaryOperationParser: Parser<DalvikBytecodeOperati
 
 setParserName(dalvikBytecodeOperationBinaryOperationParser, 'dalvikBytecodeOperationBinaryOperationParser');
 
-const createDalvikBytecodeOperationUnaryOperation = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationUnaryOperation = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
@@ -1126,7 +1127,7 @@ const createDalvikBytecodeOperationUnaryOperation = <T extends string>(type: T, 
 		dalvikBytecodeFormat12xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type,
+		operation,
 		registers,
 	}),
 );
@@ -1265,8 +1266,8 @@ const dalvikBytecodeOperationUnaryOperationParser: Parser<DalvikBytecodeOperatio
 
 setParserName(dalvikBytecodeOperationUnaryOperationParser, 'dalvikBytecodeOperationUnaryOperationParser');
 
-const createDalvikBytecodeOperationIfTest = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationIfTest = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 	branchOffset: number;
 }, Uint8Array> => promiseCompose(
@@ -1275,7 +1276,7 @@ const createDalvikBytecodeOperationIfTest = <T extends string>(type: T, opcode: 
 		createDalvikBytecodeFormat22tParser(),
 	]),
 	([ _opcode, { registers, branchOffset } ]) => ({
-		type,
+		operation,
 		registers,
 		branchOffset,
 	}),
@@ -1325,8 +1326,8 @@ const dalvikBytecodeOperationIfTestParser: Parser<DalvikBytecodeOperationIfTest,
 
 setParserName(dalvikBytecodeOperationIfTestParser, 'dalvikBytecodeOperationIfTestParser');
 
-const createDalvikBytecodeOperationIfTestZero = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationIfTestZero = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 	branchOffset: number;
 }, Uint8Array> => promiseCompose(
@@ -1335,7 +1336,7 @@ const createDalvikBytecodeOperationIfTestZero = <T extends string>(type: T, opco
 		createDalvikBytecodeFormat21tParser(),
 	]),
 	([ _opcode, { registers, branchOffset } ]) => ({
-		type,
+		operation,
 		registers,
 		branchOffset,
 	}),
@@ -1386,7 +1387,7 @@ const dalvikBytecodeOperationIfTestZeroParser: Parser<DalvikBytecodeOperationIfT
 setParserName(dalvikBytecodeOperationIfTestZeroParser, 'dalvikBytecodeOperationIfTestZeroParser');
 
 type DalvikBytecodeOperationConstString = {
-	type: 'const-string';
+	operation: 'const-string';
 	stringIndex: IndexIntoStringIds;
 	registers: number[];
 };
@@ -1399,7 +1400,7 @@ const dalvikBytecodeOperationConstStringParser: Parser<DalvikBytecodeOperationCo
 		}),
 	]),
 	([ _opcode, { index, registers } ]) => ({
-		type: 'const-string',
+		operation: 'const-string',
 		stringIndex: index,
 		registers,
 	}),
@@ -1408,7 +1409,7 @@ const dalvikBytecodeOperationConstStringParser: Parser<DalvikBytecodeOperationCo
 setParserName(dalvikBytecodeOperationConstStringParser, 'dalvikBytecodeOperationConstStringParser');
 
 type DalvikBytecodeOperationConstMethodHandle = {
-	type: 'const-method-handle';
+	operation: 'const-method-handle';
 	methodIndex: IndexIntoMethodIds;
 	registers: number[];
 };
@@ -1421,7 +1422,7 @@ const dalvikBytecodeOperationConstMethodHandleParser: Parser<DalvikBytecodeOpera
 		}),
 	]),
 	([ _opcode, { index, registers } ]) => ({
-		type: 'const-method-handle',
+		operation: 'const-method-handle',
 		methodIndex: index,
 		registers,
 	}),
@@ -1430,7 +1431,7 @@ const dalvikBytecodeOperationConstMethodHandleParser: Parser<DalvikBytecodeOpera
 setParserName(dalvikBytecodeOperationConstMethodHandleParser, 'dalvikBytecodeOperationConstMethodHandleParser');
 
 type DalvikBytecodeOperationNewInstance = {
-	type: 'new-instance';
+	operation: 'new-instance';
 	typeIndex: IndexIntoTypeIds;
 	registers: number[];
 };
@@ -1443,7 +1444,7 @@ const dalvikBytecodeOperationNewInstanceParser: Parser<DalvikBytecodeOperationNe
 		}),
 	]),
 	([ _opcode, { index, registers } ]) => ({
-		type: 'new-instance',
+		operation: 'new-instance',
 		typeIndex: index,
 		registers,
 	}),
@@ -1452,7 +1453,7 @@ const dalvikBytecodeOperationNewInstanceParser: Parser<DalvikBytecodeOperationNe
 setParserName(dalvikBytecodeOperationNewInstanceParser, 'dalvikBytecodeOperationNewInstanceParser');
 
 type DalvikBytecodeOperationNewArray = {
-	type: 'new-array';
+	operation: 'new-array';
 	typeIndex: IndexIntoTypeIds;
 	registers: number[];
 };
@@ -1465,7 +1466,7 @@ const dalvikBytecodeOperationNewArrayParser: Parser<DalvikBytecodeOperationNewAr
 		}),
 	]),
 	([ _opcode, { index, registers } ]) => ({
-		type: 'new-array',
+		operation: 'new-array',
 		typeIndex: index,
 		registers,
 	}),
@@ -1474,7 +1475,7 @@ const dalvikBytecodeOperationNewArrayParser: Parser<DalvikBytecodeOperationNewAr
 setParserName(dalvikBytecodeOperationNewArrayParser, 'dalvikBytecodeOperationNewArrayParser');
 
 type DalvikBytecodeOperationCheckCast = {
-	type: 'check-cast';
+	operation: 'check-cast';
 	typeIndex: IndexIntoTypeIds;
 	registers: number[];
 };
@@ -1487,7 +1488,7 @@ const dalvikBytecodeOperationCheckCastParser: Parser<DalvikBytecodeOperationChec
 		}),
 	]),
 	([ _opcode, { index, registers } ]) => ({
-		type: 'check-cast',
+		operation: 'check-cast',
 		typeIndex: index,
 		registers,
 	}),
@@ -1496,7 +1497,7 @@ const dalvikBytecodeOperationCheckCastParser: Parser<DalvikBytecodeOperationChec
 setParserName(dalvikBytecodeOperationCheckCastParser, 'dalvikBytecodeOperationCheckCastParser');
 
 type DalvikBytecodeOperationConstClass = {
-	type: 'const-class';
+	operation: 'const-class';
 	typeIndex: IndexIntoTypeIds;
 	registers: number[];
 };
@@ -1509,7 +1510,7 @@ const dalvikBytecodeOperationConstClassParser: Parser<DalvikBytecodeOperationCon
 		}),
 	]),
 	([ _opcode, { index, registers } ]) => ({
-		type: 'const-class',
+		operation: 'const-class',
 		typeIndex: index,
 		registers,
 	}),
@@ -1518,7 +1519,7 @@ const dalvikBytecodeOperationConstClassParser: Parser<DalvikBytecodeOperationCon
 setParserName(dalvikBytecodeOperationConstClassParser, 'dalvikBytecodeOperationConstClassParser');
 
 type DalvikBytecodeOperationReturnVoid = {
-	type: 'return-void';
+	operation: 'return-void';
 };
 
 const dalvikBytecodeOperationReturnVoidParser: Parser<DalvikBytecodeOperationReturnVoid, Uint8Array> = promiseCompose(
@@ -1527,14 +1528,14 @@ const dalvikBytecodeOperationReturnVoidParser: Parser<DalvikBytecodeOperationRet
 		dalvikBytecodeFormat10xParser,
 	]),
 	() => ({
-		type: 'return-void',
+		operation: 'return-void',
 	}),
 );
 
 setParserName(dalvikBytecodeOperationReturnVoidParser, 'dalvikBytecodeOperationReturnVoidParser');
 
-const createDalvikBytecodeMoveResult1Parser = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeMoveResult1Parser = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
@@ -1542,7 +1543,7 @@ const createDalvikBytecodeMoveResult1Parser = <T extends string>(type: T, opcode
 		dalvikBytecodeFormat11xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type,
+		operation,
 		registers,
 	}),
 );
@@ -1580,7 +1581,7 @@ const dalvikBytecodeOperationMoveResult1Parser: Parser<DalvikBytecodeOperationMo
 setParserName(dalvikBytecodeOperationMoveResult1Parser, 'dalvikBytecodeOperationMoveResult1Parser');
 
 type DalvikBytecodeOperationMove = {
-	type: 'move';
+	operation: 'move';
 	registers: number[];
 };
 
@@ -1590,13 +1591,13 @@ const dalvikBytecodeOperationMoveParser: Parser<DalvikBytecodeOperationMove, Uin
 		dalvikBytecodeFormat12xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'move',
+		operation: 'move',
 		registers,
 	}),
 );
 
 type DalvikBytecodeOperationMoveWide = {
-	type: 'move-wide';
+	operation: 'move-wide';
 	registers: number[];
 };
 
@@ -1606,13 +1607,13 @@ const dalvikBytecodeOperationMoveWideParser: Parser<DalvikBytecodeOperationMoveW
 		dalvikBytecodeFormat12xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'move-wide',
+		operation: 'move-wide',
 		registers,
 	}),
 );
 
 type DalvikBytecodeOperationMoveObject = {
-	type: 'move-object';
+	operation: 'move-object';
 	registers: number[];
 };
 
@@ -1622,13 +1623,13 @@ const dalvikBytecodeOperationMoveObjectParser: Parser<DalvikBytecodeOperationMov
 		dalvikBytecodeFormat12xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'move-object',
+		operation: 'move-object',
 		registers,
 	}),
 );
 
 type DalvikBytecodeOperationMoveFrom16 = {
-	type: 'move/from16';
+	operation: 'move/from16';
 	registers: number[];
 };
 
@@ -1638,7 +1639,7 @@ const dalvikBytecodeOperationMoveFrom16Parser: Parser<DalvikBytecodeOperationMov
 		dalvikBytecodeFormat22xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'move/from16',
+		operation: 'move/from16',
 		registers,
 	}),
 );
@@ -1646,7 +1647,7 @@ const dalvikBytecodeOperationMoveFrom16Parser: Parser<DalvikBytecodeOperationMov
 setParserName(dalvikBytecodeOperationMoveFrom16Parser, 'dalvikBytecodeOperationMoveFrom16Parser');
 
 type DalvikBytecodeOperationMoveWideFrom16 = {
-	type: 'move-wide/from16';
+	operation: 'move-wide/from16';
 	registers: number[];
 };
 
@@ -1656,7 +1657,7 @@ const dalvikBytecodeOperationMoveWideFrom16Parser: Parser<DalvikBytecodeOperatio
 		dalvikBytecodeFormat22xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'move-wide/from16',
+		operation: 'move-wide/from16',
 		registers,
 	}),
 );
@@ -1664,7 +1665,7 @@ const dalvikBytecodeOperationMoveWideFrom16Parser: Parser<DalvikBytecodeOperatio
 setParserName(dalvikBytecodeOperationMoveWideFrom16Parser, 'dalvikBytecodeOperationMoveWideFrom16Parser');
 
 type DalvikBytecodeOperationMoveObjectFrom16 = {
-	type: 'move-object/from16';
+	operation: 'move-object/from16';
 	registers: number[];
 };
 
@@ -1674,7 +1675,7 @@ const dalvikBytecodeOperationMoveObjectFrom16Parser: Parser<DalvikBytecodeOperat
 		dalvikBytecodeFormat22xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'move-object/from16',
+		operation: 'move-object/from16',
 		registers,
 	}),
 );
@@ -1682,7 +1683,7 @@ const dalvikBytecodeOperationMoveObjectFrom16Parser: Parser<DalvikBytecodeOperat
 setParserName(dalvikBytecodeOperationMoveObjectFrom16Parser, 'dalvikBytecodeOperationMoveObjectFrom16Parser');
 
 type DalvikBytecodeOperationMoveWide16 = {
-	type: 'move-wide/16';
+	operation: 'move-wide/16';
 	registers: number[];
 };
 
@@ -1692,7 +1693,7 @@ const dalvikBytecodeOperationMoveWide16Parser: Parser<DalvikBytecodeOperationMov
 		dalvikBytecodeFormat32xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'move-wide/16',
+		operation: 'move-wide/16',
 		registers,
 	}),
 );
@@ -1728,7 +1729,7 @@ const dalvikBytecodeOperationReturn1Parser: Parser<DalvikBytecodeOperationReturn
 setParserName(dalvikBytecodeOperationReturn1Parser, 'dalvikBytecodeOperationReturn1Parser');
 
 type DalvikBytecodeOperationConst4 = {
-	type: 'const/4';
+	operation: 'const/4';
 	registers: number[];
 	value: number;
 };
@@ -1745,7 +1746,7 @@ const dalvikBytecodeOperationConst4Parser: Parser<DalvikBytecodeOperationConst4,
 			value,
 		],
 	]) => ({
-		type: 'const/4',
+		operation: 'const/4',
 		registers: [
 			register0,
 		],
@@ -1756,7 +1757,7 @@ const dalvikBytecodeOperationConst4Parser: Parser<DalvikBytecodeOperationConst4,
 setParserName(dalvikBytecodeOperationConst4Parser, 'dalvikBytecodeOperationConst4Parser');
 
 type DalvikBytecodeOperationConst16 = {
-	type: 'const/16';
+	operation: 'const/16';
 	registers: number[];
 	value: number;
 };
@@ -1767,7 +1768,7 @@ const dalvikBytecodeOperationConst16Parser: Parser<DalvikBytecodeOperationConst1
 		createDalvikBytecodeFormat21sParser(),
 	]),
 	([ _opcode, { registers, value } ]) => ({
-		type: 'const/16',
+		operation: 'const/16',
 		registers,
 		value: value << 16 >> 16,
 	}),
@@ -1776,7 +1777,7 @@ const dalvikBytecodeOperationConst16Parser: Parser<DalvikBytecodeOperationConst1
 setParserName(dalvikBytecodeOperationConst16Parser, 'dalvikBytecodeOperationConst16Parser');
 
 type DalvikBytecodeOperationConstHigh16 = {
-	type: 'const/high16';
+	operation: 'const/high16';
 	registers: number[];
 	value: number;
 };
@@ -1787,7 +1788,7 @@ const dalvikBytecodeOperationConstHigh16Parser: Parser<DalvikBytecodeOperationCo
 		createDalvikBytecodeFormat21sParser(),
 	]),
 	([ _opcode, { registers, value } ]) => ({
-		type: 'const/high16',
+		operation: 'const/high16',
 		registers,
 		value: value << 16,
 	}),
@@ -1796,7 +1797,7 @@ const dalvikBytecodeOperationConstHigh16Parser: Parser<DalvikBytecodeOperationCo
 setParserName(dalvikBytecodeOperationConstHigh16Parser, 'dalvikBytecodeOperationConstHigh16Parser');
 
 type DalvikBytecodeOperationConstWide16 = {
-	type: 'const-wide/16';
+	operation: 'const-wide/16';
 	registers: number[];
 	value: bigint;
 };
@@ -1807,7 +1808,7 @@ const dalvikBytecodeOperationConstWide16Parser: Parser<DalvikBytecodeOperationCo
 		createDalvikBytecodeFormat21sParser(),
 	]),
 	([ _opcode, { registers, value } ]) => ({
-		type: 'const-wide/16',
+		operation: 'const-wide/16',
 		registers,
 		value: BigInt(value) << 48n >> 48n,
 	}),
@@ -1816,7 +1817,7 @@ const dalvikBytecodeOperationConstWide16Parser: Parser<DalvikBytecodeOperationCo
 setParserName(dalvikBytecodeOperationConstWide16Parser, 'dalvikBytecodeOperationConstWide16Parser');
 
 type DalvikBytecodeOperationConst = {
-	type: 'const';
+	operation: 'const';
 	registers: number[];
 	value: number;
 };
@@ -1827,7 +1828,7 @@ const dalvikBytecodeOperationConstParser: Parser<DalvikBytecodeOperationConst, U
 		dalvikBytecodeFormat31iParser,
 	]),
 	([ _opcode, { registers, value } ]) => ({
-		type: 'const',
+		operation: 'const',
 		registers,
 		value,
 	}),
@@ -1836,7 +1837,7 @@ const dalvikBytecodeOperationConstParser: Parser<DalvikBytecodeOperationConst, U
 setParserName(dalvikBytecodeOperationConstParser, 'dalvikBytecodeOperationConstParser');
 
 type DalvikBytecodeOperationThrow = {
-	type: 'throw';
+	operation: 'throw';
 	registers: number[];
 };
 
@@ -1846,15 +1847,15 @@ const dalvikBytecodeOperationThrowParser: Parser<DalvikBytecodeOperationThrow, U
 		dalvikBytecodeFormat11xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type: 'throw',
+		operation: 'throw',
 		registers,
 	}),
 );
 
 setParserName(dalvikBytecodeOperationThrowParser, 'dalvikBytecodeOperationThrowParser');
 
-const createDalvikBytecodeOperationCompare = <T extends string>(type: T, opcode: number): Parser<{
-	type: T;
+const createDalvikBytecodeOperationCompare = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
 	registers: number[];
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
@@ -1862,7 +1863,7 @@ const createDalvikBytecodeOperationCompare = <T extends string>(type: T, opcode:
 		dalvikBytecodeFormat23xParser,
 	]),
 	([ _opcode, { registers } ]) => ({
-		type,
+		operation,
 		registers,
 	}),
 );
@@ -1996,3 +1997,65 @@ const dalvikBytecodeParser: Parser<DalvikBytecode, Uint8Array> = promiseCompose(
 );
 
 export const createDalvikBytecodeParser = (size: number): Parser<DalvikBytecode, Uint8Array> => createSliceBoundedParser(dalvikBytecodeParser, size, true);
+
+type ResolvedDalvikBytecodeOperation<T extends DalvikBytecodeOperation> = T extends { stringIndex: IndexIntoFieldIds }
+	? Omit<T, 'stringIndex'> & { string: string }
+	: T extends { typeIndex: IndexIntoTypeIds }
+	? Omit<T, 'typeIndex'> & { type: string }
+	: T extends { methodIndex: IndexIntoMethodIds }
+	? Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod }
+	: T extends { fieldIndex: IndexIntoFieldIds }
+	? Omit<T, 'fieldIndex'> & { field: DalvikExecutableField }
+	: T;
+
+export type DalvikBytecodeOperationResolvers = {
+	resolveIndexIntoStringIds: (index: IndexIntoStringIds) => string;
+	resolveIndexIntoTypeIds: (index: IndexIntoTypeIds) => string;
+	resolveIndexIntoMethodIds: (index: IndexIntoMethodIds) => DalvikExecutableMethod;
+	resolveIndexIntoFieldIds: (index: IndexIntoFieldIds) => DalvikExecutableField;
+};
+
+export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation>(operation: T, {
+	resolveIndexIntoStringIds,
+	resolveIndexIntoTypeIds,
+	resolveIndexIntoMethodIds,
+	resolveIndexIntoFieldIds,
+}: DalvikBytecodeOperationResolvers): ResolvedDalvikBytecodeOperation<T> {
+	if (operation && typeof operation === 'object' && 'stringIndex' in operation) {
+		const { stringIndex, ...rest } = operation;
+
+		return {
+			...rest,
+			string: resolveIndexIntoStringIds(stringIndex as IndexIntoStringIds),
+		} as ResolvedDalvikBytecodeOperation<T>;
+	}
+
+	if (operation && typeof operation === 'object' && 'typeIndex' in operation) {
+		const { typeIndex, ...rest } = operation;
+
+		return {
+			...rest,
+			type: resolveIndexIntoTypeIds(typeIndex as IndexIntoTypeIds),
+		} as ResolvedDalvikBytecodeOperation<T>;
+	}
+
+	if (operation && typeof operation === 'object' && 'methodIndex' in operation) {
+		const { methodIndex, ...rest } = operation;
+
+		return {
+			...rest,
+			method: resolveIndexIntoMethodIds(methodIndex as IndexIntoMethodIds),
+		} as ResolvedDalvikBytecodeOperation<T>;
+	}
+
+	if (operation && typeof operation === 'object' && 'fieldIndex' in operation) {
+		const { fieldIndex, ...rest } = operation;
+
+		return {
+			...rest,
+			field: resolveIndexIntoFieldIds(fieldIndex as IndexIntoFieldIds),
+		} as ResolvedDalvikBytecodeOperation<T>;
+	}
+
+	return operation as ResolvedDalvikBytecodeOperation<T>;
+}

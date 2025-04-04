@@ -125,7 +125,7 @@ export type DalvikExecutablePrototype = {
 	parameters: string[];
 };
 
-type DalvikExecutableField = {
+export type DalvikExecutableField = {
 	class: string;
 	type: string;
 	name: string;

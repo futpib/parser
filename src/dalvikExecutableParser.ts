@@ -17,7 +17,7 @@ import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createElementTerminatedSequenceParser } from './elementTerminatedSequenceParser.js';
 import { createElementTerminatedArrayParserUnsafe } from './elementTerminatedArrayParser.js';
-import { createDalvikBytecodeParser, DalvikBytecode } from './dalvikBytecodeParser.js';
+import { createDalvikBytecodeParser, DalvikBytecode, DalvikBytecodeOperation, DalvikBytecodeOperationResolvers, resolveDalvikBytecodeOperation } from './dalvikBytecodeParser.js';
 import { ubyteParser, uintParser, uleb128p1NumberParser, ushortParser } from './dalvikExecutableParser/typeParsers.js';
 import { DalvikExecutable, DalvikExecutableAccessFlags, DalvikExecutableAnnotation, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassFieldAnnotation, DalvikExecutableClassMethodAnnotation, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableDebugInfo, DalvikExecutableEncodedValue } from './dalvikExecutable.js';
 
@@ -2310,7 +2310,7 @@ const createDalvikExecutableDataParser = <Instructions>({
 	return dalvikExecutableDataParser;
 };
 
-export const createDalvikExecutableParser = <Instructions>({
+const createDalvikExecutableParser = <Instructions>({
 	createInstructionsParser,
 }: {
 	createInstructionsParser: CreateInstructionsParser<Instructions>;
@@ -2505,6 +2505,55 @@ export const createDalvikExecutableParser = <Instructions>({
 				[ isoOffsetToClassDataItem.wrap(0), undefined ],
 			]);
 
+			const resolvers: DalvikBytecodeOperationResolvers = {
+				resolveIndexIntoStringIds(indexIntoStringIds) {
+					const string = strings.at(indexIntoStringIds);
+					invariant(string, 'String must be there. String id: %s', indexIntoStringIds);
+
+					return string;
+				},
+
+				resolveIndexIntoTypeIds(indexIntoTypeIds) {
+					const type = types.at(indexIntoTypeIds);
+					invariant(type, 'Type must be there. Type id: %s', indexIntoTypeIds);
+
+					return type;
+				},
+
+				resolveIndexIntoMethodIds(indexIntoMethodIds) {
+					const method = methods.at(indexIntoMethodIds);
+					invariant(method, 'Method must be there. Method id: %s', indexIntoMethodIds);
+
+					return method;
+				},
+
+				resolveIndexIntoFieldIds(indexIntoFieldIds) {
+					const field = fields.at(indexIntoFieldIds);
+					invariant(field, 'Field must be there. Field id: %s', indexIntoFieldIds);
+
+					return field;
+				},
+			};
+
+			function resolveCode(code: undefined | DalvikExecutableCode<Instructions>): undefined | DalvikExecutableCode<Instructions> {
+				if (!code) {
+					return code;
+				}
+
+				const { instructions, ...rest } = code;
+
+				if (!Array.isArray(instructions)) {
+					return code;
+				}
+
+				return {
+					...rest,
+					instructions: instructions.map((instruction: DalvikBytecodeOperation) => {
+						return resolveDalvikBytecodeOperation(instruction, resolvers);
+					}) as Instructions,
+				};
+			}
+
 			for (const [ offset, classDataItem ] of classDataItemByOffset) {
 				classDataByOffset.set(offset, {
 					staticFields: classDataItem.staticFields.map((encodedField) => {
@@ -2532,11 +2581,12 @@ export const createDalvikExecutableParser = <Instructions>({
 						invariant(method_, 'Method must be there. Method id: %s', method.methodIndex);
 
 						const code = codeByOffset.get(method.codeOffset);
+						invariant(!method.codeOffset || code, 'Code must be there. Code offset: %s', method.codeOffset);
 
 						return {
 							method: method_,
 							accessFlags: method.accessFlags,
-							code,
+							code: resolveCode(code),
 						};
 					}),
 
@@ -2545,11 +2595,12 @@ export const createDalvikExecutableParser = <Instructions>({
 						invariant(method_, 'Method must be there. Method id: %s', method.methodIndex);
 
 						const code = codeByOffset.get(method.codeOffset);
+						invariant(!method.codeOffset || code, 'Code must be there. Code offset: %s', method.codeOffset);
 
 						return {
 							method: method_,
 							accessFlags: method.accessFlags,
-							code,
+							code: resolveCode(code),
 						};
 					}),
 				});
@@ -2711,3 +2762,7 @@ export const dalvikExecutableParser: Parser<DalvikExecutable<DalvikBytecode>, Ui
 });
 
 setParserName(dalvikExecutableParser, 'dalvikExecutableParser');
+
+export const dalvikExecutableWithRawInstructionsParser: Parser<DalvikExecutable<Uint8Array>, Uint8Array> = createDalvikExecutableParser<Uint8Array>({
+	createInstructionsParser: createFixedLengthSequenceParser,
+});
