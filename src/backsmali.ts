@@ -11,6 +11,7 @@ export async function baksmaliClass(dexStream: AsyncIterable<Uint8Array>, smaliF
 
 	await execa('baksmali', [
 		'disassemble',
+		'--classes', 'L' + smaliFilePath + ';',
 		'--output', outputDirectoryPath,
 		inputFilePath,
 	], {

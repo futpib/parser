@@ -94,60 +94,78 @@ for (const [ dexCid, shouldSnapshot ] of [
 	);
 }
 
-for (const [ dexCid, smaliFilePath ] of [
-	[ 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', 'pl/czak/minimal/MainActivity' ],
+for (const [ dexCid, smaliFilePaths ] of [
+	[
+		'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4',
+		[
+			'pl/czak/minimal/MainActivity',
+		],
+	],
+	// [
+	// 	'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq',
+	// 	[
+	// 		'd/m',
+	// 	],
+	// ],
 	// [ 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq' ],
-	// [ 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy' ],
+	// [
+	// 	'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy',
+	// 	[
+	// 		'com/journeyapps/barcodescanner/CaptureActivity',
+	// 	],
+	// ],
 	// [ 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda' ],
 ] as const) {
-	test.serial(
-		'dex parser against smali parser ' + dexCid + ' ' + smaliFilePath,
-		async t => {
-			const hasBaksmali = await hasBaksmaliPromise;
+	for (const smaliFilePath of smaliFilePaths) {
+		test.serial(
+			'dex parser against smali parser ' + dexCid + ' ' + smaliFilePath,
+			async t => {
+				const hasBaksmali = await hasBaksmaliPromise;
 
-			if (!hasBaksmali) {
-				return;
-			}
-
-			const dexStream = await fetchCid(dexCid);
-
-			const smali = await baksmaliClass(dexStream, smaliFilePath);
-
-			const classDefinitionFromSmali = await runParser(smaliParser, smali, stringParserInputCompanion, {
-				errorJoinMode: 'all',
-			});
-
-			const dexStream2 = await fetchCid(dexCid);
-
-			const executableFromDex = await runParser(dalvikExecutableParser, dexStream2, uint8ArrayParserInputCompanion, {
-				errorJoinMode: 'all',
-			});
-
-			const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
-
-			// console.log(smali);
-
-			// console.dir({
-			// 	classDefinitionFromDex,
-			// 	classDefinitionFromSmali,
-			// }, {
-			// 	depth: null,
-			// });
-
-			objectWalk(classDefinitionFromDex, (_path, value) => {
-				if (
-					value
-						&& typeof value === 'object'
-						&& 'debugInfo' in value
-				) {
-					value.debugInfo = undefined;
+				if (!hasBaksmali) {
+					return;
 				}
-			});
 
-			t.deepEqual(
-				classDefinitionFromDex,
-				classDefinitionFromSmali,
-			);
-		},
-	);
+				const dexStream = await fetchCid(dexCid);
+
+				const smali = await baksmaliClass(dexStream, smaliFilePath);
+
+				const classDefinitionFromSmali = await runParser(smaliParser, smali, stringParserInputCompanion, {
+					errorJoinMode: 'all',
+				});
+
+				const dexStream2 = await fetchCid(dexCid);
+
+				const executableFromDex = await runParser(dalvikExecutableParser, dexStream2, uint8ArrayParserInputCompanion, {
+					errorJoinMode: 'all',
+				});
+
+				const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
+
+				// console.log(smali);
+
+				// console.dir({
+				// 	classDefinitionFromDex,
+				// 	classDefinitionFromSmali,
+				// }, {
+				// 	depth: null,
+				// });
+
+				objectWalk(classDefinitionFromDex, (_path, value) => {
+					if (
+						value
+							&& typeof value === 'object'
+							&& 'debugInfo' in value
+					) {
+						value.debugInfo = undefined;
+					}
+				});
+
+				t.deepEqual(
+					classDefinitionFromDex,
+					classDefinitionFromSmali,
+				);
+			},
+		);
+	}
 }

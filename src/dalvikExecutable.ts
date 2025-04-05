@@ -144,7 +144,7 @@ export function isDalvikExecutableField(x: unknown): x is DalvikExecutableField 
 	);
 }
 
-type DalvikExecutableFieldWithAccess = {
+export type DalvikExecutableFieldWithAccess = {
 	field: DalvikExecutableField;
 	accessFlags: DalvikExecutableAccessFlags;
 };

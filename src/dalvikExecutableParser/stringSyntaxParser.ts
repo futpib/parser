@@ -8,7 +8,7 @@ import { createUnionParser } from "../unionParser.js";
 import { createTupleParser } from "../tupleParser.js";
 import { createArrayParser } from "../arrayParser.js";
 
-const smaliSimpleNameParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
+export const smaliSimpleNameParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
 	const characters: string[] = [];
 
 	while (true) {
