@@ -1911,6 +1911,8 @@ export type DalvikBytecodeOperation =
 
 	| DalvikBytecodeOperationInvoke
 	| DalvikBytecodeOperationNewInstance
+	| DalvikBytecodeOperationCheckCast
+	| DalvikBytecodeOperationInstanceOf
 
 	| DalvikBytecodeOperationReturnVoid
 

@@ -158,6 +158,7 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 
 const smaliClassDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<unknown>, 'accessFlags' | 'class'>, string> = promiseCompose(
 	createTupleParser([
+		smaliCommentsOrNewlinesParser,
 		createExactSequenceParser('.class '),
 		smaliAccessFlagsParser,
 		createExactSequenceParser(' '),
@@ -165,6 +166,7 @@ const smaliClassDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<u
 		createExactSequenceParser('\n'),
 	]),
 	([
+		_commentsOrNewlines,
 		_dotClass,
 		accessFlags,
 		_space,
@@ -334,6 +336,14 @@ const smaliShortyReturnTypeParser: Parser<string, string> = createUnionParser([
 
 setParserName(smaliShortyReturnTypeParser, 'smaliShortyReturnTypeParser');
 
+function shortyFromLongy(longy: string): string {
+	if (longy.startsWith('[')) {
+		return 'L';
+	}
+
+	return longy.slice(0, 1);
+}
+
 const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('('),
@@ -349,13 +359,13 @@ const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = pr
 	]) => ({
 		parameters,
 		returnType,
-		shorty: returnType + parameters.map((parameter) => {
+		shorty: shortyFromLongy(returnType) + parameters.map((parameter) => {
 			if (parameter === 'V') {
 				return '';
 			}
 
-			return parameter.slice(0, 1);
-		}),
+			return shortyFromLongy(parameter);
+		}).join(''),
 	}),
 );
 
@@ -831,6 +841,8 @@ setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
 
 const operationsWithTypeArgument = new Set<DalvikBytecodeOperation['operation']>([
 	'new-instance',
+	'check-cast',
+	'instance-of',
 ]);
 
 const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promiseCompose(

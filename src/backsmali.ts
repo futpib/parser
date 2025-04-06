@@ -14,9 +14,7 @@ export async function baksmaliClass(dexStream: AsyncIterable<Uint8Array>, smaliF
 		'--classes', 'L' + smaliFilePath + ';',
 		'--output', outputDirectoryPath,
 		inputFilePath,
-	], {
-		stdin: dexStream,
-	});
+	]);
 
 	await fs.unlink(inputFilePath);
 
