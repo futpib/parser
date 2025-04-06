@@ -63,6 +63,8 @@ for (const [ dexCid, smaliFilePaths ] of [
 				const hasBaksmali = await hasBaksmaliPromise;
 
 				if (!hasBaksmali) {
+					t.pass('skipping test because baksmali is not available');
+
 					return;
 				}
 
@@ -298,6 +300,8 @@ test.serial.skip(
 		const hasSmali = await hasSmaliPromise;
 
 		if (!hasSmali) {
+			t.pass('skipping test because smali is not available');
+
 			return;
 		}
 

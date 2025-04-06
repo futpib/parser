@@ -53,16 +53,14 @@ testProp(
 		const actualStream = runUnparser(zipUnparser, zip, uint8ArrayUnparserOutputCompanion);
 		const actual = await runParser(zipParser, actualStream, uint8ArrayParserInputCompanion);
 
-		const isDeepEqual = t.deepEqual(actual, zip);
-
-		if (!isDeepEqual) {
-			return;
-		}
+		t.deepEqual(actual, zip);
 
 		const hasZipinfo = await hasZipinfoPromise;
 		const has7z = await has7zPromise;
 
 		if (!hasZipinfo && !has7z) {
+			t.pass('no zipinfo or 7z, skipping zipfile check');
+
 			return;
 		}
 

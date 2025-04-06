@@ -61,7 +61,6 @@ for (const [ dexCid, shouldSnapshot ] of [
 	test.serial(
 		'dex (with parsed instructions) ' + dexCid,
 		async t => {
-			debugger;
 			const dexStream = await fetchCid(dexCid);
 
 			const actual = await runParser(dalvikExecutableParser, dexStream, uint8ArrayParserInputCompanion, {

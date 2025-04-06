@@ -106,6 +106,8 @@ for (const [ dexCid, smaliFilePath, shouldSnapshot ] of [
 			const hasBaksmali = await hasBaksmaliPromise;
 
 			if (!hasBaksmali) {
+				t.pass('skipping test because baksmali is not available');
+
 				return;
 			}
 
