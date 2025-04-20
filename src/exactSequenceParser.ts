@@ -1,5 +1,5 @@
-import { inspect } from 'node:util';
 import { setParserName, type Parser } from './parser.js';
+import { inspect } from './inspect.js';
 
 export const createExactSequenceNaiveParser = <Sequence>(sequence: Sequence) => {
 	const exactSequenceParser: Parser<Sequence, Sequence, unknown> = async parserContext => {
@@ -35,8 +35,8 @@ export const createExactSequenceParser = <Sequence>(expectedSequence: Sequence) 
 		parserContext.invariant(
 			parserContext.equals(actualSequence, expectedSequence),
 			'Expected "%s", got "%s"',
-			expectedSequence,
-			actualSequence,
+			() => inspect(expectedSequence),
+			() => inspect(actualSequence),
 		);
 
 		return expectedSequence;

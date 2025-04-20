@@ -9,12 +9,12 @@ import {
 	zip64EndOfCentralDirectoryRecordParser,
 	zipArchiveDecryptionHeaderParser,
 	zipArchiveExtraDataRecordParser,
-    ZipCentralDirectoryHeader,
+	ZipCentralDirectoryHeader,
 	zipCentralDirectoryHeaderParser,
-    ZipEndOfCentralDirectoryRecord,
+	ZipEndOfCentralDirectoryRecord,
 	zipEndOfCentralDirectoryRecordParser,
 	zipFromZipSegments,
-    ZipLocalFile,
+	ZipLocalFile,
 	zipLocalFileParser,
 } from './zipParser.js';
 import { AndroidPackageSignatureV2AdditionalAttribute, AndroidPackageSignatureV2Digest, AndroidPackageSignatureV2Signature, AndroidPackageSignatureV2SignedData, AndroidPackageSignatureV2Signer, type AndroidPackage, type AndroidPackageSigningBlock, type AndroidPackageSigningBlockPair } from './androidPackage.js';
@@ -396,3 +396,5 @@ export const androidPackageSignableSectionsParser: Parser<AndroidPackageSignable
 		zipEndOfCentralDirectoryUint8Array,
 	}),
 );
+
+setParserName(androidPackageSignableSectionsParser, 'androidPackageSignableSectionsParser');

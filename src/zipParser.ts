@@ -18,6 +18,8 @@ import {
 	type ZipFileEntry,
 } from './zip.js';
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
+import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
+import { createSequenceTerminatedSequenceParser } from './sequenceTerminatedSequenceParser.js';
 
 // https://pkwaredownloads.blob.core.windows.net/pem/APPNOTE.txt
 
@@ -78,8 +80,10 @@ type ZipLocalFileHeader = {
 	extraField: Uint8Array;
 };
 
+const zipLocalFileHeaderSignatureParser = createExactSequenceParser<Uint8Array>(Buffer.from('504b0304', 'hex'));
+
 const zipLocalFileHeaderParser_ = createTupleParser([
-	createExactSequenceParser<Uint8Array>(Buffer.from('504b0304', 'hex')),
+	zipLocalFileHeaderSignatureParser,
 	uint16LEParser,
 	uint16LEParser,
 	zipCompressionMethodParser,
@@ -133,31 +137,85 @@ const zipEncryptionHeaderParser: Parser<unknown, Uint8Array> = async parserConte
 	parserContext.invariant(false, 'Not implemented');
 };
 
-const zipDataDescriptorParser: Parser<unknown, Uint8Array> = createTupleParser([
-	// FIXME: optional in spec
-	// createOptionalParser(createExactSequenceParser<Uint8Array>(Buffer.from('504b0708', 'hex'))),
-	createExactSequenceParser<Uint8Array>(Buffer.from('504b0708', 'hex')),
-	uint32LEParser,
-	uint32LEParser,
-	uint32LEParser,
-]);
+type ZipDataDescriptor = {
+	crc32: number;
+	compressedSize: number;
+	uncompressedSize: number;
+};
+
+const zipDataDescriptorSignature: Uint8Array = Buffer.from('504b0708', 'hex');
+const zipDataDescriptorSignatureParser = createExactSequenceParser<Uint8Array>(
+	zipDataDescriptorSignature
+);
+
+const zipDataDescriptorParser: Parser<ZipDataDescriptor, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(
+			zipLocalFileHeaderSignatureParser,
+		),
+		// FIXME: optional in spec
+		//createOptionalParser(zipDataDescriptorSignatureParser),
+		zipDataDescriptorSignatureParser,
+		uint32LEParser,
+		uint32LEParser,
+		uint32LEParser,
+	]),
+	([
+		_notZipLocalFileHeaderSignature,
+		_zipDataDescriptorSignature,
+		crc32,
+		compressedSize,
+		uncompressedSize,
+	]) => ({
+		crc32,
+		compressedSize,
+		uncompressedSize,
+	}),
+);
+
+setParserName(zipDataDescriptorParser, 'zipDataDescriptorParser');
 
 export type ZipLocalFile = {
 	zipLocalFileHeader: ZipLocalFileHeader;
 	zipEncryptionHeader: unknown;
 	compressedData: Uint8Array;
-	zipDataDescriptor: unknown;
+	zipDataDescriptor: undefined | ZipDataDescriptor;
 };
 
 export const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompose(
 	parserCreatorCompose(
 		() => zipLocalFileHeaderParser,
-		zipLocalFileHeader => createTupleParser([
-			async () => zipLocalFileHeader,
-			createOptionalParser(zipEncryptionHeaderParser),
-			createFixedLengthSequenceParser(zipLocalFileHeader.compressedSize),
-			createOptionalParser(zipDataDescriptorParser),
-		]),
+		zipLocalFileHeader => {
+			// TODO: add test for when `sizeInDataDescriptor` is true
+			const sizeInDataDescriptor = Boolean(
+				zipLocalFileHeader.generalPurposeBitFlag & 0b0000_1000
+					&& zipLocalFileHeader.crc32 === 0
+					&& zipLocalFileHeader.compressedSize === 0
+					&& zipLocalFileHeader.uncompressedSize === 0
+			);
+
+			return createTupleParser([
+				async () => zipLocalFileHeader,
+				createOptionalParser(zipEncryptionHeaderParser),
+				(
+					sizeInDataDescriptor
+						? createSequenceTerminatedSequenceParser(
+							zipDataDescriptorSignature,
+							{
+								consumeTerminator: false,
+							},
+						)
+						: createFixedLengthSequenceParser(zipLocalFileHeader.compressedSize)
+				),
+				(
+					sizeInDataDescriptor
+						? (<T>(parser: T): T => parser)
+						: createOptionalParser
+				)(
+					zipDataDescriptorParser
+				),
+			]);
+		},
 	)(),
 	([
 		zipLocalFileHeader,
@@ -373,7 +431,7 @@ const zipEndOfCentralDirectoryRecordParser_ = createTupleParser([
 	zipFileCommentParser,
 ]);
 
-setParserName(zipEndOfCentralDirectoryRecordParser_, 'endOfCentralDirectoryRecordParser_');
+setParserName(zipEndOfCentralDirectoryRecordParser_, 'zipEndOfCentralDirectoryRecordParser_');
 
 export const zipEndOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirectoryRecord, Uint8Array> = promiseCompose(
 	zipEndOfCentralDirectoryRecordParser_,
@@ -397,8 +455,12 @@ export const zipEndOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirecto
 	}),
 );
 
+setParserName(zipEndOfCentralDirectoryRecordParser, 'zipEndOfCentralDirectoryRecordParser');
+
 const zipParser_ = createTupleParser([
-	createArrayParser(zipLocalFileParser),
+	createArrayParser(
+		zipLocalFileParser
+	),
 	createOptionalParser(zipArchiveDecryptionHeaderParser),
 	createOptionalParser(zipArchiveExtraDataRecordParser),
 	createArrayParser(zipCentralDirectoryHeaderParser),

@@ -1,7 +1,7 @@
-import { inspect } from 'node:util';
 import * as fc from 'fast-check';
 import { type Arbitrary } from 'fast-check';
 import invariant from 'invariant';
+import { inspect } from './inspect.js';
 
 function concat<Sliceable extends string | Uint8Array>(slices: Sliceable[]): Sliceable {
 	const firstSlice = slices.at(0);

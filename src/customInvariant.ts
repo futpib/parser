@@ -8,7 +8,7 @@ export function customInvariant<T>(
 	ErrorConstructor: Constructor<Error, [message: string]> | ((message: string) => Error),
 	value: T,
 	formatOrFormatLines: ValueOrAccessor<string | string[]>,
-	...formatArguments: any[]
+	...formatArguments: (unknown | (() => unknown))[]
 ): Exclude<T, Falsy> {
 	if (value) {
 		return value as any;
