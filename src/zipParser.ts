@@ -67,7 +67,7 @@ const zipCompressionMethodParser: Parser<ZipCompression, Uint8Array> = promiseCo
 	},
 );
 
-type ZipLocalFileHeader = {
+export type ZipLocalFileHeader = {
 	versionNeededToExtract: number;
 	generalPurposeBitFlag: number;
 	compressionMethod: ZipCompression;
@@ -186,9 +186,8 @@ export const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompo
 	parserCreatorCompose(
 		() => zipLocalFileHeaderParser,
 		zipLocalFileHeader => {
-			// TODO: add test for when `sizeInDataDescriptor` is true
 			const sizeInDataDescriptor = Boolean(
-				zipLocalFileHeader.generalPurposeBitFlag & 0b0000_1000
+				zipLocalFileHeader.generalPurposeBitFlag & 0b0000_0000_0000_1000
 					&& zipLocalFileHeader.crc32 === 0
 					&& zipLocalFileHeader.compressedSize === 0
 					&& zipLocalFileHeader.uncompressedSize === 0
@@ -458,9 +457,7 @@ export const zipEndOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirecto
 setParserName(zipEndOfCentralDirectoryRecordParser, 'zipEndOfCentralDirectoryRecordParser');
 
 const zipParser_ = createTupleParser([
-	createArrayParser(
-		zipLocalFileParser
-	),
+	createArrayParser(zipLocalFileParser),
 	createOptionalParser(zipArchiveDecryptionHeaderParser),
 	createOptionalParser(zipArchiveExtraDataRecordParser),
 	createArrayParser(zipCentralDirectoryHeaderParser),

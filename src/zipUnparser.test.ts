@@ -1,9 +1,9 @@
-import { testProp } from '@fast-check/ava';
+import { fc, testProp } from '@fast-check/ava';
 import { temporaryFile } from 'tempy';
 import { execa } from 'execa';
 import fsPromises from 'node:fs/promises';
 import { runUnparser } from './unparser.js';
-import { zipUnparser } from './zipUnparser.js';
+import { createZipUnparser } from './zipUnparser.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
 import { runParser } from './parser.js';
 import { zipParser } from './zipParser.js';
@@ -48,8 +48,19 @@ testProp(
 	'zip',
 	[
 		arbitraryZip,
+		fc.record({
+			dataDescriptor: fc.boolean(),
+		}),
 	],
-	async (t, zip) => {
+	async (t, zip, options) => {
+		const zipUnparser = createZipUnparser(options);
+
+		{
+			const zipStream = runUnparser(zipUnparser, zip, uint8ArrayUnparserOutputCompanion);
+
+			await fsPromises.writeFile('/tmp/zip.zip', zipStream);
+		}
+
 		const actualStream = runUnparser(zipUnparser, zip, uint8ArrayUnparserOutputCompanion);
 		const actual = await runParser(zipParser, actualStream, uint8ArrayParserInputCompanion);
 

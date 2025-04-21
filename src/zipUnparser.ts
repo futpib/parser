@@ -3,7 +3,7 @@ import { Unparser } from "./unparser.js";
 import { Zip, ZipEntry, ZipFileEntry } from "./zip.js";
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { ZipEndOfCentralDirectoryRecord } from './zipParser.js';
+import { ZipEndOfCentralDirectoryRecord, ZipLocalFileHeader } from './zipParser.js';
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 
 const uint16LEUnparser: Unparser<number, Uint8Array> = async function * (uint16LE) {
@@ -66,7 +66,56 @@ export const zipEndOfCentralDirectoryRecordUnparser: Unparser<ZipEndOfCentralDir
 	yield * uint16LEPrefixedStringUnparser(zipEndOfCentralDirectoryRecord.zipFileComment, unparserContext);
 }
 
-export const zipUnparser: Unparser<Zip, Uint8Array> = async function * (zip, unparserContext) {
+const zipDataDescriptorUnparser: Unparser<{
+	crc32: number;
+	compressedSize: number;
+	uncompressedSize: number;
+}, Uint8Array> = async function * ({
+	crc32,
+	compressedSize,
+	uncompressedSize,
+}, unparserContext) {
+	yield Buffer.from('504b0708', 'hex');
+	yield * uint32LEUnparser(crc32, unparserContext);
+	yield * uint32LEUnparser(compressedSize, unparserContext);
+	yield * uint32LEUnparser(uncompressedSize, unparserContext);
+}
+
+const zipLocalFileHeaderUnparser: Unparser<ZipLocalFileHeader, Uint8Array> = async function * ({
+	versionNeededToExtract,
+	generalPurposeBitFlag,
+	compressionMethod,
+	lastModifiedFile,
+	crc32,
+	compressedSize,
+	uncompressedSize,
+
+	filePath,
+	extraField,
+}, unparserContext) {
+	yield Buffer.from('504b0304', 'hex');
+
+	yield * uint16LEUnparser(versionNeededToExtract, unparserContext);
+	yield * uint16LEUnparser(generalPurposeBitFlag, unparserContext);
+	yield * zipCompressionMethodUnparser(compressionMethod, unparserContext);
+	yield * dosDateTimeUnparser(lastModifiedFile, unparserContext);
+	yield * uint32LEUnparser(crc32, unparserContext);
+	yield * uint32LEUnparser(compressedSize, unparserContext);
+	yield * uint32LEUnparser(uncompressedSize, unparserContext);
+
+	const filePathBuffer = Buffer.from(filePath, 'utf8');
+
+	yield * uint16LEUnparser(filePathBuffer.length, unparserContext);
+	yield * uint16LEUnparser(extraField.length, unparserContext);
+	yield filePathBuffer;
+	yield extraField;
+};
+
+export const createZipUnparser = ({
+	dataDescriptor = false,
+}: {
+	dataDescriptor?: boolean;
+} = {}): Unparser<Zip, Uint8Array> => async function * (zip, unparserContext) {
 	const compressedContentByZipFileEntry = new Map<ZipFileEntry, undefined | Promise<Uint8Array>>(
 		zip.entries.flatMap(zipEntry => {
 			if (zipEntry.type !== 'file') {
@@ -100,44 +149,54 @@ export const zipUnparser: Unparser<Zip, Uint8Array> = async function * (zip, unp
 	for (const zipEntry of zip.entries) {
 		localHeaderPositionByZipEntry.set(zipEntry, unparserContext.position);
 
-		yield Buffer.from('504b0304', 'hex');
+		const filePath = filePathByZipEntry.get(zipEntry)!;
 
-		yield * uint16LEUnparser(10, unparserContext); // version needed to extract
-		yield * uint16LEUnparser(0, unparserContext); // general purpose bit flag
+		const zipLocalFileHeader: ZipLocalFileHeader = {
+			versionNeededToExtract: 20,
+			generalPurposeBitFlag: 0,
+			compressionMethod: 'store',
+			lastModifiedFile: zipEntry.date,
+			crc32: 0,
+			compressedSize: 0,
+			uncompressedSize: 0,
+			filePath,
+			extraField: Buffer.alloc(0),
+		};
 
-		if (zipEntry.type === 'file') {
-			yield * zipCompressionMethodUnparser(zipEntry.compression, unparserContext);
-		} else {
-			yield * uint16LEUnparser(0, unparserContext);
-		}
-
-		yield * dosDateTimeUnparser(zipEntry.date, unparserContext);
+		let shouldWriteDataDescriptor = false;
 
 		if (zipEntry.type === 'file') {
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
-			yield * uint32LEUnparser(0, unparserContext); // crc32 // TODO
-			yield * uint32LEUnparser(compressedContent.length, unparserContext);
-			yield * uint32LEUnparser(zipEntry.content.length, unparserContext);
-		} else {
-			yield * uint32LEUnparser(0, unparserContext);
-			yield * uint32LEUnparser(0, unparserContext);
-			yield * uint32LEUnparser(0, unparserContext);
+			zipLocalFileHeader.compressionMethod = zipEntry.compression;
+			zipLocalFileHeader.crc32 = 0; // TODO
+			zipLocalFileHeader.compressedSize = compressedContent.length;
+			zipLocalFileHeader.uncompressedSize = zipEntry.content.length;
+
+			if (dataDescriptor) {
+				shouldWriteDataDescriptor = true;
+
+				zipLocalFileHeader.generalPurposeBitFlag |= 0b0000_0000_0000_1000;
+				zipLocalFileHeader.crc32 = 0;
+				zipLocalFileHeader.compressedSize = 0;
+				zipLocalFileHeader.uncompressedSize = 0;
+			}
 		}
 
-		const filePath = filePathByZipEntry.get(zipEntry)!;
-
-		const filePathBuffer = Buffer.from(filePath, 'utf8');
-		const extraFieldBuffer = Buffer.alloc(0);
-		yield * uint16LEUnparser(filePathBuffer.length, unparserContext);
-		yield * uint16LEUnparser(extraFieldBuffer.length, unparserContext);
-		yield filePathBuffer;
-		yield extraFieldBuffer;
+		yield * zipLocalFileHeaderUnparser(zipLocalFileHeader, unparserContext);
 
 		if (zipEntry.type === 'file') {
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
 			yield compressedContent;
+
+			if (shouldWriteDataDescriptor) {
+				yield * zipDataDescriptorUnparser({
+					crc32: zipLocalFileHeader.crc32,
+					compressedSize: zipLocalFileHeader.compressedSize,
+					uncompressedSize: zipLocalFileHeader.uncompressedSize,
+				}, unparserContext);
+			}
 		}
 	}
 
@@ -237,3 +296,5 @@ export const zipUnparser: Unparser<Zip, Uint8Array> = async function * (zip, unp
 		zipFileComment: zip.comment,
 	}, unparserContext);
 }
+
+export const zipUnparser = createZipUnparser();

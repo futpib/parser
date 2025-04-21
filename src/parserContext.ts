@@ -130,6 +130,11 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 			return undefined;
 		}
 
+		parserImplementationInvariant(start >= 0, 'start >= 0');
+		parserImplementationInvariant(end >= start, 'end >= start');
+		parserImplementationInvariant(Number.isSafeInteger(start), 'Number.isSafeInteger(start)');
+		parserImplementationInvariant(Number.isSafeInteger(end), 'Number.isSafeInteger(end)');
+
 		return this._inputReader.peekSequence(start, end);
 	}
 
