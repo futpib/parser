@@ -107,11 +107,26 @@ type AndroidPackageSigningBlockPairType =
 	| AndroidPackageSigningBlockGenericPair
 ;
 
-const createAndroidPackageSigningBlockPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockPairType, Uint8Array> => createDisjunctionParser([
-	createAndroidPackageSigningBlockZeroPaddingPairInnerParser(length),
-	createAndroidPackageSigningBlockSignatureV2PairInnerParser(length),
-	createAndroidPackageSigningBlockGenericPairInnerParser(length),
-]);
+const createAndroidPackageSigningBlockPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockPairType, Uint8Array> => promiseCompose(
+	createTupleParser([
+		parserContext => {
+			parserContext.invariant(
+				Number.isSafeInteger(length),
+				'Signing block length is unreasonable: %s.',
+				length,
+			);
+		},
+		createDisjunctionParser<AndroidPackageSigningBlockPairType, Uint8Array>([
+			createAndroidPackageSigningBlockZeroPaddingPairInnerParser(length),
+			createAndroidPackageSigningBlockSignatureV2PairInnerParser(length),
+			createAndroidPackageSigningBlockGenericPairInnerParser(length),
+		]),
+	]),
+	([
+		_lengthInvariant,
+		pair,
+	]) => pair,
+);
 
 const androidPackageSigningBlockPairParser: Parser<AndroidPackageSigningBlockPairType, Uint8Array> = createUint64LengthPrefixedParser(
 	length => createAndroidPackageSigningBlockPairInnerParser(Number(length)),

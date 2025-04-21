@@ -93,10 +93,27 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 	}
 
 	async peekSequence(start: number, end: number): Promise<Sequence | undefined> {
-		parserImplementationInvariant(start >= 0, 'start >= 0');
-		parserImplementationInvariant(end >= start, 'end >= start');
-		parserImplementationInvariant(Number.isSafeInteger(start), 'Number.isSafeInteger(start)');
-		parserImplementationInvariant(Number.isSafeInteger(end), 'Number.isSafeInteger(end)');
+		parserImplementationInvariant(
+			start >= 0,
+			'start (%s) >= 0',
+			start,
+		);
+		parserImplementationInvariant(
+			end >= start,
+			'end (%s) >= start (%s)',
+			start,
+			end,
+		);
+		parserImplementationInvariant(
+			Number.isSafeInteger(start),
+			'start (%s) is not a safe integer',
+			start,
+		);
+		parserImplementationInvariant(
+			Number.isSafeInteger(end),
+			'end (%s) is not a safe integer',
+			end,
+		);
 
 		start += this._uncommitedSkipOffset;
 		end += this._uncommitedSkipOffset;
