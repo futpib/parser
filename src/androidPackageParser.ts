@@ -25,6 +25,9 @@ import { createSliceBoundedParser } from './sliceBoundedParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createParserConsumedSequenceParser } from './parserConsumedSequenceParser.js';
+import { createDebugLogInputParser } from './debugLogInputParser.js';
+import { createDebugLogParser } from './debugLogParser.js';
+import { createElementParser } from './elementParser.js';
 
 // https://source.android.com/docs/security/features/androidPackagesigning/v2#androidPackage-signing-block
 
@@ -63,13 +66,19 @@ type AndroidPackageSigningBlockZeroPaddingPair = {
 	length: number;
 };
 
-const createAndroidPackageSigningBlockZeroPaddingPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockZeroPaddingPair, Uint8Array> => promiseCompose(
-	createTupleParser([
-		createExactSequenceParser<Uint8Array>(Buffer.from('77657242', 'hex')),
-		createFixedLengthSequenceParser(length - 4),
-	]),
-	([ _magic, zeroPadding ]) => ({ type: 'zeroPadding', length: zeroPadding.length }),
-);
+const createAndroidPackageSigningBlockZeroPaddingPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockZeroPaddingPair, Uint8Array> => {
+	const androidPackageSigningBlockZeroPaddingPairInnerParser: Parser<AndroidPackageSigningBlockZeroPaddingPair, Uint8Array> = promiseCompose(
+		createTupleParser([
+			createExactSequenceParser<Uint8Array>(Buffer.from('77657242', 'hex')),
+			createFixedLengthSequenceParser(length - 4),
+		]),
+		([ _magic, zeroPadding ]) => ({ type: 'zeroPadding', length: zeroPadding.length }),
+	);
+
+	setParserName(androidPackageSigningBlockZeroPaddingPairInnerParser, 'androidPackageSigningBlockZeroPaddingPairInnerParser');
+
+	return androidPackageSigningBlockZeroPaddingPairInnerParser;
+};
 
 type AndroidPackageSigningBlockSignatureV2Pair = {
 	type: 'signatureV2';
@@ -107,26 +116,32 @@ type AndroidPackageSigningBlockPairType =
 	| AndroidPackageSigningBlockGenericPair
 ;
 
-const createAndroidPackageSigningBlockPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockPairType, Uint8Array> => promiseCompose(
-	createTupleParser([
-		parserContext => {
-			parserContext.invariant(
-				Number.isSafeInteger(length),
-				'Signing block length is unreasonable: %s.',
-				length,
-			);
-		},
-		createDisjunctionParser<AndroidPackageSigningBlockPairType, Uint8Array>([
-			createAndroidPackageSigningBlockZeroPaddingPairInnerParser(length),
-			createAndroidPackageSigningBlockSignatureV2PairInnerParser(length),
-			createAndroidPackageSigningBlockGenericPairInnerParser(length),
+const createAndroidPackageSigningBlockPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockPairType, Uint8Array> => {
+	const androidPackageSigningBlockPairInnerParser: Parser<AndroidPackageSigningBlockPairType, Uint8Array> = promiseCompose(
+		createTupleParser([
+			parserContext => {
+				parserContext.invariant(
+					Number.isSafeInteger(length),
+					'Signing block length is unreasonable: %s.',
+					length,
+				);
+			},
+			createDisjunctionParser<AndroidPackageSigningBlockPairType, Uint8Array>([
+				createAndroidPackageSigningBlockZeroPaddingPairInnerParser(length),
+				createAndroidPackageSigningBlockSignatureV2PairInnerParser(length),
+				createAndroidPackageSigningBlockGenericPairInnerParser(length),
+			]),
 		]),
-	]),
-	([
-		_lengthInvariant,
-		pair,
-	]) => pair,
-);
+		([
+			_lengthInvariant,
+			pair,
+		]) => pair,
+	);
+
+	setParserName(androidPackageSigningBlockPairInnerParser, 'androidPackageSigningBlockPairInnerParser');
+
+	return androidPackageSigningBlockPairInnerParser;
+};
 
 const androidPackageSigningBlockPairParser: Parser<AndroidPackageSigningBlockPairType, Uint8Array> = createUint64LengthPrefixedParser(
 	length => createAndroidPackageSigningBlockPairInnerParser(Number(length)),
@@ -143,7 +158,11 @@ export const androidPackageSigningBlockParser: Parser<AndroidPackageSigningBlock
 			uint64LEParser,
 			createExactSequenceParser<Uint8Array>(Buffer.from('APK Sig Block 42', 'utf8')),
 		]),
-		async ([ pairs, sizeOfBlockRepeated, _magic ]): Promise<AndroidPackageSigningBlock> => {
+		async ([
+			pairs,
+			sizeOfBlockRepeated,
+			_magic,
+		]): Promise<AndroidPackageSigningBlock> => {
 			invariant(sizeOfBlock === sizeOfBlockRepeated, 'Size of block mismatch: %s !== %s.', sizeOfBlock, sizeOfBlockRepeated);
 
 			const zeroPaddingPair = pairs.find(pair => pair.type === 'zeroPadding');
@@ -343,6 +362,7 @@ setParserName(androidPackageParser, 'androidPackageParser');
 
 export type AndroidPackageSignableSections = {
 	zipLocalFiles: ZipLocalFile[];
+	zipLocalFilesZeroPaddingLength: number;
 	androidPackageSigningBlock?: AndroidPackageSigningBlock;
 	zipCentralDirectory: ZipCentralDirectoryHeader[];
 	zipEndOfCentralDirectory: ZipEndOfCentralDirectoryRecord;
@@ -361,6 +381,9 @@ export const androidPackageSignableSectionsParser: Parser<AndroidPackageSignable
 				createOptionalParser(zipArchiveDecryptionHeaderParser),
 				createOptionalParser(zipArchiveExtraDataRecordParser),
 			]),
+		),
+		createArrayParser(
+			createExactElementParser(0),
 		),
 		createOptionalParser(
 			createParserConsumedSequenceParser(
@@ -385,6 +408,7 @@ export const androidPackageSignableSectionsParser: Parser<AndroidPackageSignable
 			],
 			zipLocalFilesUint8Array,
 		],
+		zipLocalFilesZeroPadding,
 		[
 			androidPackageSigningBlock = undefined,
 			androidPackageSigningBlockUint8Array = undefined,
@@ -401,6 +425,7 @@ export const androidPackageSignableSectionsParser: Parser<AndroidPackageSignable
 		],
 	]) => ({
 		zipLocalFiles,
+		zipLocalFilesZeroPaddingLength: zipLocalFilesZeroPadding.length,
 		androidPackageSigningBlock,
 		zipCentralDirectory,
 		zipEndOfCentralDirectory,
