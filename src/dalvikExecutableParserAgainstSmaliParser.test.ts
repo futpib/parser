@@ -4,7 +4,7 @@ import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './pa
 import { dalvikExecutableParser } from './dalvikExecutableParser.js';
 import { fetchCid } from './fetchCid.js';
 import { hasExecutable } from './hasExecutable.js';
-import { baksmaliClass } from './backsmali.js';
+import { backsmaliSmaliIsolateClass, baksmaliClass } from './backsmali.js';
 import { smaliParser } from './smaliParser.js';
 import { smaliClass } from './smali.js';
 
@@ -41,24 +41,56 @@ for (const [ dexCid, smaliFilePaths ] of [
 			'pl/czak/minimal/MainActivity',
 		],
 	],
+
 	// [
 	// 	'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq',
 	// 	[
-	// 		'd/m',
+	// 		'',
 	// 	],
 	// ],
-	// [ 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq' ],
+
+	[
+		'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy',
+		[
+			{
+				smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity',
+				isolate: true,
+			},
+		],
+	],
+
 	// [
-	// 	'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy',
+	// 	'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda',
 	// 	[
-	// 		'com/journeyapps/barcodescanner/CaptureActivity',
+	// 		'',
 	// 	],
 	// ],
-	// [ 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda' ],
 ] as const) {
-	for (const smaliFilePath of smaliFilePaths) {
+	function normalizeSmaliFilePath(
+		smaliFilePath: string | {
+			smaliFilePath: string;
+			isolate?: boolean;
+		},
+	): {
+		smaliFilePath: string;
+		isolate: boolean;
+	} {
+		if (typeof smaliFilePath === 'string') {
+			return {
+				smaliFilePath,
+				isolate: false,
+			};
+		}
+
+		return {
+			smaliFilePath: smaliFilePath.smaliFilePath,
+			isolate: smaliFilePath.isolate ?? false,
+		};
+	}
+
+	for (const { smaliFilePath, isolate } of smaliFilePaths.map(normalizeSmaliFilePath)) {
 		test.serial(
-			'parse(dex) against parse(smali(dex))' + dexCid + ' ' + smaliFilePath,
+			'parse(dex) against parse(smali(dex)) ' + dexCid + ' ' + smaliFilePath + (isolate ? ' isolated' : ''),
 			async t => {
 				const hasBaksmali = await hasBaksmaliPromise;
 
@@ -68,7 +100,7 @@ for (const [ dexCid, smaliFilePaths ] of [
 					return;
 				}
 
-				const dexStream = await fetchCid(dexCid);
+				const dexStream: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
 
 				const smali = await baksmaliClass(dexStream, smaliFilePath);
 
@@ -76,7 +108,11 @@ for (const [ dexCid, smaliFilePaths ] of [
 					errorJoinMode: 'all',
 				});
 
-				const dexStream2 = await fetchCid(dexCid);
+				let dexStream2: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
+
+				if (isolate) {
+					dexStream2 = await backsmaliSmaliIsolateClass(dexStream2, smaliFilePath);
+				}
 
 				const executableFromDex = await runParser(dalvikExecutableParser, dexStream2, uint8ArrayParserInputCompanion, {
 					errorJoinMode: 'all',

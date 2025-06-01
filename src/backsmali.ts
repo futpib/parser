@@ -2,8 +2,12 @@ import fs from 'node:fs/promises';
 import { execa } from 'execa';
 import { temporaryDirectory, temporaryFile } from 'tempy';
 import path from 'node:path';
+import { smaliClass } from './smali.js';
 
-export async function baksmaliClass(dexStream: AsyncIterable<Uint8Array>, smaliFilePath: string) {
+export async function baksmaliClass(
+	dexStream: Uint8Array | AsyncIterable<Uint8Array>,
+	smaliFilePath: string,
+): Promise<string> {
 	const inputFilePath = temporaryFile();
 	const outputDirectoryPath = temporaryDirectory();
 
@@ -27,4 +31,12 @@ export async function baksmaliClass(dexStream: AsyncIterable<Uint8Array>, smaliF
 	});
 
 	return smali;
+}
+
+export async function backsmaliSmaliIsolateClass(
+	dexStream: Uint8Array | AsyncIterable<Uint8Array>,
+	smaliFilePath: string,
+): Promise<Uint8Array> {
+	const smali = await baksmaliClass(dexStream, smaliFilePath);
+	return smaliClass(smali);
 }
