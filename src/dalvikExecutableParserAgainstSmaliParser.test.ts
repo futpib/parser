@@ -219,9 +219,22 @@ const smali = `
 
     if-nez v0, :cond_11
 
+    invoke-super {p0, p1, p2}, Landroid/app/Activity;->onKeyDown(ILandroid/view/KeyEvent;)Z
+
+    move-result p1
+
+    if-eqz p1, :cond_f
+
+    goto :goto_11
+
+    :cond_f
+    const/4 p1, 0x0
+
+    goto :goto_12
+
     :cond_11
     :goto_11
-    return p1
+    const/4 p1, 0x1
 
     :goto_12
     return p1

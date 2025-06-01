@@ -1,5 +1,28 @@
 import { createArrayParser } from "./arrayParser.js";
-import { createDalvikBytecodeFormat21cParser, createDalvikBytecodeFormat21sParser, createDalvikBytecodeFormat21tParser, createDalvikBytecodeFormat22bParser, createDalvikBytecodeFormat22cParser, createDalvikBytecodeFormat22sParser, createDalvikBytecodeFormat22tParser, dalvikBytecodeFormat23xParser, dalvikBytecodeFormat31iParser, createDalvikBytecodeFormat35cParser, createDalvikBytecodeFormat3rcParser, dalvikBytecodeFormat10tParser, dalvikBytecodeFormat10xParser, dalvikBytecodeFormat11xParser, dalvikBytecodeFormat12xParser, dalvikBytecodeFormat20tParser, dalvikBytecodeFormat22xParser, nibblesParser, dalvikBytecodeFormat32xParser } from "./dalvikBytecodeParser/formatParsers.js";
+import {
+	createDalvikBytecodeFormat21cParser,
+	createDalvikBytecodeFormat21sParser,
+	createDalvikBytecodeFormat21tParser,
+	createDalvikBytecodeFormat22bParser,
+	createDalvikBytecodeFormat22cParser,
+	createDalvikBytecodeFormat22sParser,
+	createDalvikBytecodeFormat22tParser,
+	dalvikBytecodeFormat23xParser,
+	dalvikBytecodeFormat31iParser,
+	dalvikBytecodeFormat31tParser,
+	createDalvikBytecodeFormat35cParser,
+	createDalvikBytecodeFormat3rcParser,
+	dalvikBytecodeFormat10tParser,
+	dalvikBytecodeFormat10xParser,
+	dalvikBytecodeFormat11xParser,
+	dalvikBytecodeFormat12xParser,
+	dalvikBytecodeFormat20tParser,
+	dalvikBytecodeFormat22xParser,
+	nibblesParser,
+	dalvikBytecodeFormat32xParser,
+	dalvikBytecodeFormat30tParser,
+} from "./dalvikBytecodeParser/formatParsers.js";
+import { ubyteParser, ushortParser, intParser } from "./dalvikExecutableParser/typeParsers.js";
 import { DalvikExecutableField, DalvikExecutableMethod } from "./dalvikExecutable.js";
 import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
 import { createExactElementParser } from "./exactElementParser.js";
@@ -41,6 +64,11 @@ const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNo
 );
 
 setParserName(dalvikBytecodeOperationNoOperationParser, 'dalvikBytecodeOperationNoOperationParser');
+
+export type DalvikBytecodePackedSwitchPayload = {
+	firstKey: number;
+	targets: number[];
+};
 
 const createDalvikBytecodeOperationInvoke = <T extends string>(operation: T, opcode: number): Parser<{
 	operation: T;
@@ -191,6 +219,62 @@ const dalvikBytecodeOperationGoto16Parser: Parser<DalvikBytecodeOperationGoto16,
 		branchOffset,
 	}),
 );
+
+type DalvikBytecodeOperationGoto32 = {
+	operation: 'goto/32';
+	branchOffset: number;
+};
+
+const dalvikBytecodeOperationGoto32Parser: Parser<DalvikBytecodeOperationGoto32, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x2a),
+		dalvikBytecodeFormat30tParser,
+	]),
+	([ _opcode, { branchOffset } ]) => ({
+		operation: 'goto/32',
+		branchOffset,
+	}),
+);
+
+type DalvikBytecodeOperationPackedSwitch = {
+	operation: 'packed-switch';
+	branchOffset: number;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationPackedSwitchParser: Parser<DalvikBytecodeOperationPackedSwitch, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x2b),
+		dalvikBytecodeFormat31tParser,
+	]),
+	([ _opcode, { branchOffset, registers } ]) => ({
+		operation: 'packed-switch',
+		branchOffset,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationPackedSwitchParser, 'dalvikBytecodeOperationPackedSwitchParser');
+
+type DalvikBytecodeOperationSparseSwitch = {
+	operation: 'sparse-switch';
+	branchOffset: number;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationSparseSwitchParser: Parser<DalvikBytecodeOperationSparseSwitch, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x2b),
+		dalvikBytecodeFormat31tParser,
+	]),
+	([ _opcode, { branchOffset, registers } ]) => ({
+		operation: 'sparse-switch',
+		branchOffset,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationSparseSwitchParser, 'dalvikBytecodeOperationSparseSwitchParser');
 
 type DalvikBytecodeOperationInstanceOf = {
 	operation: 'instance-of';
@@ -1286,7 +1370,7 @@ const dalvikBytecodeIfEqualParser = createDalvikBytecodeOperationIfTest('if-eq',
 
 type DalvikBytecodeOperationIfEqual = Awaited<ReturnType<typeof dalvikBytecodeIfEqualParser>>;
 
-const dalvikBytecodeIfNotEqualParser = createDalvikBytecodeOperationIfTest('if-neq', 0x33);
+const dalvikBytecodeIfNotEqualParser = createDalvikBytecodeOperationIfTest('if-ne', 0x33);
 
 type DalvikBytecodeOperationIfNotEqual = Awaited<ReturnType<typeof dalvikBytecodeIfNotEqualParser>>;
 
@@ -1742,8 +1826,8 @@ const dalvikBytecodeOperationConst4Parser: Parser<DalvikBytecodeOperationConst4,
 	([
 		_opcode,
 		[
-			register0,
 			value,
+			register0,
 		],
 	]) => ({
 		operation: 'const/4',
@@ -1909,6 +1993,16 @@ setParserName(dalvikBytecodeOperationCompareParser, 'dalvikBytecodeOperationComp
 export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationNoOperation
 
+	| DalvikBytecodeOperationIfTest
+	| DalvikBytecodeOperationIfTestZero
+
+	| DalvikBytecodeOperationGoto
+	| DalvikBytecodeOperationGoto16
+	| DalvikBytecodeOperationGoto32
+
+	| DalvikBytecodeOperationPackedSwitch
+	| DalvikBytecodeOperationSparseSwitch
+
 	| DalvikBytecodeOperationInvoke
 	| DalvikBytecodeOperationNewInstance
 	| DalvikBytecodeOperationCheckCast
@@ -1961,6 +2055,8 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 
 			dalvikBytecodeOperationGotoParser,
 			dalvikBytecodeOperationGoto16Parser,
+			dalvikBytecodeOperationGoto32Parser,
+			dalvikBytecodeOperationPackedSwitchParser,
 
 			dalvikBytecodeOperationMoveResult1Parser,
 			dalvikBytecodeOperationMoveParser,

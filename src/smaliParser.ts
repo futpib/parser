@@ -1017,10 +1017,6 @@ const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, st
 			}
 		}
 
-		for (const operation of instructions) {
-			delete (operation as any).labels;
-		}
-
 		const branchOffsetByBranchOffsetIndex = new Map<number, number>();
 
 		let operationOffset = 0;
@@ -1040,7 +1036,7 @@ const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, st
 			operationOffset += operationSize;
 		}
 
-		for (const operation of instructions) {
+		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (!(
 				'branchOffsetIndex' in operation
 				&& typeof operation.branchOffsetIndex === 'number'
@@ -1048,11 +1044,25 @@ const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, st
 				continue;
 			}
 
-			const branchOffsetIndex = operation.branchOffsetIndex;
+			const operationOffset = branchOffsetByBranchOffsetIndex.get(operationIndex + operation.branchOffsetIndex);
+			invariant(
+				operationOffset !== undefined,
+				'Expected branch offset for operation index %d, but got undefined',
+				operation.branchOffsetIndex,
+			);
 
-			invariant(branchOffsetByBranchOffsetIndex.has(branchOffsetIndex), 'Branch offset index %s not found', branchOffsetIndex);
+			const branchOffset = branchOffsetByBranchOffsetIndex.get(operationIndex);
+			invariant(
+				branchOffset !== undefined,
+				'Expected branch offset for operation index %d, but got undefined',
+				operationIndex,
+			);
 
-			(operation as any).branchOffset = branchOffsetByBranchOffsetIndex.get(branchOffsetIndex)!;
+			(operation as any).branchOffset = operationOffset - branchOffset;
+		}
+
+		for (const operation of instructions) {
+			delete (operation as any).labels;
 			delete (operation as any).branchOffsetIndex;
 		}
 

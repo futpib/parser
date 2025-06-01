@@ -1,5 +1,5 @@
 import { Iso } from "monocle-ts";
-import { byteParser, intParser, shortParser, ubyteParser, ushortParser } from "../dalvikExecutableParser/typeParsers.js";
+import { byteParser, intParser, longParser, shortParser, ubyteParser, ushortParser } from "../dalvikExecutableParser/typeParsers.js";
 import { createElementParser } from "../elementParser.js";
 import { Parser, setParserName } from "../parser.js";
 import { promiseCompose } from "../promiseCompose.js";
@@ -310,6 +310,17 @@ export const dalvikBytecodeFormat23xParser: Parser<DalvikBytecodeFormat23x, Uint
 	}),
 );
 
+type DalvikBytecodeFormat30t = {
+	branchOffset: number;
+};
+
+export const dalvikBytecodeFormat30tParser: Parser<DalvikBytecodeFormat30t, Uint8Array> = promiseCompose(
+	intParser,
+	(branchOffset) => ({
+		branchOffset,
+	}),
+);
+
 type DalvikBytecodeFormat31i = {
 	value: number;
 	registers: number[];
@@ -325,6 +336,27 @@ export const dalvikBytecodeFormat31iParser: Parser<DalvikBytecodeFormat31i, Uint
 		value,
 	]) => ({
 		value,
+		registers: [
+			register0,
+		],
+	}),
+);
+
+type DalvikBytecodeFormat31t = {
+	branchOffset: number;
+	registers: number[];
+};
+
+export const dalvikBytecodeFormat31tParser: Parser<DalvikBytecodeFormat31t, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		intParser,
+	]),
+	([
+		register0,
+		branchOffset,
+	]) => ({
+		branchOffset,
 		registers: [
 			register0,
 		],
