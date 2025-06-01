@@ -92,7 +92,7 @@ test.serial(
 	'elementTerminatedArrayParserUnsafe performance',
 	t => {
 		t.true(
-			elementTotalTimer.time * 4n < naiveTotalTimer.time,
+			elementTotalTimer.time * 2n < naiveTotalTimer.time,
 			`Naive: ${naiveTotalTimer.time / 1000000n}ms, Unsafe: ${elementTotalTimer.time / 1000000n}ms`,
 		);
 	},

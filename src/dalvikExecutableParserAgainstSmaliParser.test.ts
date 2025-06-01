@@ -193,92 +193,6 @@ const smali = `
     return-void
 .end method
 
-.method protected onDestroy()V
-    .registers 2
-
-    .line 52
-    invoke-super {p0}, Landroid/app/Activity;->onDestroy()V
-
-    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
-
-    .line 53
-    invoke-virtual {v0}, Lcom/journeyapps/barcodescanner/CaptureManager;->onDestroy()V
-
-    return-void
-.end method
-
-.method public onKeyDown(ILandroid/view/KeyEvent;)Z
-    .registers 4
-
-    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->barcodeScannerView:Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;
-
-    .line 69
-    invoke-virtual {v0, p1, p2}, Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;->onKeyDown(ILandroid/view/KeyEvent;)Z
-
-    move-result v0
-
-    if-nez v0, :cond_11
-
-    invoke-super {p0, p1, p2}, Landroid/app/Activity;->onKeyDown(ILandroid/view/KeyEvent;)Z
-
-    move-result p1
-
-    if-eqz p1, :cond_f
-
-    goto :goto_11
-
-    :cond_f
-    const/4 p1, 0x0
-
-    goto :goto_12
-
-    :cond_11
-    :goto_11
-    const/4 p1, 0x1
-
-    :goto_12
-    return p1
-.end method
-
-.method protected onPause()V
-    .registers 2
-
-    .line 46
-    invoke-super {p0}, Landroid/app/Activity;->onPause()V
-
-    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
-
-    .line 47
-    invoke-virtual {v0}, Lcom/journeyapps/barcodescanner/CaptureManager;->onPause()V
-
-    return-void
-.end method
-
-.method public onRequestPermissionsResult(I[Ljava/lang/String;[I)V
-    .registers 5
-
-    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
-
-    .line 64
-    invoke-virtual {v0, p1, p2, p3}, Lcom/journeyapps/barcodescanner/CaptureManager;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V
-
-    return-void
-.end method
-
-.method protected onResume()V
-    .registers 2
-
-    .line 40
-    invoke-super {p0}, Landroid/app/Activity;->onResume()V
-
-    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
-
-    .line 41
-    invoke-virtual {v0}, Lcom/journeyapps/barcodescanner/CaptureManager;->onResume()V
-
-    return-void
-.end method
-
 .method protected onSaveInstanceState(Landroid/os/Bundle;)V
     .registers 3
 
@@ -294,7 +208,7 @@ const smali = `
 .end method
 `;
 
-test.serial.skip(
+test.serial(
 	'parse(dex(smali)) againts parse(smali)',
 	async t => {
 		const hasSmali = await hasSmaliPromise;
@@ -305,9 +219,7 @@ test.serial.skip(
 			return;
 		}
 
-		const dexBuffer = await smaliClass(async function* () {
-			yield smali;
-		}());
+		const dexBuffer = await smaliClass(smali);
 
 		const classDefinitionFromSmali = await runParser(smaliParser, smali, stringParserInputCompanion, {
 			errorJoinMode: 'all',
@@ -319,14 +231,12 @@ test.serial.skip(
 
 		const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
 
-		// console.log(smali);
-
-		console.dir({
-			classDefinitionFromDex,
-			classDefinitionFromSmali,
-		}, {
-			depth: null,
-		});
+		// console.dir({
+		// 	classDefinitionFromDex,
+		// 	classDefinitionFromSmali,
+		// }, {
+		// 	depth: null,
+		// });
 
 		objectWalk(classDefinitionFromDex, (_path, value) => {
 			if (

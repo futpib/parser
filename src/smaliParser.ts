@@ -910,10 +910,6 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 			invariant(false, 'TODO: parameter: %s, operation: %s', JSON.stringify(parameter), JSON.stringify(operation));
 		}
 
-		if (operation_.registers) {
-			operation_.registers = operation_.registers.reverse();
-		}
-
 		return operation_;
 	},
 );
@@ -983,11 +979,7 @@ const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>
 		_lines,
 		_endMethod,
 	]) => {
-		let insSize = 1;
-
-		for (const _parameter of prototype.parameters) {
-			insSize += 1; // TODO: two words for wide types
-		}
+		const insSize = 1 + prototype.parameters.length;
 
 		code.insSize = insSize;
 
@@ -1004,6 +996,7 @@ const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>
 				}
 
 				if (prefix === 'p') {
+					// return `${code.registersSize - insSize + index} (${'p' + index})` as any;
 					return code.registersSize - insSize + index;
 				}
 

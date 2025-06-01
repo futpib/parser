@@ -204,8 +204,8 @@ export const createDalvikBytecodeFormat22cParser = <Index>({
 	]),
 	([
 		[
-			register0,
 			register1,
+			register0,
 		],
 		index,
 	]) => ({
@@ -374,12 +374,12 @@ export const createDalvikBytecodeFormat35cParser = <Index>({
 		],
 		index,
 		[
-			register0,
 			register1,
+			register0,
 		],
 		[
-			register2,
 			register3,
+			register2,
 		],
 	]) => ({
 		index: isoIndex.wrap(index),
