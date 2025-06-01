@@ -193,6 +193,59 @@ const smali = `
     return-void
 .end method
 
+.method protected onDestroy()V
+    .registers 2
+
+    .line 52
+    invoke-super {p0}, Landroid/app/Activity;->onDestroy()V
+
+    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
+
+    .line 53
+    invoke-virtual {v0}, Lcom/journeyapps/barcodescanner/CaptureManager;->onDestroy()V
+
+    return-void
+.end method
+
+.method protected onPause()V
+    .registers 2
+
+    .line 46
+    invoke-super {p0}, Landroid/app/Activity;->onPause()V
+
+    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
+
+    .line 47
+    invoke-virtual {v0}, Lcom/journeyapps/barcodescanner/CaptureManager;->onPause()V
+
+    return-void
+.end method
+
+.method public onRequestPermissionsResult(I[Ljava/lang/String;[I)V
+    .registers 5
+
+    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
+
+    .line 64
+    invoke-virtual {v0, p1, p2, p3}, Lcom/journeyapps/barcodescanner/CaptureManager;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V
+
+    return-void
+.end method
+
+.method protected onResume()V
+    .registers 2
+
+    .line 40
+    invoke-super {p0}, Landroid/app/Activity;->onResume()V
+
+    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->capture:Lcom/journeyapps/barcodescanner/CaptureManager;
+
+    .line 41
+    invoke-virtual {v0}, Lcom/journeyapps/barcodescanner/CaptureManager;->onResume()V
+
+    return-void
+.end method
+
 .method protected onSaveInstanceState(Landroid/os/Bundle;)V
     .registers 3
 

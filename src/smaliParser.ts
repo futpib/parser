@@ -1009,9 +1009,13 @@ const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>
 		let outsSize = 0;
 
 		for (const operation of code.instructions) {
+			if (!operation.operation.startsWith('invoke-')) {
+				continue;
+			}
+
 			const registers = dalvikBytecodeOperationCompanion.getRegisters(operation);
 
-			outsSize = Math.max(outsSize, registers.length); // TODO: two words for wide types
+			outsSize = Math.max(outsSize, registers.length); // TODO?: two words for wide types?
 		}
 
 		code.outsSize = outsSize;
