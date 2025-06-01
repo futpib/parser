@@ -15,14 +15,25 @@ import { createNegativeLookaheadParser } from "./negativeLookaheadParser.js";
 import { createSeparatedArrayParser } from "./separatedArrayParser.js";
 import { smaliMemberNameParser, smaliTypeDescriptorParser } from "./dalvikExecutableParser/stringSyntaxParser.js";
 import { createDisjunctionParser } from "./disjunctionParser.js";
+import { formatSizes } from "./dalvikBytecodeParser/formatSizes.js";
+import { operationFormats } from "./dalvikBytecodeParser/operationFormats.js";
 
 const smaliNewlinesParser: Parser<void, string> = promiseCompose(
 	createNonEmptyArrayParser(createExactSequenceParser('\n')),
 	(_newlines) => undefined,
 );
 
+const smaliSingleWhitespaceParser = createExactSequenceParser(' ');
+
+const smaliWhitespaceParser: Parser<void, string> = promiseCompose(
+	createArrayParser(smaliSingleWhitespaceParser),
+	(_indentation) => undefined,
+);
+
+const smaliSingleIndentationParser = createExactSequenceParser('    ');
+
 const smaliOptionalIndentationParser: Parser<void, string> = promiseCompose(
-	createArrayParser(createExactSequenceParser('    ')),
+	createArrayParser(smaliSingleIndentationParser),
 	(_indentation) => undefined,
 );
 
@@ -123,7 +134,7 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 			createExactSequenceParser('abstract'),
 			// ... TODO
 		]),
-		createExactSequenceParser(' '),
+		smaliSingleWhitespaceParser,
 	),
 	(accessFlagNames) => {
 		const accessFlags = {
@@ -161,7 +172,7 @@ const smaliClassDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<u
 		smaliCommentsOrNewlinesParser,
 		createExactSequenceParser('.class '),
 		smaliAccessFlagsParser,
-		createExactSequenceParser(' '),
+		smaliSingleWhitespaceParser,
 		smaliTypeDescriptorParser,
 		createExactSequenceParser('\n'),
 	]),
@@ -231,7 +242,7 @@ export const smaliFieldParser: Parser<DalvikExecutableFieldWithAccess, string> =
 	createTupleParser([
 		createExactSequenceParser('.field '),
 		smaliAccessFlagsParser,
-		createExactSequenceParser(' '),
+		smaliSingleWhitespaceParser,
 		smaliMemberNameParser,
 		createExactSequenceParser(':'),
 		smaliTypeDescriptorParser,
@@ -395,7 +406,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 			createExactSequenceParser('runtime'),
 			createExactSequenceParser('system'),
 		]),
-		createExactSequenceParser(' '),
+		smaliSingleWhitespaceParser,
 		smaliTypeDescriptorParser,
 		createExactSequenceParser('\n'),
 		smaliOptionalIndentationParser,
@@ -549,7 +560,7 @@ const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
 		createOptionalParser(
 			createTupleParser([
 				createExactSequenceParser(','),
-				createArrayParser(createExactSequenceParser(' ')),
+				smaliWhitespaceParser,
 				jsonStringParser,
 				createExactSequenceParser(':'),
 				smaliTypeDescriptorParser,
@@ -573,9 +584,9 @@ export const smaliCodeParameterParser: Parser<SmaliRegister, string> = promiseCo
 		createOptionalParser(
 			createTupleParser([
 				createExactSequenceParser(','),
-				createArrayParser(createExactSequenceParser(' ')),
+				smaliWhitespaceParser,
 				jsonStringParser,
-				createArrayParser(createExactSequenceParser(' ')),
+				smaliWhitespaceParser,
 			]),
 		),
 		createOptionalParser(smaliCommentParser),
@@ -815,11 +826,11 @@ setParserName(smaliCodeOperationNameParser, 'smaliCodeOperationNameParser');
 
 const smaliCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promiseCompose(
 	createTupleParser([
-		createExactSequenceParser('    '),
+		smaliSingleIndentationParser,
 		smaliCodeOperationNameParser,
 		promiseCompose(
 			createOptionalParser(createTupleParser([
-				createExactSequenceParser(' '),
+				smaliSingleWhitespaceParser,
 				smaliCodeOperationParametersParser,
 			])),
 			(undefinedOrParameters) => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
@@ -845,6 +856,37 @@ const operationsWithTypeArgument = new Set<DalvikBytecodeOperation['operation']>
 	'instance-of',
 ]);
 
+const operationsWithBranchLabelArgument = new Set<DalvikBytecodeOperation['operation']>([
+	'goto',
+	'goto/16',
+	'goto/32',
+	'if-eq',
+	'if-ne',
+	'if-lt',
+	'if-ge',
+	'if-gt',
+	'if-le',
+	'if-eqz',
+	'if-nez',
+	'if-ltz',
+	'if-gez',
+	'if-gtz',
+	'if-lez',
+	'packed-switch',
+	'sparse-switch',
+]);
+
+function isOperationWithLabels(value: unknown): value is DalvikBytecodeOperation & {
+	labels: Set<string>;
+} {
+	return (
+		typeof value === 'object'
+			&& value !== null
+			&& 'labels' in value
+			&& value.labels instanceof Set
+	);
+}
+
 const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promiseCompose(
 	createTupleParser([
 		createArrayParser(smaliCodeLineParser),
@@ -855,16 +897,19 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 	([
 		_lines,
 		_local,
-		_labels,
+		labels,
 		operation,
 	]) => {
 		const operation_ = {
 			operation: operation.operation,
 			// line,
 			// local,
-			// label,
 			// parameters: (operation as any).parameters,
 		} as any; // TODO
+
+		if (labels.length) {
+			operation_.labels = new Set(labels);
+		}
 
 		for (const parameter of (operation as unknown as { parameters: unknown[]; }).parameters.flat() ?? []) {
 			if (isDalvikExecutableMethod(parameter)) {
@@ -892,6 +937,12 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 			if (typeof parameter === 'string') {
 				if (operationsWithTypeArgument.has(operation_.operation)) {
 					operation_.type = parameter;
+
+					continue;
+				}
+
+				if (operationsWithBranchLabelArgument.has(operation_.operation)) {
+					operation_.branchLabel = parameter;
 
 					continue;
 				}
@@ -942,6 +993,69 @@ const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, st
 		_parameters,
 		instructions,
 	]) => {
+		for (const [ operationIndex, operation ] of instructions.entries()) {
+			if (!(
+				'branchLabel' in operation
+				&& typeof operation.branchLabel === 'string'
+			)) {
+				continue;
+			}
+
+			for (const [ targetOperationIndex, targetOperation ] of instructions.entries()) {
+				if (!isOperationWithLabels(targetOperation)) {
+					continue;
+				}
+
+				if (!targetOperation.labels.has(operation.branchLabel)) {
+					continue;
+				}
+
+				delete (operation as any).branchLabel;
+				(operation as any).branchOffsetIndex = targetOperationIndex - operationIndex;
+
+				break;
+			}
+		}
+
+		for (const operation of instructions) {
+			delete (operation as any).labels;
+		}
+
+		const branchOffsetByBranchOffsetIndex = new Map<number, number>();
+
+		let operationOffset = 0;
+
+		for (const [ operationIndex, operation ] of instructions.entries()) {
+			const operationFormat = operationFormats[operation.operation];
+			invariant(operationFormat, 'Unknown operation format for %s', operation.operation);
+
+			const operationSize = formatSizes[operationFormat];
+			invariant(operationSize, `Unknown operation size for format %s of operation %s`, operationFormat, operation.operation);
+
+			branchOffsetByBranchOffsetIndex.set(
+				operationIndex,
+				operationOffset,
+			);
+
+			operationOffset += operationSize;
+		}
+
+		for (const operation of instructions) {
+			if (!(
+				'branchOffsetIndex' in operation
+				&& typeof operation.branchOffsetIndex === 'number'
+			)) {
+				continue;
+			}
+
+			const branchOffsetIndex = operation.branchOffsetIndex;
+
+			invariant(branchOffsetByBranchOffsetIndex.has(branchOffsetIndex), 'Branch offset index %s not found', branchOffsetIndex);
+
+			(operation as any).branchOffset = branchOffsetByBranchOffsetIndex.get(branchOffsetIndex)!;
+			delete (operation as any).branchOffsetIndex;
+		}
+
 		return {
 			registersSize,
 			insSize: -1, // TODO
@@ -960,7 +1074,7 @@ const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>
 	createTupleParser([
 		createExactSequenceParser('.method '),
 		smaliAccessFlagsParser,
-		createExactSequenceParser(' '),
+		smaliSingleWhitespaceParser,
 		smaliMemberNameParser,
 		smaliMethodPrototypeParser,
 		createExactSequenceParser('\n'),

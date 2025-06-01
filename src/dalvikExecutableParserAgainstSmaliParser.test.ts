@@ -207,6 +207,26 @@ const smali = `
     return-void
 .end method
 
+.method public onKeyDown(ILandroid/view/KeyEvent;)Z
+    .registers 4
+
+    iget-object v0, p0, Lcom/journeyapps/barcodescanner/CaptureActivity;->barcodeScannerView:Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;
+
+    .line 69
+    invoke-virtual {v0, p1, p2}, Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;->onKeyDown(ILandroid/view/KeyEvent;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_11
+
+    :cond_11
+    :goto_11
+    return p1
+
+    :goto_12
+    return p1
+.end method
+
 .method protected onPause()V
     .registers 2
 
