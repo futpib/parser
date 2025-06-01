@@ -2737,9 +2737,28 @@ const createDalvikExecutableParser = <Instructions>({
 				const staticValues = isoOffsetToEncodedArrayItem.unwrap(classDefinitionItem.staticValuesOffset) === 0 ? [] : encodedArrayItemByOffset.get(classDefinitionItem.staticValuesOffset);
 				invariant(staticValues, 'Static values must be there. Static values offset: %s', classDefinitionItem.staticValuesOffset);
 
+				let allMembersAreSynthetic = true;
+
+				for (const member of [
+					...classData?.staticFields ?? [],
+					...classData?.instanceFields ?? [],
+					...classData?.directMethods ?? [],
+					...classData?.virtualMethods ?? [],
+				]) {
+					if (!member.accessFlags.synthetic) {
+						allMembersAreSynthetic = false;
+						break;
+					}
+				}
+
+				const accessFlags = {
+					...classDefinitionItem.accessFlags,
+					synthetic: allMembersAreSynthetic,
+				};
+
 				return {
 					class: class_,
-					accessFlags: classDefinitionItem.accessFlags,
+					accessFlags,
 					superclass,
 					interfaces,
 					sourceFile,

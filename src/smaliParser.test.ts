@@ -2,13 +2,24 @@ import test from 'ava';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { getParserName, Parser, runParser } from './parser.js';
 import { fetchCid } from './fetchCid.js';
-import { smaliAnnotationParser, smaliCodeParameterParser, smaliFieldParser, smaliParser } from './smaliParser.js';
+import { smaliAnnotationParser, smaliCodeParameterParser, smaliCommentParser, smaliFieldParser, smaliMethodParser, smaliParser } from './smaliParser.js';
 import { hasExecutable } from './hasExecutable.js';
 import { baksmaliClass } from './backsmali.js';
 
 const hasBaksmaliPromise = hasExecutable('baksmali');
 
-function stringParserTest<Output>(parser: Parser<Output, string>, examples: [ string, Output ][]) {
+const stringParserTestSnapshot = Symbol('stringParserTestSnapshot');
+const stringParserTestIgnore = Symbol('stringParserTestIgnore');
+
+function stringParserTest<Output>(
+	parser: Parser<Output, string>,
+	examples: [
+		string,
+		Output
+			| typeof stringParserTestSnapshot
+			| typeof stringParserTestIgnore
+	][],
+) {
 	const parserName = getParserName(parser);
 
 	for (const [ input, expected ] of examples) {
@@ -17,10 +28,25 @@ function stringParserTest<Output>(parser: Parser<Output, string>, examples: [ st
 				errorJoinMode: 'all',
 			});
 
-			t.deepEqual(actual, expected as any);
+			if (expected === stringParserTestIgnore) {
+				t.pass('skipping test because expected is stringParserTestIgnore');
+
+				return;
+			} else if (expected === stringParserTestSnapshot) {
+				t.snapshot(actual);
+			} else {
+				t.deepEqual(actual, expected as any);
+			}
 		});
 	}
 }
+
+stringParserTest(smaliCommentParser, [
+	[
+		'# this is a comment \n',
+		' this is a comment ',
+	],
+]);
 
 stringParserTest(smaliCodeParameterParser, [
 	[
@@ -32,6 +58,16 @@ stringParserTest(smaliCodeParameterParser, [
 	],
 	[
 		'    .param p1, "savedInstanceState"    # Landroid/os/Bundle;\n',
+		{
+			index: 1,
+			prefix: 'p',
+		},
+	],
+	[
+		`    .param p1    # Ljava/lang/ClassLoader;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param\n`,
 		{
 			index: 1,
 			prefix: 'p',
@@ -91,6 +127,52 @@ stringParserTest(smaliAnnotationParser, [
 				'>(I)TT;',
 			],
 		},
+	],
+	[
+		`        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+`,
+		{
+			type: 'Landroid/annotation/NonNull;',
+			value: undefined,
+		},
+	],
+]);
+
+stringParserTest(smaliMethodParser, [
+	[
+		`.method public native synthetic instantiateActivity(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Intent;)Landroid/app/Activity;
+    .param p1    # Ljava/lang/ClassLoader;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+.end method
+`,
+		stringParserTestSnapshot,
+	],
+	[
+		`.method public native synthetic instantiateActivity(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Intent;)Landroid/app/Activity;
+    .param p1    # Ljava/lang/ClassLoader;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .param p2    # Ljava/lang/String;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .annotation build Landroid/annotation/NonNull;
+    .end annotation
+
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Ljava/lang/ClassNotFoundException;,
+            Ljava/lang/IllegalAccessException;,
+            Ljava/lang/InstantiationException;
+        }
+    .end annotation
+.end method
+`,
+		stringParserTestSnapshot,
 	],
 ]);
 

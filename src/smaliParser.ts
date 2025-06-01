@@ -32,12 +32,12 @@ const smaliWhitespaceParser: Parser<void, string> = promiseCompose(
 
 const smaliSingleIndentationParser = createExactSequenceParser('    ');
 
-const smaliOptionalIndentationParser: Parser<void, string> = promiseCompose(
+const smaliIndentationParser: Parser<void, string> = promiseCompose(
 	createArrayParser(smaliSingleIndentationParser),
 	(_indentation) => undefined,
 );
 
-const smaliCommentParser: Parser<string, string> = promiseCompose(
+export const smaliCommentParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('#'),
 		(async (parserContext: ParserContext<string, string>) => {
@@ -57,6 +57,8 @@ const smaliCommentParser: Parser<string, string> = promiseCompose(
 
 					continue;
 				}
+
+				parserContext.skip(1);
 
 				break;
 			}
@@ -132,7 +134,13 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 			createExactSequenceParser('static'),
 			createExactSequenceParser('constructor'),
 			createExactSequenceParser('abstract'),
-			// ... TODO
+			createExactSequenceParser('native'),
+			createExactSequenceParser('volatile'),
+			createExactSequenceParser('synchronized'),
+			createExactSequenceParser('strict'),
+			createExactSequenceParser('interface'),
+			createExactSequenceParser('annotation'),
+			createExactSequenceParser('enum'),
 		]),
 		smaliSingleWhitespaceParser,
 	),
@@ -399,7 +407,7 @@ setParserName(smaliCodeRegistersParser, 'smaliCodeRegistersParser');
 
 export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 	createTupleParser([
-		smaliOptionalIndentationParser,
+		smaliIndentationParser,
 		createExactSequenceParser('.annotation '),
 		createUnionParser([
 			createExactSequenceParser('build'),
@@ -409,7 +417,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 		smaliSingleWhitespaceParser,
 		smaliTypeDescriptorParser,
 		createExactSequenceParser('\n'),
-		smaliOptionalIndentationParser,
+		smaliIndentationParser,
 		createOptionalParser(
 			promiseCompose(
 				createTupleParser([
@@ -422,7 +430,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 								createSeparatedArrayParser(
 									promiseCompose(
 										createTupleParser([
-											smaliOptionalIndentationParser,
+											smaliIndentationParser,
 											smaliTypeDescriptorParser,
 										]),
 										([
@@ -433,7 +441,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 									createExactSequenceParser(',\n'),
 								),
 								createExactSequenceParser('\n'),
-								smaliOptionalIndentationParser,
+								smaliIndentationParser,
 								createExactSequenceParser('}'),
 							]),
 							([
@@ -448,7 +456,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 								createSeparatedArrayParser(
 									promiseCompose(
 										createTupleParser([
-											smaliOptionalIndentationParser,
+											smaliIndentationParser,
 											smaliQuotedStringParser,
 										]),
 										([
@@ -459,7 +467,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 									createExactSequenceParser(',\n'),
 								),
 								createExactSequenceParser('\n'),
-								smaliOptionalIndentationParser,
+								smaliIndentationParser,
 								createExactSequenceParser('}'),
 							]),
 							([
@@ -478,7 +486,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 				]) => value,
 			),
 		),
-		smaliOptionalIndentationParser,
+		smaliIndentationParser,
 		createExactSequenceParser('.end annotation\n'),
 	]),
 	([
@@ -589,15 +597,23 @@ export const smaliCodeParameterParser: Parser<SmaliRegister, string> = promiseCo
 				smaliWhitespaceParser,
 			]),
 		),
-		createOptionalParser(smaliCommentParser),
-		createExactSequenceParser('\n'),
+		createOptionalParser(smaliWhitespaceParser),
+		smaliCommentsOrNewlinesParser,
+		createOptionalParser(
+			createTupleParser([
+				smaliAnnotationParser,
+				smaliIndentationParser,
+				createExactSequenceParser('.end param\n'),
+			]),
+		),
 	]),
 	([
 		_param,
-		parameter,
+		parameterRegister,
 		_newparam,
+		_whitespace,
 		_commentOrNewline,
-	]) => parameter,
+	]) => parameterRegister,
 );
 
 setParserName(smaliCodeParameterParser, 'smaliCodeParameterParser');
@@ -969,11 +985,19 @@ setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
 
 const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, string> = promiseCompose(
 	createTupleParser([
-		smaliCodeRegistersParser,
+		createOptionalParser(
+			smaliCodeRegistersParser,
+		),
 		createArrayParser(
 			smaliAnnotationParser,
 		),
-		createOptionalParser(smaliCodeParameterParser),
+		createArrayParser(
+			smaliCodeParameterParser,
+		),
+		createSeparatedArrayParser(
+			smaliAnnotationParser,
+			smaliCommentsOrNewlinesParser,
+		),
 		createArrayParser(
 			promiseCompose(
 				createTupleParser([
@@ -990,9 +1014,22 @@ const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, st
 	([
 		registersSize,
 		_annotations,
-		_parameters,
+		parameters,
+		_annotations2,
 		instructions,
 	]) => {
+		if (
+			registersSize === undefined
+				&& parameters !== undefined
+		) {
+			registersSize = parameters.length;
+		}
+
+		invariant(
+			registersSize !== undefined,
+			'Expected registers size to be defined',
+		);
+
 		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (!(
 				'branchLabel' in operation
@@ -1080,7 +1117,7 @@ const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, st
 
 setParserName(smaliExecutableCodeParser, 'smaliExecutableCodeParser');
 
-const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>, string> = promiseCompose(
+export const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('.method '),
 		smaliAccessFlagsParser,
@@ -1099,50 +1136,57 @@ const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>
 		name,
 		prototype,
 		_newline,
-		code,
+		executableCode,
 		_lines,
 		_endMethod,
 	]) => {
-		const insSize = 1 + prototype.parameters.length;
+		let code: DalvikExecutableCode<DalvikBytecode> | undefined = executableCode;
 
-		code.insSize = insSize;
-
-		for (const operation of code.instructions) {
-			const smaliRegisters = dalvikBytecodeOperationCompanion.getRegisters(operation) as unknown[] as SmaliRegister[]; // TODO
-
-			if (!smaliRegisters.length) {
-				continue;
-			}
-
-			const registers: number[] = smaliRegisters.map(({ prefix, index }) => {
-				if (prefix === 'v') {
-					return index;
-				}
-
-				if (prefix === 'p') {
-					// return `${code.registersSize - insSize + index} (${'p' + index})` as any;
-					return code.registersSize - insSize + index;
-				}
-
-				invariant(false, 'Expected prefix to be v or p');
-			});
-
-			(operation as any).registers = registers; // TODO
+		if (accessFlags.native && !code.instructions.length) {
+			code = undefined;
 		}
 
-		let outsSize = 0;
+		if (code) {
+			const insSize = (accessFlags.static ? 0 : 1) + prototype.parameters.length;
 
-		for (const operation of code.instructions) {
-			if (!operation.operation.startsWith('invoke-')) {
-				continue;
+			code.insSize = insSize;
+
+			for (const operation of code.instructions) {
+				const smaliRegisters = dalvikBytecodeOperationCompanion.getRegisters(operation) as unknown[] as SmaliRegister[]; // TODO
+
+				if (!smaliRegisters.length) {
+					continue;
+				}
+
+				const registers: number[] = smaliRegisters.map(({ prefix, index }) => {
+					if (prefix === 'v') {
+						return index;
+					}
+
+					if (prefix === 'p') {
+						return code.registersSize - insSize + index;
+					}
+
+					invariant(false, 'Expected prefix to be v or p');
+				});
+
+				(operation as any).registers = registers; // TODO
 			}
 
-			const registers = dalvikBytecodeOperationCompanion.getRegisters(operation);
+			let outsSize = 0;
 
-			outsSize = Math.max(outsSize, registers.length); // TODO?: two words for wide types?
+			for (const operation of code.instructions) {
+				if (!operation.operation.startsWith('invoke-')) {
+					continue;
+				}
+
+				const registers = dalvikBytecodeOperationCompanion.getRegisters(operation);
+
+				outsSize = Math.max(outsSize, registers.length); // TODO?: two words for wide types?
+			}
+
+			code.outsSize = outsSize;
 		}
-
-		code.outsSize = outsSize;
 
 		return {
 			accessFlags,
