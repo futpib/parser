@@ -8,29 +8,27 @@ import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js'
 import invariant from 'invariant';
 import { fetchCid } from './fetchCid.js';
 
-for (const androidPackageCid of [
-	'bafkreicckcmzrdxwoc3w2in3tivpyxrdtcfpct4zwauq3igew3nkpvfapu',
-]) {
-	test(
-		'androidPackage ' + androidPackageCid,
-		async t => {
-			const androidPackageStream = await fetchCid(androidPackageCid);
+const androidPackageUnparserMacro = test.macro({
+	title: (providedTitle, androidPackageCid: string) => providedTitle ?? `androidPackage ${androidPackageCid}`,
+	async exec(t, androidPackageCid: string) {
+		const androidPackageStream = await fetchCid(androidPackageCid);
 
-			const androidPackage = await runParser(androidPackageParser, androidPackageStream, uint8ArrayParserInputCompanion, {
-				errorJoinMode: 'all',
-			});
+		const androidPackage = await runParser(androidPackageParser, androidPackageStream, uint8ArrayParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
 
-			const androidPackageSigningBlock = androidPackage.signingBlock;
+		const androidPackageSigningBlock = androidPackage.signingBlock;
 
-			invariant(androidPackageSigningBlock, 'APK has no signing block');
+		invariant(androidPackageSigningBlock, 'APK has no signing block');
 
-			const androidPackageSigningBlockStream = runUnparser(androidPackageSigningBlockUnparser, androidPackageSigningBlock, uint8ArrayUnparserOutputCompanion);
+		const androidPackageSigningBlockStream = runUnparser(androidPackageSigningBlockUnparser, androidPackageSigningBlock, uint8ArrayUnparserOutputCompanion);
 
-			const actual = await runParser(androidPackageSigningBlockParser, androidPackageSigningBlockStream, uint8ArrayParserInputCompanion, {
-				errorJoinMode: 'all',
-			});
+		const actual = await runParser(androidPackageSigningBlockParser, androidPackageSigningBlockStream, uint8ArrayParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
 
-			t.deepEqual(actual, androidPackageSigningBlock);
-		},
-	);
-}
+		t.deepEqual(actual, androidPackageSigningBlock);
+	},
+});
+
+test(androidPackageUnparserMacro, 'bafkreicckcmzrdxwoc3w2in3tivpyxrdtcfpct4zwauq3igew3nkpvfapu');

@@ -4,30 +4,28 @@ import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { dalvikExecutableParser, dalvikExecutableWithRawInstructionsParser } from './dalvikExecutableParser.js';
 import { fetchCid } from './fetchCid.js';
 
-for (const [ dexCid, shouldSnapshot ] of [
-	[ 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true ],
-	[ 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false ],
-	[ 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false ],
-	[ 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false ],
-] as const) {
-	test.serial(
-		'dex (with instructions as bytes) ' + dexCid,
-		async t => {
-			const dexStream = await fetchCid(dexCid);
+const dexWithRawInstructionsMacro = test.macro({
+	title: (providedTitle, dexCid: string) => providedTitle ?? `dex (with instructions as bytes) ${dexCid}`,
+	async exec(t, dexCid: string, shouldSnapshot: boolean) {
+		const dexStream = await fetchCid(dexCid);
 
-			const actual = await runParser(dalvikExecutableWithRawInstructionsParser, dexStream, uint8ArrayParserInputCompanion, {
-				errorJoinMode: 'all',
-			});
+		const actual = await runParser(dalvikExecutableWithRawInstructionsParser, dexStream, uint8ArrayParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
 
-			if (shouldSnapshot) {
-				t.snapshot(actual);
-			} else {
-				//console.dir(actual, { depth: null });
-				t.pass();
-			}
-		},
-	);
-}
+		if (shouldSnapshot) {
+			t.snapshot(actual);
+		} else {
+			//console.dir(actual, { depth: null });
+			t.pass();
+		}
+	},
+});
+
+test.serial(dexWithRawInstructionsMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true);
+test.serial(dexWithRawInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false);
+test.serial(dexWithRawInstructionsMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false);
+test.serial(dexWithRawInstructionsMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false);
 
 type ObjectPath = (string | symbol | number)[];
 
@@ -52,38 +50,36 @@ function objectWalk(object: unknown, f: (path: ObjectPath, value: unknown) => vo
 	}
 }
 
-for (const [ dexCid, shouldSnapshot ] of [
-	[ 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true ],
-	// [ 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false ],
-	// [ 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false ],
-	// [ 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false ],
-] as const) {
-	test.serial(
-		'dex (with parsed instructions) ' + dexCid,
-		async t => {
-			const dexStream = await fetchCid(dexCid);
+const dexWithParsedInstructionsMacro = test.macro({
+	title: (providedTitle, dexCid: string) => providedTitle ?? `dex (with parsed instructions) ${dexCid}`,
+	async exec(t, dexCid: string, shouldSnapshot: boolean) {
+		const dexStream = await fetchCid(dexCid);
 
-			const actual = await runParser(dalvikExecutableParser, dexStream, uint8ArrayParserInputCompanion, {
-				errorJoinMode: 'all',
-			});
+		const actual = await runParser(dalvikExecutableParser, dexStream, uint8ArrayParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
 
-			objectWalk(actual, (path) => {
-				const key = path.at(-1);
+		objectWalk(actual, (path) => {
+			const key = path.at(-1);
 
-				if (typeof key !== 'string') {
-					return;
-				}
-
-				t.false(key.endsWith('Offset'), 'All offsets should be resolved: ' + path.join('.'));
-				t.false(key.endsWith('Index'), 'All indexes should be resolved: ' + path.join('.'));
-			});
-
-			if (shouldSnapshot) {
-				t.snapshot(actual);
-			} else {
-				//console.dir(actual, { depth: null });
-				t.pass();
+			if (typeof key !== 'string') {
+				return;
 			}
-		},
-	);
-}
+
+			t.false(key.endsWith('Offset'), 'All offsets should be resolved: ' + path.join('.'));
+			t.false(key.endsWith('Index'), 'All indexes should be resolved: ' + path.join('.'));
+		});
+
+		if (shouldSnapshot) {
+			t.snapshot(actual);
+		} else {
+			//console.dir(actual, { depth: null });
+			t.pass();
+		}
+	},
+});
+
+test.serial(dexWithParsedInstructionsMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true);
+test.skip(dexWithParsedInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false);
+test.skip(dexWithParsedInstructionsMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false);
+test.skip(dexWithParsedInstructionsMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false);

@@ -56,97 +56,67 @@ function normalizeSmaliFilePath(
 	};
 }
 
-for (const [ dexCid, smaliFilePaths ] of [
-	[
-		'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4',
-		[
-			'pl/czak/minimal/MainActivity',
-		],
-	],
+const parseDexAgainstSmaliMacro = test.macro({
+	title: (providedTitle, dexCid: string, smaliFilePathInput: string | { smaliFilePath: string; isolate?: boolean }) => {
+		const { smaliFilePath, isolate } = normalizeSmaliFilePath(smaliFilePathInput);
+		return providedTitle ?? `parse(dex) against parse(smali(dex)) ${dexCid} ${smaliFilePath}${isolate ? ' isolated' : ''}`;
+	},
+	async exec(t, dexCid: string, smaliFilePathInput: string | { smaliFilePath: string; isolate?: boolean }) {
+		const { smaliFilePath, isolate } = normalizeSmaliFilePath(smaliFilePathInput);
+		const hasBaksmali = await hasBaksmaliPromise;
 
-	[
-		'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy',
-		[
-			{
-				smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity',
-				isolate: true,
-			},
-		],
-	],
+		if (!hasBaksmali) {
+			t.pass('skipping test because baksmali is not available');
+			return;
+		}
 
-	// [
-	// 	'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq',
-	// 	[
-	// 		'android/app/AppComponentFactory',
-	// 	],
-	// ],
+		const dexStream: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
 
-	// [
-	// 	'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda',
-	// 	[
-	// 		'',
-	// 	],
-	// ],
-] as const) {
-	for (const { smaliFilePath, isolate } of smaliFilePaths.map(normalizeSmaliFilePath)) {
-		test.serial(
-			'parse(dex) against parse(smali(dex)) ' + dexCid + ' ' + smaliFilePath + (isolate ? ' isolated' : ''),
-			async t => {
-				const hasBaksmali = await hasBaksmaliPromise;
+		const smali = await baksmaliClass(dexStream, smaliFilePath);
 
-				if (!hasBaksmali) {
-					t.pass('skipping test because baksmali is not available');
+		const classDefinitionFromSmali = await runParser(smaliParser, smali, stringParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
 
-					return;
-				}
+		let dexStream2: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
 
-				const dexStream: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
+		if (isolate) {
+			dexStream2 = await backsmaliSmaliIsolateClass(dexStream2, smaliFilePath);
+		}
 
-				const smali = await baksmaliClass(dexStream, smaliFilePath);
+		const executableFromDex = await runParser(dalvikExecutableParser, dexStream2, uint8ArrayParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
 
-				const classDefinitionFromSmali = await runParser(smaliParser, smali, stringParserInputCompanion, {
-					errorJoinMode: 'all',
-				});
+		const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
 
-				let dexStream2: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
+		objectWalk(classDefinitionFromDex, (_path, value) => {
+			if (
+				value
+					&& typeof value === 'object'
+					&& 'debugInfo' in value
+			) {
+				value.debugInfo = undefined;
+			}
+		});
 
-				if (isolate) {
-					dexStream2 = await backsmaliSmaliIsolateClass(dexStream2, smaliFilePath);
-				}
-
-				const executableFromDex = await runParser(dalvikExecutableParser, dexStream2, uint8ArrayParserInputCompanion, {
-					errorJoinMode: 'all',
-				});
-
-				const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
-
-				// console.log(smali);
-
-				// console.dir({
-				// 	classDefinitionFromDex,
-				// 	classDefinitionFromSmali,
-				// }, {
-				// 	depth: null,
-				// });
-
-				objectWalk(classDefinitionFromDex, (_path, value) => {
-					if (
-						value
-							&& typeof value === 'object'
-							&& 'debugInfo' in value
-					) {
-						value.debugInfo = undefined;
-					}
-				});
-
-				t.deepEqual(
-					classDefinitionFromDex,
-					classDefinitionFromSmali,
-				);
-			},
+		t.deepEqual(
+			classDefinitionFromDex,
+			classDefinitionFromSmali,
 		);
-	}
-}
+	},
+});
+
+test.serial(parseDexAgainstSmaliMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', 'pl/czak/minimal/MainActivity');
+
+test.serial(parseDexAgainstSmaliMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', {
+	smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity',
+	isolate: true,
+});
+
+test.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', 'android/app/AppComponentFactory');
+
+test.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
 const smali = `
 .class public synthetic Landroid/app/AppComponentFactory;

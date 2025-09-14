@@ -176,39 +176,37 @@ stringParserTest(smaliMethodParser, [
 	],
 ]);
 
-for (const [ dexCid, smaliFilePath, shouldSnapshot ] of [
-	[ 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', 'pl/czak/minimal/MainActivity', true ],
-	[ 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', 'd/m', true ],
-	// [ 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', 'com/journeyapps/barcodescanner/CaptureActivity', true ],
-	// [ 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false ],
-] as const) {
-	test.serial(
-		'smali from dex ' + dexCid + ' ' + smaliFilePath,
-		async t => {
-			const hasBaksmali = await hasBaksmaliPromise;
+const smaliFromDexMacro = test.macro({
+	title: (providedTitle, dexCid: string, smaliFilePath: string) =>
+		providedTitle ?? `smali from dex ${dexCid} ${smaliFilePath}`,
+	async exec(t, dexCid: string, smaliFilePath: string, shouldSnapshot: boolean) {
+		const hasBaksmali = await hasBaksmaliPromise;
 
-			if (!hasBaksmali) {
-				t.pass('skipping test because baksmali is not available');
+		if (!hasBaksmali) {
+			t.pass('skipping test because baksmali is not available');
+			return;
+		}
 
-				return;
-			}
+		const dexStream = await fetchCid(dexCid);
 
-			const dexStream = await fetchCid(dexCid);
+		const smali = await baksmaliClass(dexStream, smaliFilePath);
 
-			const smali = await baksmaliClass(dexStream, smaliFilePath);
+		const actual = await runParser(smaliParser, smali, stringParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
 
-			const actual = await runParser(smaliParser, smali, stringParserInputCompanion, {
-				errorJoinMode: 'all',
-			});
+		// console.dir(actual, { depth: null });
 
-			// console.dir(actual, { depth: null });
+		if (shouldSnapshot) {
+			t.snapshot(actual);
+		} else {
+			//console.dir(actual, { depth: null });
+			t.pass();
+		}
+	},
+});
 
-			if (shouldSnapshot) {
-				t.snapshot(actual);
-			} else {
-				//console.dir(actual, { depth: null });
-				t.pass();
-			}
-		},
-	);
-}
+test.serial(smaliFromDexMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', 'pl/czak/minimal/MainActivity', true);
+test.serial(smaliFromDexMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', 'd/m', true);
+test.skip(smaliFromDexMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', 'com/journeyapps/barcodescanner/CaptureActivity', true);
+// test.skip(smaliFromDexMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '', false);

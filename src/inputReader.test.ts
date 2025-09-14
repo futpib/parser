@@ -396,43 +396,10 @@ async function inputReaderStateToArray<Sequence>({
 	];
 }
 
-for (const [
-	input,
-	position,
-	expected,
-] of [
-	[
-		[ '', 'abc', 'def', '', 'gh' ],
-		0,
-		[ END_OF_CONSUMED_SEQUENCES, 'abc', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ],
-	],
-	[
-		[ '', 'abc', 'def', '', 'gh' ],
-		1,
-		[ 'a', END_OF_CONSUMED_SEQUENCES, 'bc', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ],
-	],
-	[
-		[ '', 'abc', 'def', '', 'gh' ],
-		2,
-		[ 'ab', END_OF_CONSUMED_SEQUENCES, 'c', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ],
-	],
-	[
-		[ '', 'abc', 'def', '', 'gh' ],
-		3,
-		[ END_OF_CONSUMED_SEQUENCES, 'def', END_OF_BUFFERED_SEQUENCES, '', 'gh' ],
-	],
-	[
-		[ '', 'abc', 'def', '', 'gh' ],
-		4,
-		[ 'd', END_OF_CONSUMED_SEQUENCES, 'ef', END_OF_BUFFERED_SEQUENCES, '', 'gh' ],
-	],
-	[
-		[ '', 'abc', 'def', '', 'gh' ],
-		8,
-		[ END_OF_CONSUMED_SEQUENCES, END_OF_BUFFERED_SEQUENCES ],
-	],
-] as const) {
-	test('inputReader.toInputReaderState ' + JSON.stringify({ input, position }), async t => {
+const inputReaderStateMacro = test.macro({
+	title: (providedTitle, input: readonly string[], position: number) =>
+		providedTitle ?? `inputReader.toInputReaderState ${JSON.stringify({ input, position })}`,
+	async exec(t, input: readonly string[], position: number, expected: readonly (string | symbol)[]) {
 		const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 			yield * input;
 		})());
@@ -443,5 +410,12 @@ for (const [
 		const actual = await inputReaderStateToArray(inputReader.toInputReaderState());
 
 		t.deepEqual(actual, expected);
-	});
-}
+	},
+});
+
+test(inputReaderStateMacro, [ '', 'abc', 'def', '', 'gh' ], 0, [ END_OF_CONSUMED_SEQUENCES, 'abc', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ]);
+test(inputReaderStateMacro, [ '', 'abc', 'def', '', 'gh' ], 1, [ 'a', END_OF_CONSUMED_SEQUENCES, 'bc', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ]);
+test(inputReaderStateMacro, [ '', 'abc', 'def', '', 'gh' ], 2, [ 'ab', END_OF_CONSUMED_SEQUENCES, 'c', END_OF_BUFFERED_SEQUENCES, 'def', '', 'gh' ]);
+test(inputReaderStateMacro, [ '', 'abc', 'def', '', 'gh' ], 3, [ END_OF_CONSUMED_SEQUENCES, 'def', END_OF_BUFFERED_SEQUENCES, '', 'gh' ]);
+test(inputReaderStateMacro, [ '', 'abc', 'def', '', 'gh' ], 4, [ 'd', END_OF_CONSUMED_SEQUENCES, 'ef', END_OF_BUFFERED_SEQUENCES, '', 'gh' ]);
+test(inputReaderStateMacro, [ '', 'abc', 'def', '', 'gh' ], 8, [ END_OF_CONSUMED_SEQUENCES, END_OF_BUFFERED_SEQUENCES ]);
