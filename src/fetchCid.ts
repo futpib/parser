@@ -47,9 +47,7 @@ class FsCache {
 		try {
 			const file = await fsPromises.open(this._getKeyPath(key), 'r');
 
-			const stream = file.readableWebStream({
-				type: 'bytes',
-			}) as ReadableStream<Uint8Array>;
+			const stream = file.readableWebStream() as ReadableStream<Uint8Array>;
 
 			const streamWithClose = readableWebStreamOnFinish(stream, () => {
 				file.close();
@@ -108,9 +106,7 @@ export async function fetchCid(cidOrPath: string): Promise<AsyncIterable<Uint8Ar
 	if (cidOrPath.includes('/')) {
 		const file = await fsPromises.open(cidOrPath, 'r');
 
-		const stream = file.readableWebStream({
-			type: 'bytes',
-		}) as ReadableStream<Uint8Array>;
+		const stream = file.readableWebStream() as ReadableStream<Uint8Array>;
 
 		const streamWithClose = readableWebStreamOnFinish(stream, () => {
 			file.close();
