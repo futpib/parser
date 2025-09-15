@@ -2634,6 +2634,40 @@ const createDalvikExecutableParser = <Instructions>({
 				return annotationSetItem?.entries.map(resolveAnnotationOffsetItem);
 			}
 
+			function resolveAnnotationElements(annotation: DalvikExecutableAnnotation) {
+				if (annotation.elements.length === 0) {
+					return annotation;
+				}
+
+				if (annotation.type === 'Ldalvik/annotation/Throws;') {
+					const elements = annotation.elements.map((element) => {
+						if (
+							element.name !== 'value'
+								|| !Array.isArray(element.value)
+						) {
+							return element;
+						}
+
+						const value = element.value.map((encodedValue) => {
+							if (typeof encodedValue !== 'number') {
+								return encodedValue;
+							}
+
+							const type = types.at(isoIndexIntoTypeIds.wrap(encodedValue));
+							invariant(type, 'Type must be there. Type id: %s', encodedValue);
+
+							return type;
+						});
+
+						return { ...element, value };
+					});
+
+					return { ...annotation, elements };
+				}
+
+				return annotation;
+			}
+
 			const classDefinitions = classDefinitionItems.map((classDefinitionItem) => {
 				const class_ = types.at(classDefinitionItem.classIndex);
 				invariant(class_, 'Class must be there. Class id: %s', classDefinitionItem.classIndex);
@@ -2702,7 +2736,7 @@ const createDalvikExecutableParser = <Instructions>({
 							return [];
 						}
 
-						return { method, annotations };
+						return { method, annotations: annotations.map(resolveAnnotationElements) };
 					});
 
 					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.flatMap((parameterAnnotation) => {

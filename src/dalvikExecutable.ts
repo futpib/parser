@@ -110,7 +110,7 @@ type DalvikExecutableAnnotationItemVisibility =
 
 type DalvikExecutableAnnotationElement = {
 	name: string;
-	value: DalvikExecutableEncodedValue;
+	value: DalvikExecutableEncodedValue | (DalvikExecutableEncodedValue | string)[];
 };
 
 export type DalvikExecutableAnnotation = {

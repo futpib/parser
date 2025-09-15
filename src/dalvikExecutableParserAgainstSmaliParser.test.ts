@@ -167,6 +167,106 @@ const smali = `
     .end param
     .annotation build Landroid/annotation/NonNull;
     .end annotation
+
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Ljava/lang/ClassNotFoundException;,
+            Ljava/lang/IllegalAccessException;,
+            Ljava/lang/InstantiationException;
+        }
+    .end annotation
+.end method
+
+.method public native synthetic instantiateApplication(Ljava/lang/ClassLoader;Ljava/lang/String;)Landroid/app/Application;
+    .param p1    # Ljava/lang/ClassLoader;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .param p2    # Ljava/lang/String;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .annotation build Landroid/annotation/NonNull;
+    .end annotation
+
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Ljava/lang/ClassNotFoundException;,
+            Ljava/lang/IllegalAccessException;,
+            Ljava/lang/InstantiationException;
+        }
+    .end annotation
+.end method
+
+.method public native synthetic instantiateProvider(Ljava/lang/ClassLoader;Ljava/lang/String;)Landroid/content/ContentProvider;
+    .param p1    # Ljava/lang/ClassLoader;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .param p2    # Ljava/lang/String;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .annotation build Landroid/annotation/NonNull;
+    .end annotation
+
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Ljava/lang/ClassNotFoundException;,
+            Ljava/lang/IllegalAccessException;,
+            Ljava/lang/InstantiationException;
+        }
+    .end annotation
+.end method
+
+.method public native synthetic instantiateReceiver(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Intent;)Landroid/content/BroadcastReceiver;
+    .param p1    # Ljava/lang/ClassLoader;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .param p2    # Ljava/lang/String;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .param p3    # Landroid/content/Intent;
+        .annotation build Landroid/annotation/Nullable;
+        .end annotation
+    .end param
+    .annotation build Landroid/annotation/NonNull;
+    .end annotation
+
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Ljava/lang/ClassNotFoundException;,
+            Ljava/lang/IllegalAccessException;,
+            Ljava/lang/InstantiationException;
+        }
+    .end annotation
+.end method
+
+.method public native synthetic instantiateService(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Intent;)Landroid/app/Service;
+    .param p1    # Ljava/lang/ClassLoader;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .param p2    # Ljava/lang/String;
+        .annotation build Landroid/annotation/NonNull;
+        .end annotation
+    .end param
+    .param p3    # Landroid/content/Intent;
+        .annotation build Landroid/annotation/Nullable;
+        .end annotation
+    .end param
+    .annotation build Landroid/annotation/NonNull;
+    .end annotation
+
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Ljava/lang/ClassNotFoundException;,
+            Ljava/lang/IllegalAccessException;,
+            Ljava/lang/InstantiationException;
+        }
+    .end annotation
 .end method
 `;
 

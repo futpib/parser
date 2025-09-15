@@ -405,9 +405,83 @@ const smaliCodeRegistersParser: Parser<number, string> = promiseCompose(
 
 setParserName(smaliCodeRegistersParser, 'smaliCodeRegistersParser');
 
+type SmaliAnnotationElement = unknown; // TODO
+
+const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
+	createTupleParser([
+		smaliIdentifierParser,
+		createExactSequenceParser(' = '),
+		createUnionParser([
+			smaliTypeDescriptorParser,
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('{\n'),
+					createSeparatedArrayParser(
+						promiseCompose(
+							createTupleParser([
+								smaliIndentationParser,
+								smaliTypeDescriptorParser,
+							]),
+							([
+								_indentation,
+								value,
+							]) => value,
+						),
+						createExactSequenceParser(',\n'),
+					),
+					createExactSequenceParser('\n'),
+					smaliIndentationParser,
+					createExactSequenceParser('}'),
+				]),
+				([
+					_openBrace,
+					value,
+					_closeBrace,
+				]) => value,
+			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('{\n'),
+					createSeparatedArrayParser(
+						promiseCompose(
+							createTupleParser([
+								smaliIndentationParser,
+								smaliQuotedStringParser,
+							]),
+							([
+								_indentation,
+								value,
+							]) => value,
+						),
+						createExactSequenceParser(',\n'),
+					),
+					createExactSequenceParser('\n'),
+					smaliIndentationParser,
+					createExactSequenceParser('}'),
+				]),
+				([
+					_openBrace,
+					value,
+					_closeBrace,
+				]) => value,
+			),
+		]),
+		createExactSequenceParser('\n'),
+	]),
+	([
+		name,
+		_equalsSign,
+		value,
+		_newline,
+	]) => ({
+		name,
+		value,
+	}),
+);
+
 type SmaliAnnotation = {
 	type: string;
-	value: unknown; // TODO
+	elements: SmaliAnnotationElement[];
 	visibility: 'build' | 'runtime' | 'system';
 };
 
@@ -424,73 +498,8 @@ export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCom
 		smaliTypeDescriptorParser,
 		createExactSequenceParser('\n'),
 		smaliIndentationParser,
-		createOptionalParser(
-			promiseCompose(
-				createTupleParser([
-					createExactSequenceParser('value = '),
-					createUnionParser([
-						smaliTypeDescriptorParser,
-						promiseCompose(
-							createTupleParser([
-								createExactSequenceParser('{\n'),
-								createSeparatedArrayParser(
-									promiseCompose(
-										createTupleParser([
-											smaliIndentationParser,
-											smaliTypeDescriptorParser,
-										]),
-										([
-											_indentation,
-											value,
-										]) => value,
-									),
-									createExactSequenceParser(',\n'),
-								),
-								createExactSequenceParser('\n'),
-								smaliIndentationParser,
-								createExactSequenceParser('}'),
-							]),
-							([
-								_openBrace,
-								value,
-								_closeBrace,
-							]) => value,
-						),
-						promiseCompose(
-							createTupleParser([
-								createExactSequenceParser('{\n'),
-								createSeparatedArrayParser(
-									promiseCompose(
-										createTupleParser([
-											smaliIndentationParser,
-											smaliQuotedStringParser,
-										]),
-										([
-											_indentation,
-											value,
-										]) => value,
-									),
-									createExactSequenceParser(',\n'),
-								),
-								createExactSequenceParser('\n'),
-								smaliIndentationParser,
-								createExactSequenceParser('}'),
-							]),
-							([
-								_openBrace,
-								value,
-								_closeBrace,
-							]) => value,
-						),
-					]),
-					createExactSequenceParser('\n'),
-				]),
-				([
-					_indentation,
-					value,
-					_newline,
-				]) => value,
-			),
+		createArrayParser(
+			smaliAnnotationElementParser,
 		),
 		smaliIndentationParser,
 		createExactSequenceParser('.end annotation\n'),
@@ -503,11 +512,11 @@ export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCom
 		type,
 		_newline,
 		_indentation1,
-		value,
+		elements,
 		_endAnnotation,
 	]) => ({
 		type,
-		value,
+		elements,
 		visibility,
 	}),
 );
@@ -1324,7 +1333,7 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 					annotations: method.methodAnnotations.map((annotation) => ({
 						type: annotation.type,
 						visibility: annotation.visibility,
-						elements: annotation.value as any ?? [], // TODO
+						elements: annotation.elements as any ?? [], // TODO
 					})),
 				});
 			}
@@ -1334,7 +1343,7 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 				annotations: method.parameterAnnotations.map((parameterAnnotation) => [{
 					type: parameterAnnotation.annotation!.type, // TODO
 					visibility: parameterAnnotation.annotation!.visibility, // TODO
-					elements: parameterAnnotation.annotation?.value as any ?? [], // TODO
+					elements: parameterAnnotation.annotation?.elements as any ?? [], // TODO
 				}]),
 			});
 

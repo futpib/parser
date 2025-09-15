@@ -82,7 +82,7 @@ stringParserTest(smaliCodeParameterParser, [
 			annotation: {
 				visibility: 'build',
 				type: 'Landroid/annotation/NonNull;',
-				value: undefined,
+				elements: [],
 			},
 		},
 	],
@@ -135,10 +135,15 @@ stringParserTest(smaliAnnotationParser, [
 		{
 			visibility: 'system',
 			type: 'Ldalvik/annotation/Signature;',
-			value: [
-				'<T:',
-				'Landroid/view/View;',
-				'>(I)TT;',
+			elements: [
+				{
+					name: 'value',
+					value: [
+						'<T:',
+						'Landroid/view/View;',
+						'>(I)TT;',
+					],
+				},
 			],
 		},
 	],
@@ -149,7 +154,7 @@ stringParserTest(smaliAnnotationParser, [
 		{
 			visibility: 'build',
 			type: 'Landroid/annotation/NonNull;',
-			value: undefined,
+			elements: [],
 		},
 	],
 ]);
