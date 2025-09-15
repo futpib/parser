@@ -6,16 +6,7 @@ import { createSliceBoundedParser } from './sliceBoundedParser.js';
 import { runParser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { createExactElementParser } from './exactElementParser.js';
-
-async function stringFromAsyncIterable(asyncIterable: AsyncIterable<string>) {
-	let string = '';
-
-	for await (const chunk of asyncIterable) {
-		string += chunk;
-	}
-
-	return string;
-}
+import { stringFromAsyncIterable } from './stringFromAsyncIterable.js';
 
 const anythingParser = createArrayParser(createElementParser<string>());
 

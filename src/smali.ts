@@ -10,11 +10,15 @@ export async function smaliClass(
 
 	await fs.writeFile(inputFilePath, smaliStream);
 
-	await execa('smali', [
+	const smaliResult = await execa('smali', [
 		'assemble',
 		'--output', outputFilePath,
 		inputFilePath,
 	]);
+
+	if (smaliResult.stderr) {
+		throw new Error(`smali error: ${smaliResult.stderr}`);
+	}
 
 	await fs.unlink(inputFilePath);
 

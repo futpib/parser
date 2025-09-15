@@ -1,6 +1,6 @@
 import invariant from "invariant";
 import { DalvikBytecode, DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from "./dalvikBytecodeParser.js";
-import { DalvikExecutableAccessFlags, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassDefinition, DalvikExecutableClassMethodAnnotation, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableField, DalvikExecutableFieldWithAccess, DalvikExecutableMethod, dalvikExecutableMethodEquals, DalvikExecutableMethodWithAccess, DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod } from "./dalvikExecutable.js";
+import { DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassDefinition, DalvikExecutableClassMethodAnnotation, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableField, DalvikExecutableFieldWithAccess, DalvikExecutableMethod, dalvikExecutableMethodEquals, DalvikExecutableMethodWithAccess, DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod } from "./dalvikExecutable.js";
 import { createExactSequenceParser } from "./exactSequenceParser.js";
 import { cloneParser, Parser, setParserName } from "./parser.js";
 import { ParserContext } from "./parserContext.js";
@@ -17,6 +17,7 @@ import { smaliMemberNameParser, smaliTypeDescriptorParser } from "./dalvikExecut
 import { createDisjunctionParser } from "./disjunctionParser.js";
 import { formatSizes } from "./dalvikBytecodeParser/formatSizes.js";
 import { operationFormats } from "./dalvikBytecodeParser/operationFormats.js";
+import { createSeparatedNonEmptyArrayParser } from "./separatedNonEmptyArrayParser.js";
 
 const smaliNewlinesParser: Parser<void, string> = promiseCompose(
 	createNonEmptyArrayParser(createExactSequenceParser('\n')),
@@ -145,27 +146,7 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 		smaliSingleWhitespaceParser,
 	),
 	(accessFlagNames) => {
-		const accessFlags = {
-			public: false,
-			private: false,
-			protected: false,
-			static: false,
-			final: false,
-			synchronized: false,
-			volatile: false,
-			bridge: false,
-			transient: false,
-			varargs: false,
-			native: false,
-			interface: false,
-			abstract: false,
-			strict: false,
-			synthetic: false,
-			annotation: false,
-			enum: false,
-			constructor: false,
-			declaredSynchronized: false,
-		};
+		const accessFlags = dalvikExecutableAccessFlagsDefault();
 
 		for (const accessFlagName of accessFlagNames) {
 			accessFlags[accessFlagName] = true;
@@ -179,18 +160,25 @@ const smaliClassDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<u
 	createTupleParser([
 		smaliCommentsOrNewlinesParser,
 		createExactSequenceParser('.class '),
-		smaliAccessFlagsParser,
-		smaliSingleWhitespaceParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					smaliAccessFlagsParser,
+					smaliSingleWhitespaceParser,
+				]),
+				([
+					accessFlags,
+				]) => accessFlags,
+			),
+		),
 		smaliTypeDescriptorParser,
 		createExactSequenceParser('\n'),
 	]),
 	([
 		_commentsOrNewlines,
 		_dotClass,
-		accessFlags,
-		_space,
+		accessFlags = dalvikExecutableAccessFlagsDefault(),
 		classPath,
-		_newline,
 	]) => ({
 		accessFlags,
 		class: classPath,
@@ -280,11 +268,9 @@ setParserName(smaliFieldParser, 'smaliFieldParser');
 type SmaliFields = Pick<DalvikExecutableClassData<DalvikBytecode>, 'instanceFields' | 'staticFields'>;
 
 const smaliFieldsParser: Parser<SmaliFields, string> = promiseCompose(
-	createArrayParser<string[] | DalvikExecutableFieldWithAccess, string>(
-		createDisjunctionParser<string[] | DalvikExecutableFieldWithAccess, string, string>([
-			smaliFieldParser,
-			smaliCommentsOrNewlinesParser,
-		]),
+	createSeparatedNonEmptyArrayParser<string[] | DalvikExecutableFieldWithAccess, string>(
+		smaliFieldParser,
+		smaliCommentsOrNewlinesParser,
 	),
 	(fieldsAndComments) => {
 		let type: 'staticField' | 'instanceField' = 'instanceField';
@@ -1161,6 +1147,14 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 
 setParserName(smaliExecutableCodeParser, 'smaliExecutableCodeParser');
 
+function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeOperation {
+	if (operation.operation === 'if-eq') {
+		operation.registers.sort();
+	}
+
+	return operation;
+}
+
 type SmaliMethod<DalvikBytecode> = {
 	dalvikExecutableMethodWithAccess: DalvikExecutableMethodWithAccess<DalvikBytecode>;
 	parameterAnnotations: SmaliCodeParameter[];
@@ -1250,7 +1244,10 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 					prototype,
 					name,
 				},
-				code,
+				code: code ? {
+					...code,
+					instructions: code.instructions.map(normalizeOperation),
+				} : undefined,
 			},
 			parameterAnnotations,
 			methodAnnotations,
@@ -1380,8 +1377,18 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		smaliSourceDeclarationParser,
 		smaliCommentsOrNewlinesParser,
 		createArrayParser(smaliInterfaceDeclarationParser),
-		smaliCommentsOrNewlinesParser,
-		createOptionalParser(smaliFieldsParser),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					smaliCommentsOrNewlinesParser,
+					smaliFieldsParser,
+				]),
+				([
+					_commentsOrNewlines,
+					fields,
+				]) => fields,
+			),
+		),
 		smaliMethodsParser,
 	]),
 	([
@@ -1397,7 +1404,6 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		},
 		_commentsOrNewlines0,
 		interfaces,
-		_commentsOrNewlines1,
 		fields,
 		methods,
 	]) => {

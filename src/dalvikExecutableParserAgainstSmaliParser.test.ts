@@ -121,152 +121,41 @@ test.serial(parseDexAgainstSmaliMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoiji
 	isolate: true,
 });
 
-test.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', 'android/app/AppComponentFactory');
+test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	smaliFilePath: 'androidx/lifecycle/b0',
+	isolate: true,
+});
 
-test.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
+test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	smaliFilePath: 'android/app/AppComponentFactory',
+	isolate: true,
+});
+
+test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
 const smali = `
-.class public synthetic Landroid/app/AppComponentFactory;
+.class Landroidx/viewpager2/adapter/FragmentStateAdapter$5;
 .super Ljava/lang/Object;
 .source "SourceFile"
 
-
-# direct methods
-.method static synthetic constructor <clinit>()V
-    .registers 1
-
-    new-instance v0, Ljava/lang/NoClassDefFoundError;
-
-    invoke-direct {v0}, Ljava/lang/NoClassDefFoundError;-><init>()V
-
-    throw v0
-.end method
-
-.method public synthetic constructor <init>()V
-    .registers 1
-
-    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
-
-    return-void
-.end method
+# interfaces
+.implements Landroidx/lifecycle/o;
 
 
 # virtual methods
-.method public native synthetic instantiateActivity(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Intent;)Landroid/app/Activity;
-    .param p1    # Ljava/lang/ClassLoader;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p2    # Ljava/lang/String;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p3    # Landroid/content/Intent;
-        .annotation build Landroid/annotation/Nullable;
-        .end annotation
-    .end param
-    .annotation build Landroid/annotation/NonNull;
-    .end annotation
+.method public final g(Landroidx/lifecycle/q;Landroidx/lifecycle/j$b;)V
+    .registers 3
 
-    .annotation system Ldalvik/annotation/Throws;
-        value = {
-            Ljava/lang/ClassNotFoundException;,
-            Ljava/lang/IllegalAccessException;,
-            Ljava/lang/InstantiationException;
-        }
-    .end annotation
-.end method
+    sget-object p1, Landroidx/lifecycle/j$b;->ON_DESTROY:Landroidx/lifecycle/j$b;
 
-.method public native synthetic instantiateApplication(Ljava/lang/ClassLoader;Ljava/lang/String;)Landroid/app/Application;
-    .param p1    # Ljava/lang/ClassLoader;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p2    # Ljava/lang/String;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .annotation build Landroid/annotation/NonNull;
-    .end annotation
+    if-eq p2, p1, :cond_5
 
-    .annotation system Ldalvik/annotation/Throws;
-        value = {
-            Ljava/lang/ClassNotFoundException;,
-            Ljava/lang/IllegalAccessException;,
-            Ljava/lang/InstantiationException;
-        }
-    .end annotation
-.end method
+    return-void
 
-.method public native synthetic instantiateProvider(Ljava/lang/ClassLoader;Ljava/lang/String;)Landroid/content/ContentProvider;
-    .param p1    # Ljava/lang/ClassLoader;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p2    # Ljava/lang/String;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .annotation build Landroid/annotation/NonNull;
-    .end annotation
+    :cond_5
+    const/4 p1, 0x0
 
-    .annotation system Ldalvik/annotation/Throws;
-        value = {
-            Ljava/lang/ClassNotFoundException;,
-            Ljava/lang/IllegalAccessException;,
-            Ljava/lang/InstantiationException;
-        }
-    .end annotation
-.end method
-
-.method public native synthetic instantiateReceiver(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Intent;)Landroid/content/BroadcastReceiver;
-    .param p1    # Ljava/lang/ClassLoader;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p2    # Ljava/lang/String;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p3    # Landroid/content/Intent;
-        .annotation build Landroid/annotation/Nullable;
-        .end annotation
-    .end param
-    .annotation build Landroid/annotation/NonNull;
-    .end annotation
-
-    .annotation system Ldalvik/annotation/Throws;
-        value = {
-            Ljava/lang/ClassNotFoundException;,
-            Ljava/lang/IllegalAccessException;,
-            Ljava/lang/InstantiationException;
-        }
-    .end annotation
-.end method
-
-.method public native synthetic instantiateService(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Intent;)Landroid/app/Service;
-    .param p1    # Ljava/lang/ClassLoader;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p2    # Ljava/lang/String;
-        .annotation build Landroid/annotation/NonNull;
-        .end annotation
-    .end param
-    .param p3    # Landroid/content/Intent;
-        .annotation build Landroid/annotation/Nullable;
-        .end annotation
-    .end param
-    .annotation build Landroid/annotation/NonNull;
-    .end annotation
-
-    .annotation system Ldalvik/annotation/Throws;
-        value = {
-            Ljava/lang/ClassNotFoundException;,
-            Ljava/lang/IllegalAccessException;,
-            Ljava/lang/InstantiationException;
-        }
-    .end annotation
+    throw p1
 .end method
 `;
 

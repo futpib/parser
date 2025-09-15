@@ -20,6 +20,7 @@ import { createExactSequenceNaiveParser } from './exactSequenceParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createElementParser } from './elementParser.js';
 import { toAsyncIterable } from './toAsyncIterable.js';
+import { stringFromAsyncIterable } from './stringFromAsyncIterable.js';
 
 const aUnionParser = createUnionParser<string, string>([
 	createExactSequenceNaiveParser('1'),
@@ -52,16 +53,6 @@ const sampleParser = promiseCompose(
 
 async function * asyncIteratorFromString(string: string) {
 	yield string;
-}
-
-async function stringFromAsyncIterable(asyncIterable: AsyncIterable<string>) {
-	let string = '';
-
-	for await (const chunk of asyncIterable) {
-		string += chunk;
-	}
-
-	return string;
 }
 
 function sortChildErrors(error: ParserParsingJoinNoneError) {

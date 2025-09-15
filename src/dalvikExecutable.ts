@@ -21,6 +21,30 @@ export type DalvikExecutableAccessFlags = {
 	declaredSynchronized: boolean,
 };
 
+export function dalvikExecutableAccessFlagsDefault(): DalvikExecutableAccessFlags {
+	return {
+		public: false,
+		private: false,
+		protected: false,
+		static: false,
+		final: false,
+		synchronized: false,
+		volatile: false,
+		bridge: false,
+		transient: false,
+		varargs: false,
+		native: false,
+		interface: false,
+		abstract: false,
+		strict: false,
+		synthetic: false,
+		annotation: false,
+		enum: false,
+		constructor: false,
+		declaredSynchronized: false,
+	};
+}
+
 export type DalvikExecutableEncodedValue = number | DalvikExecutableEncodedValue[] | undefined;
 
 type DalvikExecutableTry = {
