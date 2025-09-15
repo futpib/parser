@@ -168,6 +168,17 @@ export function isDalvikExecutableMethod(x: unknown): x is DalvikExecutableMetho
 	);
 }
 
+export function dalvikExecutableMethodEquals(a: DalvikExecutableMethod, b: DalvikExecutableMethod): boolean {
+	return (
+		a.class === b.class
+			&& a.name === b.name
+			&& a.prototype.shorty === b.prototype.shorty
+			&& a.prototype.returnType === b.prototype.returnType
+			&& a.prototype.parameters.length === b.prototype.parameters.length
+			&& a.prototype.parameters.every((v, i) => v === b.prototype.parameters[i])
+	);
+}
+
 export type DalvikExecutableMethodWithAccess<Instructions> = {
 	method: DalvikExecutableMethod;
 	accessFlags: DalvikExecutableAccessFlags;
@@ -186,11 +197,11 @@ export type DalvikExecutableClassMethodAnnotation = {
 
 export type DalvikExecutableClassParameterAnnotation = {
 	method: DalvikExecutableMethod;
-	annotations: undefined | (undefined | DalvikExecutableAnnotation[])[];
+	annotations: DalvikExecutableAnnotation[][];
 };
 
 export type DalvikExecutableClassAnnotations = {
-	classAnnotations: undefined | DalvikExecutableAnnotation[];
+	classAnnotations: DalvikExecutableAnnotation[];
 	fieldAnnotations: DalvikExecutableClassFieldAnnotation[];
 	methodAnnotations: DalvikExecutableClassMethodAnnotation[];
 	parameterAnnotations: DalvikExecutableClassParameterAnnotation[];

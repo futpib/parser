@@ -1,6 +1,6 @@
 import invariant from "invariant";
 import { DalvikBytecode, DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from "./dalvikBytecodeParser.js";
-import { DalvikExecutableAccessFlags, DalvikExecutableClassData, DalvikExecutableClassDefinition, DalvikExecutableCode, DalvikExecutableField, DalvikExecutableFieldWithAccess, DalvikExecutableMethod, DalvikExecutableMethodWithAccess, DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod } from "./dalvikExecutable.js";
+import { DalvikExecutableAccessFlags, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassDefinition, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableField, DalvikExecutableFieldWithAccess, DalvikExecutableMethod, dalvikExecutableMethodEquals, DalvikExecutableMethodWithAccess, DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod } from "./dalvikExecutable.js";
 import { createExactSequenceParser } from "./exactSequenceParser.js";
 import { cloneParser, Parser, setParserName } from "./parser.js";
 import { ParserContext } from "./parserContext.js";
@@ -405,11 +405,17 @@ const smaliCodeRegistersParser: Parser<number, string> = promiseCompose(
 
 setParserName(smaliCodeRegistersParser, 'smaliCodeRegistersParser');
 
-export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
+type SmaliAnnotation = {
+	type: string;
+	value: unknown; // TODO
+	visibility: 'build' | 'runtime' | 'system';
+};
+
+export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCompose(
 	createTupleParser([
 		smaliIndentationParser,
 		createExactSequenceParser('.annotation '),
-		createUnionParser([
+		createUnionParser<'build' | 'runtime' | 'system', string, string>([
 			createExactSequenceParser('build'),
 			createExactSequenceParser('runtime'),
 			createExactSequenceParser('system'),
@@ -492,7 +498,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 	([
 		_indentation0,
 		_annotation,
-		_accessFlags,
+		visibility,
 		_space,
 		type,
 		_newline,
@@ -502,7 +508,7 @@ export const smaliAnnotationParser: Parser<unknown, string> = promiseCompose(
 	]) => ({
 		type,
 		value,
-		// accessFlags,
+		visibility,
 	}),
 );
 
@@ -585,7 +591,12 @@ const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
 
 setParserName(smaliCodeLocalParser, 'smaliCodeLocalParser');
 
-export const smaliCodeParameterParser: Parser<SmaliRegister, string> = promiseCompose(
+type SmaliCodeParameter = {
+	register: SmaliRegister;
+	annotation: SmaliAnnotation | undefined;
+};
+
+export const smaliCodeParameterParser: Parser<SmaliCodeParameter, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .param '),
 		smaliParametersRegisterParser,
@@ -609,11 +620,23 @@ export const smaliCodeParameterParser: Parser<SmaliRegister, string> = promiseCo
 	]),
 	([
 		_param,
-		parameterRegister,
-		_newparam,
+		register,
+		_optionalCommaAndString,
 		_whitespace,
 		_commentOrNewline,
-	]) => parameterRegister,
+		optionalAnnotation,
+	]) => {
+		let annotation: undefined | SmaliAnnotation;
+
+		if (optionalAnnotation) {
+			annotation = optionalAnnotation[0];
+		}
+
+		return {
+			register,
+			annotation,
+		};
+	},
 );
 
 setParserName(smaliCodeParameterParser, 'smaliCodeParameterParser');
@@ -983,7 +1006,12 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 
 setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
 
-const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, string> = promiseCompose(
+type SmaliExecutableCode<DalvikBytecode> = {
+	dalvikExecutableCode: DalvikExecutableCode<DalvikBytecode>;
+	parameterAnnotations: SmaliCodeParameter[];
+};
+
+const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, string> = promiseCompose(
 	createTupleParser([
 		createOptionalParser(
 			smaliCodeRegistersParser,
@@ -1104,20 +1132,28 @@ const smaliExecutableCodeParser: Parser<DalvikExecutableCode<DalvikBytecode>, st
 		}
 
 		return {
-			registersSize,
-			insSize: -1, // TODO
-			outsSize: -1, // TODO
-			debugInfo: undefined, // TODO
-			instructions,
-			tries: [], // TODO
-			// _annotations,
+			dalvikExecutableCode: {
+				registersSize,
+				insSize: -1, // TODO
+				outsSize: -1, // TODO
+				debugInfo: undefined, // TODO
+				instructions,
+				tries: [], // TODO
+				// _annotations,
+			},
+			parameterAnnotations: parameters,
 		};
 	},
 );
 
 setParserName(smaliExecutableCodeParser, 'smaliExecutableCodeParser');
 
-export const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBytecode>, string> = promiseCompose(
+type SmaliMethod<DalvikBytecode> = {
+	dalvikExecutableMethodWithAccess: DalvikExecutableMethodWithAccess<DalvikBytecode>;
+	parameterAnnotations: SmaliCodeParameter[];
+};
+
+export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('.method '),
 		smaliAccessFlagsParser,
@@ -1136,11 +1172,14 @@ export const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBy
 		name,
 		prototype,
 		_newline,
-		executableCode,
+		{
+			dalvikExecutableCode,
+			parameterAnnotations,
+		},
 		_lines,
 		_endMethod,
 	]) => {
-		let code: DalvikExecutableCode<DalvikBytecode> | undefined = executableCode;
+		let code: DalvikExecutableCode<DalvikBytecode> | undefined = dalvikExecutableCode;
 
 		if (accessFlags.native && !code.instructions.length) {
 			code = undefined;
@@ -1189,24 +1228,29 @@ export const smaliMethodParser: Parser<DalvikExecutableMethodWithAccess<DalvikBy
 		}
 
 		return {
-			accessFlags,
-			method: {
-				class: 'FILLED_LATER',
-				prototype,
-				name,
+			dalvikExecutableMethodWithAccess: {
+				accessFlags,
+				method: {
+					class: 'FILLED_LATER',
+					prototype,
+					name,
+				},
+				code,
 			},
-			code,
+			parameterAnnotations,
 		};
 	},
 );
 
 setParserName(smaliMethodParser, 'smaliMethodParser');
 
-type SmaliMethods = Pick<DalvikExecutableClassData<DalvikBytecode>, 'directMethods' | 'virtualMethods'>;
+type SmaliMethods = Pick<DalvikExecutableClassData<DalvikBytecode>, 'directMethods' | 'virtualMethods'> & {
+	parameterAnnotations: DalvikExecutableClassParameterAnnotation[];
+};
 
 const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
-	createArrayParser<string[] | DalvikExecutableMethodWithAccess<DalvikBytecode>, string>(
-		createDisjunctionParser<string[] | DalvikExecutableMethodWithAccess<DalvikBytecode>, string, string>([
+	createArrayParser<string[] | SmaliMethod<DalvikBytecode>, string>(
+		createDisjunctionParser<string[] | SmaliMethod<DalvikBytecode>, string, string>([
 			smaliMethodParser,
 			smaliCommentsOrNewlinesParser,
 		]),
@@ -1216,6 +1260,35 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 
 		const directMethods: DalvikExecutableMethodWithAccess<DalvikBytecode>[] = [];
 		const virtualMethods: DalvikExecutableMethodWithAccess<DalvikBytecode>[] = [];
+
+		const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = [];
+
+		function pushParameterAnnotation(annotation: DalvikExecutableClassParameterAnnotation) {
+			if (annotation.annotations.length === 0) {
+				return;
+			}
+
+			const existingMethod = parameterAnnotations.find((parameterAnnotation) => dalvikExecutableMethodEquals(
+				parameterAnnotation.method,
+				annotation.method,
+			));
+
+			if (existingMethod) {
+				for (const [ index, paramAnnotations ] of annotation.annotations.entries()) {
+					const existingParamAnnotations = existingMethod.annotations.at(index);
+
+					if (existingParamAnnotations) {
+						existingParamAnnotations.push(...paramAnnotations);
+					} else {
+						existingMethod.annotations[index] = paramAnnotations;
+					}
+				}
+
+				return;
+			}
+
+			parameterAnnotations.push(annotation);
+		}
 
 		for (const methodOrComment of methodsAndComments) {
 			if (Array.isArray(methodOrComment)) {
@@ -1234,16 +1307,25 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 
 			invariant(typeof methodOrComment === 'object', 'Expected method or comment');
 
-			const method = methodOrComment as DalvikExecutableMethodWithAccess<DalvikBytecode>;
+			const method = methodOrComment;
+
+			pushParameterAnnotation({
+				method: method.dalvikExecutableMethodWithAccess.method,
+				annotations: method.parameterAnnotations.map((parameterAnnotation) => [{
+					type: parameterAnnotation.annotation?.type as string, // TODO
+					visibility: parameterAnnotation.annotation?.visibility as any, // TODO
+					elements: parameterAnnotation.annotation?.value as any ?? [], // TODO
+				}]),
+			});
 
 			if (type === 'directMethod') {
-				directMethods.push(method);
+				directMethods.push(method.dalvikExecutableMethodWithAccess);
 
 				continue;
 			}
 
 			if (type === 'virtualMethod') {
-				virtualMethods.push(method);
+				virtualMethods.push(method.dalvikExecutableMethodWithAccess);
 
 				continue;
 			}
@@ -1254,6 +1336,7 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 		return {
 			directMethods,
 			virtualMethods,
+			parameterAnnotations,
 		};
 	}
 );
@@ -1287,45 +1370,74 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		_commentsOrNewlines1,
 		fields,
 		methods,
-	]) => ({
-		accessFlags,
-		class: class_,
-		superclass,
-		sourceFile,
-		annotations: undefined, // TODO
-		classData: {
-			directMethods: methods.directMethods.map((method) => ({
-				...method,
-				method: {
-					...method.method,
-					class: class_,
-				},
-			})),
-			virtualMethods: methods.virtualMethods.map((method) => ({
-				...method,
-				method: {
-					...method.method,
-					class: class_,
-				},
-			})),
-			staticFields: (fields?.staticFields ?? []).map((field) => ({
-				...field,
-				field: {
-					...field.field,
-					class: class_,
-				},
-			})),
-			instanceFields: (fields?.instanceFields ?? []).map((field) => ({
-				...field,
-				field: {
-					...field.field,
-					class: class_,
-				},
-			})),
-		},
-		interfaces,
-		staticValues: [], // TODO
-	}) as any, // TODO
+	]) => {
+		const annotations: DalvikExecutableClassAnnotations = {
+			classAnnotations: [], // TODO
+			fieldAnnotations: [], // TODO
+			methodAnnotations: [], // TODO
+			parameterAnnotations: methods.parameterAnnotations,
+		};
+
+		return {
+			accessFlags,
+			class: class_,
+			superclass,
+			sourceFile,
+			annotations: (
+				(
+					annotations.classAnnotations?.length
+						|| annotations.fieldAnnotations?.length
+						|| annotations.methodAnnotations?.length
+						|| annotations.parameterAnnotations?.length
+				)
+					? ({
+						classAnnotations: annotations.classAnnotations,
+						fieldAnnotations: annotations.fieldAnnotations,
+						methodAnnotations: annotations.methodAnnotations,
+						parameterAnnotations: annotations.parameterAnnotations.map((parameterAnnotation) => ({
+							...parameterAnnotation,
+							method: {
+								...parameterAnnotation.method,
+								class: class_,
+							},
+						})),
+					})
+					: undefined
+			),
+			classData: {
+				directMethods: methods.directMethods.map((method) => ({
+					...method,
+					method: {
+						...method.method,
+						class: class_,
+					},
+				})),
+				virtualMethods: methods.virtualMethods.map((method) => ({
+					...method,
+					method: {
+						...method.method,
+						class: class_,
+					},
+				})),
+				staticFields: (fields?.staticFields ?? []).map((field) => ({
+					...field,
+					field: {
+						...field.field,
+						class: class_,
+					},
+				})),
+				instanceFields: (fields?.instanceFields ?? []).map((field) => ({
+					...field,
+					field: {
+						...field.field,
+						class: class_,
+					},
+				})),
+			},
+			interfaces,
+			staticValues: [], // TODO
+		};
+	},
 );
 
 setParserName(smaliParser, 'smaliParser');

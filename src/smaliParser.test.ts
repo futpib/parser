@@ -52,15 +52,21 @@ stringParserTest(smaliCodeParameterParser, [
 	[
 		'    .param p1\n',
 		{
-			index: 1,
-			prefix: 'p',
+			register: {
+				index: 1,
+				prefix: 'p',
+			},
+			annotation: undefined,
 		},
 	],
 	[
 		'    .param p1, "savedInstanceState"    # Landroid/os/Bundle;\n',
 		{
-			index: 1,
-			prefix: 'p',
+			register: {
+				index: 1,
+				prefix: 'p',
+			},
+			annotation: undefined,
 		},
 	],
 	[
@@ -69,8 +75,15 @@ stringParserTest(smaliCodeParameterParser, [
         .end annotation
     .end param\n`,
 		{
-			index: 1,
-			prefix: 'p',
+			register: {
+				index: 1,
+				prefix: 'p',
+			},
+			annotation: {
+				visibility: 'build',
+				type: 'Landroid/annotation/NonNull;',
+				value: undefined,
+			},
 		},
 	],
 ]);
@@ -120,6 +133,7 @@ stringParserTest(smaliAnnotationParser, [
             .end annotation
 `,
 		{
+			visibility: 'system',
 			type: 'Ldalvik/annotation/Signature;',
 			value: [
 				'<T:',
@@ -133,6 +147,7 @@ stringParserTest(smaliAnnotationParser, [
         .end annotation
 `,
 		{
+			visibility: 'build',
 			type: 'Landroid/annotation/NonNull;',
 			value: undefined,
 		},

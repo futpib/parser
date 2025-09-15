@@ -2669,7 +2669,7 @@ const createDalvikExecutableParser = <Instructions>({
 						classAnnotationSetItem
 							? resolveAnnotationSetItem(classAnnotationSetItem)
 							: undefined
-					);
+					) ?? [];
 
 					const fieldAnnotations: DalvikExecutableClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.map((fieldAnnotation) => {
 						const field = fields.at(fieldAnnotation.fieldIndex);
@@ -2699,7 +2699,7 @@ const createDalvikExecutableParser = <Instructions>({
 						return { method, annotations: resolveAnnotationSetItem(annotationSetItem) };
 					});
 
-					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.map((parameterAnnotation) => {
+					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.flatMap((parameterAnnotation) => {
 						const method = methods.at(parameterAnnotation.methodIndex);
 						invariant(method, 'Method must be there. Method id: %s', parameterAnnotation.methodIndex);
 
@@ -2710,7 +2710,7 @@ const createDalvikExecutableParser = <Instructions>({
 							parameterAnnotation.annotationsOffset,
 						);
 
-						const annotations = annotationSetRefList?.list.map((annotationSetRefItem) => {
+						const annotations: DalvikExecutableClassParameterAnnotation['annotations'] = annotationSetRefList?.list.map((annotationSetRefItem) => {
 							const annotationSetItem = annotationSetItemByOffset.get(annotationSetRefItem);
 							invariant(
 								isoOffsetToAnnotationSetItem.unwrap(annotationSetRefItem) === 0 || annotationSetItem,
@@ -2718,8 +2718,14 @@ const createDalvikExecutableParser = <Instructions>({
 								annotationSetRefItem,
 							);
 
-							return resolveAnnotationSetItem(annotationSetItem);
-						});
+							const annotationSet = resolveAnnotationSetItem(annotationSetItem);
+
+							return annotationSet ?? [];
+						}) ?? [];
+
+						if (annotations.length === 0) {
+							return [];
+						}
 
 						return { method, annotations };
 					});
