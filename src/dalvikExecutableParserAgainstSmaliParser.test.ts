@@ -100,6 +100,13 @@ const parseDexAgainstSmaliMacro = test.macro({
 			}
 		});
 
+		// console.dir({
+		// 	classDefinitionFromSmali,
+		// 	classDefinitionFromDex,
+		// }, {
+		// 	depth: null,
+		// });
+
 		t.deepEqual(
 			classDefinitionFromDex,
 			classDefinitionFromSmali,
@@ -158,10 +165,12 @@ const smali = `
         .annotation build Landroid/annotation/Nullable;
         .end annotation
     .end param
+    .annotation build Landroid/annotation/NonNull;
+    .end annotation
 .end method
 `;
 
-test.serial.only(
+test.serial(
 	'parse(dex(smali)) againts parse(smali)',
 	async t => {
 		const hasSmali = await hasSmaliPromise;

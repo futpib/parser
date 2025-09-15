@@ -1,6 +1,6 @@
 import invariant from "invariant";
 import { DalvikBytecode, DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from "./dalvikBytecodeParser.js";
-import { DalvikExecutableAccessFlags, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassDefinition, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableField, DalvikExecutableFieldWithAccess, DalvikExecutableMethod, dalvikExecutableMethodEquals, DalvikExecutableMethodWithAccess, DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod } from "./dalvikExecutable.js";
+import { DalvikExecutableAccessFlags, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassDefinition, DalvikExecutableClassMethodAnnotation, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableField, DalvikExecutableFieldWithAccess, DalvikExecutableMethod, dalvikExecutableMethodEquals, DalvikExecutableMethodWithAccess, DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod } from "./dalvikExecutable.js";
 import { createExactSequenceParser } from "./exactSequenceParser.js";
 import { cloneParser, Parser, setParserName } from "./parser.js";
 import { ParserContext } from "./parserContext.js";
@@ -1008,7 +1008,8 @@ setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
 
 type SmaliExecutableCode<DalvikBytecode> = {
 	dalvikExecutableCode: DalvikExecutableCode<DalvikBytecode>;
-	parameterAnnotations: SmaliCodeParameter[];
+	parameterAnnotations: SmaliCodeParameter[]; // TODO?: SmaliAnnotation[]
+	methodAnnotations: SmaliAnnotation[];
 };
 
 const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, string> = promiseCompose(
@@ -1041,11 +1042,13 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 	]),
 	([
 		registersSize,
-		_annotations,
+		annotations1,
 		parameters,
-		_annotations2,
+		annotations2,
 		instructions,
 	]) => {
+		const annotations = [ ...annotations1, ...annotations2 ];
+
 		if (
 			registersSize === undefined
 				&& parameters !== undefined
@@ -1141,7 +1144,8 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				tries: [], // TODO
 				// _annotations,
 			},
-			parameterAnnotations: parameters,
+			parameterAnnotations: parameters.filter((param) => param.annotation !== undefined),
+			methodAnnotations: annotations,
 		};
 	},
 );
@@ -1151,6 +1155,7 @@ setParserName(smaliExecutableCodeParser, 'smaliExecutableCodeParser');
 type SmaliMethod<DalvikBytecode> = {
 	dalvikExecutableMethodWithAccess: DalvikExecutableMethodWithAccess<DalvikBytecode>;
 	parameterAnnotations: SmaliCodeParameter[];
+	methodAnnotations: SmaliAnnotation[];
 };
 
 export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = promiseCompose(
@@ -1175,6 +1180,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 		{
 			dalvikExecutableCode,
 			parameterAnnotations,
+			methodAnnotations,
 		},
 		_lines,
 		_endMethod,
@@ -1238,6 +1244,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 				code,
 			},
 			parameterAnnotations,
+			methodAnnotations,
 		};
 	},
 );
@@ -1246,6 +1253,7 @@ setParserName(smaliMethodParser, 'smaliMethodParser');
 
 type SmaliMethods = Pick<DalvikExecutableClassData<DalvikBytecode>, 'directMethods' | 'virtualMethods'> & {
 	parameterAnnotations: DalvikExecutableClassParameterAnnotation[];
+	methodAnnotations: DalvikExecutableClassMethodAnnotation[];
 };
 
 const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
@@ -1262,6 +1270,7 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 		const virtualMethods: DalvikExecutableMethodWithAccess<DalvikBytecode>[] = [];
 
 		const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = [];
+		const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = [];
 
 		function pushParameterAnnotation(annotation: DalvikExecutableClassParameterAnnotation) {
 			if (annotation.annotations.length === 0) {
@@ -1309,11 +1318,22 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 
 			const method = methodOrComment;
 
+			if (method.methodAnnotations.length) {
+				methodAnnotations.push({
+					method: method.dalvikExecutableMethodWithAccess.method,
+					annotations: method.methodAnnotations.map((annotation) => ({
+						type: annotation.type,
+						visibility: annotation.visibility,
+						elements: annotation.value as any ?? [], // TODO
+					})),
+				});
+			}
+
 			pushParameterAnnotation({
 				method: method.dalvikExecutableMethodWithAccess.method,
 				annotations: method.parameterAnnotations.map((parameterAnnotation) => [{
-					type: parameterAnnotation.annotation?.type as string, // TODO
-					visibility: parameterAnnotation.annotation?.visibility as any, // TODO
+					type: parameterAnnotation.annotation!.type, // TODO
+					visibility: parameterAnnotation.annotation!.visibility, // TODO
 					elements: parameterAnnotation.annotation?.value as any ?? [], // TODO
 				}]),
 			});
@@ -1337,6 +1357,7 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 			directMethods,
 			virtualMethods,
 			parameterAnnotations,
+			methodAnnotations,
 		};
 	}
 );
@@ -1374,7 +1395,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		const annotations: DalvikExecutableClassAnnotations = {
 			classAnnotations: [], // TODO
 			fieldAnnotations: [], // TODO
-			methodAnnotations: [], // TODO
+			methodAnnotations: methods.methodAnnotations,
 			parameterAnnotations: methods.parameterAnnotations,
 		};
 
@@ -1393,7 +1414,13 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 					? ({
 						classAnnotations: annotations.classAnnotations,
 						fieldAnnotations: annotations.fieldAnnotations,
-						methodAnnotations: annotations.methodAnnotations,
+						methodAnnotations: annotations.methodAnnotations.map((methodAnnotation) => ({
+							...methodAnnotation,
+							method: {
+								...methodAnnotation.method,
+								class: class_,
+							},
+						})),
 						parameterAnnotations: annotations.parameterAnnotations.map((parameterAnnotation) => ({
 							...parameterAnnotation,
 							method: {

@@ -2685,7 +2685,7 @@ const createDalvikExecutableParser = <Instructions>({
 						return { field, annotations: annotations?.entries.map(resolveAnnotationOffsetItem) };
 					});
 
-					const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.map((methodAnnotation) => {
+					const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.flatMap((methodAnnotation) => {
 						const method = methods.at(methodAnnotation.methodIndex);
 						invariant(method, 'Method must be there. Method id: %s', methodAnnotation.methodIndex);
 
@@ -2696,7 +2696,13 @@ const createDalvikExecutableParser = <Instructions>({
 							methodAnnotation.annotationsOffset,
 						);
 
-						return { method, annotations: resolveAnnotationSetItem(annotationSetItem) };
+						const annotations = resolveAnnotationSetItem(annotationSetItem);
+
+						if (!annotations?.length) {
+							return [];
+						}
+
+						return { method, annotations };
 					});
 
 					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.flatMap((parameterAnnotation) => {

@@ -192,7 +192,7 @@ export type DalvikExecutableClassFieldAnnotation = {
 
 export type DalvikExecutableClassMethodAnnotation = {
 	method: DalvikExecutableMethod;
-	annotations: undefined | DalvikExecutableAnnotation[];
+	annotations: DalvikExecutableAnnotation[];
 };
 
 export type DalvikExecutableClassParameterAnnotation = {
