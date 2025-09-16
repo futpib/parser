@@ -18,6 +18,25 @@ import { createDisjunctionParser } from "./disjunctionParser.js";
 import { formatSizes } from "./dalvikBytecodeParser/formatSizes.js";
 import { operationFormats } from "./dalvikBytecodeParser/operationFormats.js";
 import { createSeparatedNonEmptyArrayParser } from "./separatedNonEmptyArrayParser.js";
+import { parserCreatorCompose } from "./parserCreatorCompose.js";
+
+function getOperationFormatSize(operation: DalvikBytecodeOperation): number {
+	if (operation.operation === 'packed-switch-payload') {
+		return -1;
+	}
+
+	if (operation.operation === 'sparse-switch-payload') {
+		return -1;
+	}
+
+	const operationFormat = operationFormats[operation.operation];
+	invariant(operationFormat, 'Unknown operation format for %s', operation.operation);
+
+	const operationSize = formatSizes[operationFormat];
+	invariant(operationSize, `Unknown operation size for format %s of operation %s`, operationFormat, operation.operation);
+
+	return operationSize;
+}
 
 const smaliNewlinesParser: Parser<void, string> = promiseCompose(
 	createNonEmptyArrayParser(createExactSequenceParser('\n')),
@@ -638,8 +657,21 @@ setParserName(smaliCodeParameterParser, 'smaliCodeParameterParser');
 
 const smaliCodeLabelParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
-		createExactSequenceParser('    :'),
+		createExactSequenceParser(':'),
 		smaliIdentifierParser,
+	]),
+	([
+		_label,
+		label,
+	]) => label,
+);
+
+setParserName(smaliCodeLabelParser, 'smaliCodeLabelParser');
+
+const smaliCodeLabelLineParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		smaliIndentationParser,
+		smaliCodeLabelParser,
 		createExactSequenceParser('\n'),
 	]),
 	([
@@ -649,7 +681,7 @@ const smaliCodeLabelParser: Parser<string, string> = promiseCompose(
 	]) => label,
 );
 
-setParserName(smaliCodeLabelParser, 'smaliCodeLabelParser');
+setParserName(smaliCodeLabelLineParser, 'smaliCodeLabelLineParser');
 
 const smaliParametersRegistersParser: Parser<SmaliRegister[], string> = promiseCompose(
 	createTupleParser([
@@ -858,7 +890,7 @@ const smaliCodeOperationNameParser: Parser<string, string> = promiseCompose(
 
 setParserName(smaliCodeOperationNameParser, 'smaliCodeOperationNameParser');
 
-const smaliCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promiseCompose(
+const smaliOneLineCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promiseCompose(
 	createTupleParser([
 		smaliSingleIndentationParser,
 		smaliCodeOperationNameParser,
@@ -881,6 +913,79 @@ const smaliCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promis
 		parameters,
 	} as any), // TODO
 );
+
+setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
+
+type SmaliCodeOperationBody = unknown; // TODO
+
+const createMultilineSmaliCodeOperationBodyParser: (operationName: string) => Parser<SmaliCodeOperationBody, string> = operationName => promiseCompose(
+	createTupleParser([
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					smaliIndentationParser,
+					smaliCodeLabelParser,
+					createExactSequenceParser('\n'),
+				]),
+				([
+					_indentation,
+					label,
+					_newline,
+				]) => label,
+			),
+		),
+		smaliIndentationParser,
+		createExactSequenceParser('.end '),
+		createExactSequenceParser(operationName),
+		createExactSequenceParser('\n'),
+	]),
+	([
+		labels,
+	]) => labels,
+);
+
+const smaliMultilineCodeOperationParser: Parser<DalvikBytecodeOperation, string> = parserCreatorCompose(
+	() => promiseCompose(
+		createTupleParser([
+			smaliSingleIndentationParser,
+			createExactSequenceParser('.'),
+			smaliCodeOperationNameParser,
+			promiseCompose(
+				createOptionalParser(createTupleParser([
+					smaliSingleWhitespaceParser,
+					smaliCodeOperationParametersParser,
+				])),
+				(undefinedOrParameters) => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
+			),
+			createExactSequenceParser('\n'),
+		]),
+		([
+			_indent,
+			_dot,
+			operation,
+			parameters,
+			_newline,
+		]) => ({
+			operation,
+			parameters,
+		} as any), // TODO
+	),
+	({ operation, parameters }) => promiseCompose(
+		createMultilineSmaliCodeOperationBodyParser(operation),
+		body => ({
+			operation,
+			parameters,
+			body,
+		}) as any, // TODO
+	),
+)();
+
+setParserName(smaliMultilineCodeOperationParser, 'smaliMultilineCodeOperationParser');
+
+export const smaliCodeOperationParser: Parser<DalvikBytecodeOperation, string> = createUnionParser([
+	smaliOneLineCodeOperationParser,
+	smaliMultilineCodeOperationParser,
+]);
 
 setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
 
@@ -908,7 +1013,14 @@ const operationsWithBranchLabelArgument = new Set<DalvikBytecodeOperation['opera
 	'if-lez',
 	'packed-switch',
 	'sparse-switch',
+	// 'fill-array-data', // TODO
 ]);
+
+const payloadOperationSmaliNameToDexName = new Map<string, string>(Object.entries({
+	'packed-switch': 'packed-switch-payload',
+	'sparse-switch': 'sparse-switch-payload',
+	'array-data': 'fill-array-data-payload',
+}));
 
 function isOperationWithLabels(value: unknown): value is DalvikBytecodeOperation & {
 	labels: Set<string>;
@@ -925,7 +1037,7 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 	createTupleParser([
 		createArrayParser(smaliCodeLineParser),
 		createOptionalParser(smaliCodeLocalParser),
-		createArrayParser(smaliCodeLabelParser),
+		createArrayParser(smaliCodeLabelLineParser),
 		smaliCodeOperationParser,
 	]),
 	([
@@ -940,6 +1052,15 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 			// local,
 			// parameters: (operation as any).parameters,
 		} as any; // TODO
+
+		if ('body' in operation) {
+			const operationDexName = payloadOperationSmaliNameToDexName.get(operation.operation);
+
+			invariant(operationDexName, 'Unknown payload operation for %s', operation.operation);
+
+			operation_.operation = operationDexName;
+			operation_.branchLabels = operation.body;
+		}
 
 		if (labels.length) {
 			operation_.labels = new Set(labels);
@@ -999,7 +1120,7 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 	},
 );
 
-setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
+setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
 
 type SmaliExecutableCode<DalvikBytecode> = {
 	dalvikExecutableCode: DalvikExecutableCode<DalvikBytecode>;
@@ -1057,26 +1178,63 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		);
 
 		for (const [ operationIndex, operation ] of instructions.entries()) {
-			if (!(
+			if (
 				'branchLabel' in operation
-				&& typeof operation.branchLabel === 'string'
-			)) {
-				continue;
+					&& typeof operation.branchLabel === 'string'
+			) {
+				for (const [ targetOperationIndex, targetOperation ] of instructions.entries()) {
+					if (!isOperationWithLabels(targetOperation)) {
+						continue;
+					}
+
+					if (!targetOperation.labels.has(operation.branchLabel)) {
+						continue;
+					}
+
+					delete (operation as any).branchLabel;
+					(operation as any).branchOffsetIndex = targetOperationIndex - operationIndex;
+
+					break;
+				}
 			}
 
-			for (const [ targetOperationIndex, targetOperation ] of instructions.entries()) {
-				if (!isOperationWithLabels(targetOperation)) {
-					continue;
-				}
+			if (
+				'branchLabels' in operation
+					&& typeof operation.branchLabels === 'object'
+					&& Array.isArray(operation.branchLabels)
+			) {
+				const sourceOperations = instructions.filter((sourceOperation, sourceOperationIndex) => (
+					'branchOffsetIndex' in sourceOperation
+						&& typeof sourceOperation.branchOffsetIndex === 'number'
+						&& sourceOperation.branchOffsetIndex + sourceOperationIndex === operationIndex
+				));
 
-				if (!targetOperation.labels.has(operation.branchLabel)) {
-					continue;
-				}
+				invariant(
+					sourceOperations.length === 1,
+					'Expected exactly one source operation to point to %s',
+					JSON.stringify(operation),
+				);
 
-				delete (operation as any).branchLabel;
-				(operation as any).branchOffsetIndex = targetOperationIndex - operationIndex;
+				const [ sourceOperation ] = sourceOperations;
+				const sourceOperationIndex = instructions.indexOf(sourceOperation);
 
-				break;
+				(operation as any).branchOffsetIndices = operation.branchLabels.map((branchLabel: string) => {
+					for (const [ targetOperationIndex, targetOperation ] of instructions.entries()) {
+						if (!isOperationWithLabels(targetOperation)) {
+							continue;
+						}
+
+						if (!targetOperation.labels.has(branchLabel)) {
+							continue;
+						}
+
+						return targetOperationIndex - sourceOperationIndex;
+					}
+
+					invariant(false, 'Expected to find branch label %s', branchLabel);
+				});
+
+				delete (operation as any).branchLabels;
 			}
 		}
 
@@ -1085,11 +1243,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		let operationOffset = 0;
 
 		for (const [ operationIndex, operation ] of instructions.entries()) {
-			const operationFormat = operationFormats[operation.operation];
-			invariant(operationFormat, 'Unknown operation format for %s', operation.operation);
-
-			const operationSize = formatSizes[operationFormat];
-			invariant(operationSize, `Unknown operation size for format %s of operation %s`, operationFormat, operation.operation);
+			const operationSize = getOperationFormatSize(operation);
 
 			branchOffsetByBranchOffsetIndex.set(
 				operationIndex,
@@ -1100,33 +1254,71 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		}
 
 		for (const [ operationIndex, operation ] of instructions.entries()) {
-			if (!(
+			if (
 				'branchOffsetIndex' in operation
-				&& typeof operation.branchOffsetIndex === 'number'
-			)) {
-				continue;
+					&& typeof operation.branchOffsetIndex === 'number'
+			) {
+				const operationOffset = branchOffsetByBranchOffsetIndex.get(operationIndex + operation.branchOffsetIndex);
+				invariant(
+					operationOffset !== undefined,
+					'Expected branch offset for operation index %s, but got undefined',
+					operation.branchOffsetIndex,
+				);
+
+				const branchOffset = branchOffsetByBranchOffsetIndex.get(operationIndex);
+				invariant(
+					branchOffset !== undefined,
+					'Expected branch offset for operation index %s, but got undefined',
+					operationIndex,
+				);
+
+				(operation as any).branchOffset = operationOffset - branchOffset;
 			}
 
-			const operationOffset = branchOffsetByBranchOffsetIndex.get(operationIndex + operation.branchOffsetIndex);
-			invariant(
-				operationOffset !== undefined,
-				'Expected branch offset for operation index %d, but got undefined',
-				operation.branchOffsetIndex,
-			);
+			if (
+				'branchOffsetIndices' in operation
+					&& typeof operation.branchOffsetIndices === 'object'
+					&& Array.isArray(operation.branchOffsetIndices)
+			) {
+				const sourceOperations = instructions.filter((sourceOperation, sourceOperationIndex) => (
+					'branchOffsetIndex' in sourceOperation
+						&& typeof sourceOperation.branchOffsetIndex === 'number'
+						&& sourceOperation.branchOffsetIndex + sourceOperationIndex === operationIndex
+				));
 
-			const branchOffset = branchOffsetByBranchOffsetIndex.get(operationIndex);
-			invariant(
-				branchOffset !== undefined,
-				'Expected branch offset for operation index %d, but got undefined',
-				operationIndex,
-			);
+				invariant(
+					sourceOperations.length === 1,
+					'Expected exactly one source operation to point to %s',
+					JSON.stringify(operation),
+				);
 
-			(operation as any).branchOffset = operationOffset - branchOffset;
+				const [ sourceOperation ] = sourceOperations;
+				const sourceOperationIndex = instructions.indexOf(sourceOperation);
+
+				(operation as any).branchOffsets = operation.branchOffsetIndices.map((branchOffsetIndex: number) => {
+					const operationOffset = branchOffsetByBranchOffsetIndex.get(sourceOperationIndex + branchOffsetIndex);
+					invariant(
+						operationOffset !== undefined,
+						'Expected branch offset for operation index %s, but got undefined',
+						sourceOperationIndex + branchOffsetIndex,
+					);
+
+					const branchOffset = branchOffsetByBranchOffsetIndex.get(sourceOperationIndex);
+					invariant(
+						branchOffset !== undefined,
+						'Expected branch offset for operation index %s, but got undefined',
+						sourceOperationIndex,
+					);
+
+					return operationOffset - branchOffset;
+				});
+			}
 		}
 
 		for (const operation of instructions) {
 			delete (operation as any).labels;
 			delete (operation as any).branchOffsetIndex;
+			delete (operation as any).branchOffsetIndices;
 		}
 
 		return {

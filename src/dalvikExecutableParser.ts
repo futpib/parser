@@ -338,54 +338,36 @@ const createSkipToThenMethodIdItemsParser = ({ size, offset }: SizeOffset): Pars
 		)
 );
 
+const parseAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
+	public: Boolean(flags & 0b00000001),
+	private: Boolean(flags & 0b00000010),
+	protected: Boolean(flags & 0b00000100),
+	static: Boolean(flags & 0b00001000),
+	final: Boolean(flags & 0b00010000),
+	synchronized: Boolean(flags & 0b00100000),
+	volatile: Boolean(flags & 0b01000000),
+	bridge: Boolean(flags & 0b01000000),
+	transient: Boolean(flags & 0b10000000),
+	varargs: Boolean(flags & 0b10000000),
+	native: Boolean(flags & 0b00000001_00000000),
+	interface: Boolean(flags & 0b00000010_00000000),
+	abstract: Boolean(flags & 0b00000100_00000000),
+	strict: Boolean(flags & 0b00001000_00000000),
+	synthetic: Boolean(flags & 0b00010000_00000000),
+	annotation: Boolean(flags & 0b00100000_00000000),
+	enum: Boolean(flags & 0b01000000_00000000),
+	constructor: Boolean(flags & 0b00000001_00000000_00000000),
+	declaredSynchronized: Boolean(flags & 0b00000010_00000000_00000000),
+});
+
 const uintAccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
 	uintParser,
-	(flags) => ({
-		public: Boolean(flags & 0b00000001),
-		private: Boolean(flags & 0b00000010),
-		protected: Boolean(flags & 0b00000100),
-		static: Boolean(flags & 0b00001000),
-		final: Boolean(flags & 0b00010000),
-		synchronized: Boolean(flags & 0b00100000),
-		volatile: Boolean(flags & 0b01000000),
-		bridge: Boolean(flags & 0b01000000),
-		transient: Boolean(flags & 0b10000000),
-		varargs: Boolean(flags & 0b10000000),
-		native: false,
-		interface: false,
-		abstract: false,
-		strict: false,
-		synthetic: false,
-		annotation: false,
-		enum: false,
-		constructor: false,
-		declaredSynchronized: false,
-	}),
+	parseAccessFlags,
 );
 
 const uleb128AccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
 	uleb128NumberParser,
-	flags => ({
-		public: Boolean(flags & 0b00000001),
-		private: Boolean(flags & 0b00000010),
-		protected: Boolean(flags & 0b00000100),
-		static: Boolean(flags & 0b00001000),
-		final: Boolean(flags & 0b00010000),
-		synchronized: Boolean(flags & 0b00100000),
-		volatile: Boolean(flags & 0b01000000),
-		bridge: Boolean(flags & 0b01000000),
-		transient: Boolean(flags & 0b10000000),
-		varargs: Boolean(flags & 0b10000000),
-		native: Boolean(flags & 0b00000001_00000000),
-		interface: Boolean(flags & 0b00000010_00000000),
-		abstract: Boolean(flags & 0b00000100_00000000),
-		strict: Boolean(flags & 0b00001000_00000000),
-		synthetic: Boolean(flags & 0b00010000_00000000),
-		annotation: Boolean(flags & 0b00100000_00000000),
-		enum: Boolean(flags & 0b01000000_00000000),
-		constructor: Boolean(flags & 0b00000001_00000000_00000000),
-		declaredSynchronized: Boolean(flags & 0b00000010_00000000_00000000),
-	}),
+	parseAccessFlags,
 );
 
 type DalvikExecutableClassDefinitionItem = {
@@ -2783,19 +2765,17 @@ const createDalvikExecutableParser = <Instructions>({
 				const staticValues = isoOffsetToEncodedArrayItem.unwrap(classDefinitionItem.staticValuesOffset) === 0 ? [] : encodedArrayItemByOffset.get(classDefinitionItem.staticValuesOffset);
 				invariant(staticValues, 'Static values must be there. Static values offset: %s', classDefinitionItem.staticValuesOffset);
 
-				let allMembersAreSynthetic = true;
-
-				for (const member of [
+				const allMembers = [
 					...classData?.staticFields ?? [],
 					...classData?.instanceFields ?? [],
 					...classData?.directMethods ?? [],
-					...classData?.virtualMethods ?? [],
-				]) {
-					if (!member.accessFlags.synthetic) {
-						allMembersAreSynthetic = false;
-						break;
-					}
-				}
+					// ...classData?.virtualMethods ?? [], // TODO?
+				];
+
+				const allMembersAreSynthetic = (
+					allMembers.every(member => member.accessFlags.synthetic)
+						&& allMembers.length > 0
+				);
 
 				const accessFlags = {
 					...classDefinitionItem.accessFlags,

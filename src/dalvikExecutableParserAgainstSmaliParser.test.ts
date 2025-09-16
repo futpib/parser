@@ -121,7 +121,12 @@ test.serial(parseDexAgainstSmaliMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoiji
 	isolate: true,
 });
 
-test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5',
+	isolate: true,
+});
+
+test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
 	smaliFilePath: 'androidx/lifecycle/b0',
 	isolate: true,
 });
@@ -134,28 +139,55 @@ test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4
 test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
 const smali = `
-.class Landroidx/viewpager2/adapter/FragmentStateAdapter$5;
+.class public final synthetic Landroidx/lifecycle/b0;
 .super Ljava/lang/Object;
 .source "SourceFile"
 
 # interfaces
-.implements Landroidx/lifecycle/o;
+.implements Lv3/a$b;
+
+
+# instance fields
+.field public final synthetic a:I
+
+.field public final synthetic b:Landroidx/lifecycle/c0;
+
+
+# direct methods
+.method public synthetic constructor <init>(Landroidx/lifecycle/c0;I)V
+    .registers 3
+
+    iput p2, p0, Landroidx/lifecycle/b0;->a:I
+
+    iput-object p1, p0, Landroidx/lifecycle/b0;->b:Landroidx/lifecycle/c0;
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    return-void
+.end method
 
 
 # virtual methods
-.method public final g(Landroidx/lifecycle/q;Landroidx/lifecycle/j$b;)V
-    .registers 3
+.method public final a()Landroid/os/Bundle;
+    .registers 2
 
-    sget-object p1, Landroidx/lifecycle/j$b;->ON_DESTROY:Landroidx/lifecycle/j$b;
+    iget v0, p0, Landroidx/lifecycle/b0;->a:I
 
-    if-eq p2, p1, :cond_5
+    packed-switch v0, :pswitch_data_c
 
-    return-void
+    :pswitch_5
+    iget-object v0, p0, Landroidx/lifecycle/b0;->b:Landroidx/lifecycle/c0;
 
-    :cond_5
-    const/4 p1, 0x0
+    invoke-static {v0}, Landroidx/lifecycle/c0;->a(Landroidx/lifecycle/c0;)Landroid/os/Bundle;
 
-    throw p1
+    move-result-object v0
+
+    return-object v0
+
+    :pswitch_data_c
+    .packed-switch 0x0
+        :pswitch_5
+    .end packed-switch
 .end method
 `;
 

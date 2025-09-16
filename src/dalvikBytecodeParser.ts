@@ -22,7 +22,7 @@ import {
 	dalvikBytecodeFormat32xParser,
 	dalvikBytecodeFormat30tParser,
 } from "./dalvikBytecodeParser/formatParsers.js";
-import { ubyteParser, ushortParser, intParser } from "./dalvikExecutableParser/typeParsers.js";
+import { ubyteParser, ushortParser, intParser, createExactUshortParser } from "./dalvikExecutableParser/typeParsers.js";
 import { DalvikExecutableField, DalvikExecutableMethod } from "./dalvikExecutable.js";
 import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
 import { createExactElementParser } from "./exactElementParser.js";
@@ -31,6 +31,10 @@ import { promiseCompose } from "./promiseCompose.js";
 import { createSliceBoundedParser } from "./sliceBoundedParser.js";
 import { createTupleParser } from "./tupleParser.js";
 import { createUnionParser } from "./unionParser.js";
+import { parserCreatorCompose } from "./parserCreatorCompose.js";
+import { createQuantifierParser } from "./quantifierParser.js";
+import { createDebugLogInputParser } from "./debugLogInputParser.js";
+import { createNegativeLookaheadParser } from "./negativeLookaheadParser.js";
 
 // https://source.android.com/docs/core/runtime/dalvik-bytecode
 
@@ -57,18 +61,22 @@ type DalvikBytecodeOperationNoOperation = {
 };
 
 const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNoOperation, Uint8Array> = promiseCompose(
-	createExactElementParser(0x00),
+	createTupleParser([
+		createNegativeLookaheadParser(
+			createUnionParser([
+				createExactUshortParser(0x0100), // packed-switch-payload
+				createExactUshortParser(0x0200), // sparse-switch-payload
+				createExactUshortParser(0x0300), // fill-array-data-payload
+			]),
+		),
+		createExactElementParser(0x00),
+	]),
 	() => ({
 		operation: 'no-operation',
 	}),
 );
 
 setParserName(dalvikBytecodeOperationNoOperationParser, 'dalvikBytecodeOperationNoOperationParser');
-
-export type DalvikBytecodePackedSwitchPayload = {
-	firstKey: number;
-	targets: number[];
-};
 
 const createDalvikBytecodeOperationInvoke = <T extends string>(operation: T, opcode: number): Parser<{
 	operation: T;
@@ -256,6 +264,39 @@ const dalvikBytecodeOperationPackedSwitchParser: Parser<DalvikBytecodeOperationP
 
 setParserName(dalvikBytecodeOperationPackedSwitchParser, 'dalvikBytecodeOperationPackedSwitchParser');
 
+type DalvikBytecodeOperationPackedSwitchPayload = {
+	operation: 'packed-switch-payload';
+	value: number;
+	branchOffsets: number[];
+};
+
+const dalvikBytecodeOperationPackedSwitchPayloadParser: Parser<DalvikBytecodeOperationPackedSwitchPayload, Uint8Array> = parserCreatorCompose(
+	() => promiseCompose(
+		createTupleParser([
+			createExactUshortParser(0x0100),
+			ushortParser,
+			intParser,
+		]),
+		([ _ident, size, value ]) => ({
+			size,
+			value,
+		}),
+	),
+	({ size, value }) => promiseCompose(
+		createQuantifierParser(
+			intParser,
+			size,
+		),
+		branchOffsets => ({
+			operation: 'packed-switch-payload' as const,
+			value,
+			branchOffsets,
+		}),
+	),
+)();
+
+setParserName(dalvikBytecodeOperationPackedSwitchPayloadParser, 'dalvikBytecodeOperationPackedSwitchPayloadParser');
+
 type DalvikBytecodeOperationSparseSwitch = {
 	operation: 'sparse-switch';
 	branchOffset: number;
@@ -264,7 +305,7 @@ type DalvikBytecodeOperationSparseSwitch = {
 
 const dalvikBytecodeOperationSparseSwitchParser: Parser<DalvikBytecodeOperationSparseSwitch, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x2b),
+		createExactElementParser(0x2c),
 		dalvikBytecodeFormat31tParser,
 	]),
 	([ _opcode, { branchOffset, registers } ]) => ({
@@ -275,6 +316,43 @@ const dalvikBytecodeOperationSparseSwitchParser: Parser<DalvikBytecodeOperationS
 );
 
 setParserName(dalvikBytecodeOperationSparseSwitchParser, 'dalvikBytecodeOperationSparseSwitchParser');
+
+type DalvikBytecodeOperationSparseSwitchPayload = {
+	operation: 'sparse-switch-payload';
+	keys: number[];
+	branchOffsets: number[];
+};
+
+const dalvikBytecodeOperationSparseSwitchPayloadParser: Parser<DalvikBytecodeOperationSparseSwitchPayload, Uint8Array> = parserCreatorCompose(
+	() => promiseCompose(
+		createTupleParser([
+			createExactUshortParser(0x0200),
+			ushortParser,
+		]),
+		([ _ident, size ]) => ({
+			size,
+		}),
+	),
+	({ size }) => promiseCompose(
+		createTupleParser([
+			createQuantifierParser(
+				intParser,
+				size,
+			),
+			createQuantifierParser(
+				intParser,
+				size,
+			),
+		]),
+		([ keys, branchOffsets ]) => ({
+			operation: 'sparse-switch-payload' as const,
+			keys,
+			branchOffsets,
+		}),
+	),
+)();
+
+setParserName(dalvikBytecodeOperationSparseSwitchPayloadParser, 'dalvikBytecodeOperationSparseSwitchPayloadParser');
 
 type DalvikBytecodeOperationInstanceOf = {
 	operation: 'instance-of';
@@ -2001,7 +2079,9 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationGoto32
 
 	| DalvikBytecodeOperationPackedSwitch
+	| DalvikBytecodeOperationPackedSwitchPayload
 	| DalvikBytecodeOperationSparseSwitch
+	| DalvikBytecodeOperationSparseSwitchPayload
 
 	| DalvikBytecodeOperationInvoke
 	| DalvikBytecodeOperationNewInstance
@@ -2057,6 +2137,9 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 			dalvikBytecodeOperationGoto16Parser,
 			dalvikBytecodeOperationGoto32Parser,
 			dalvikBytecodeOperationPackedSwitchParser,
+			dalvikBytecodeOperationPackedSwitchPayloadParser,
+			dalvikBytecodeOperationSparseSwitchParser,
+			dalvikBytecodeOperationSparseSwitchPayloadParser,
 
 			dalvikBytecodeOperationMoveResult1Parser,
 			dalvikBytecodeOperationMoveParser,
@@ -2089,7 +2172,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 		_debug,
 		operation,
 	]) => {
-		// console.log(operation);
+		//console.log(operation);
 		return operation;
 	},
 );

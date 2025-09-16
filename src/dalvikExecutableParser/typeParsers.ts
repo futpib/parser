@@ -2,6 +2,7 @@ import { createElementParser } from "../elementParser.js";
 import { createFixedLengthSequenceParser } from "../fixedLengthSequenceParser.js";
 import { uleb128NumberParser } from "../leb128Parser.js";
 import { Parser } from "../parser.js";
+import { parserCreatorCompose } from "../parserCreatorCompose.js";
 import { promiseCompose } from "../promiseCompose.js";
 
 export const uleb128p1NumberParser: Parser<number, Uint8Array> = async (parserContext) => {
@@ -31,6 +32,14 @@ export const ushortParser: Parser<number, Uint8Array> = promiseCompose(
 		return buffer.readUInt16LE(0);
 	},
 );
+
+export const createExactUshortParser = (expectedValue: number): Parser<number, Uint8Array> => parserCreatorCompose(
+	() => ushortParser,
+	ushortValue => async parserContext => {
+		parserContext.invariant(ushortValue === expectedValue, `Expected ushort value ${expectedValue}, got ${ushortValue}`);
+		return ushortValue;
+	},
+)();
 
 export const intParser: Parser<number, Uint8Array> = promiseCompose(
 	createFixedLengthSequenceParser<Uint8Array>(4),

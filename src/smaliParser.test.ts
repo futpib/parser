@@ -2,7 +2,7 @@ import test from 'ava';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { getParserName, Parser, runParser } from './parser.js';
 import { fetchCid } from './fetchCid.js';
-import { smaliAnnotationParser, smaliCodeParameterParser, smaliCommentParser, smaliFieldParser, smaliMethodParser, smaliParser } from './smaliParser.js';
+import { smaliAnnotationParser, smaliCodeOperationParser, smaliCodeParameterParser, smaliCommentParser, smaliFieldParser, smaliMethodParser, smaliParser } from './smaliParser.js';
 import { hasExecutable } from './hasExecutable.js';
 import { baksmaliClass } from './backsmali.js';
 
@@ -190,6 +190,44 @@ stringParserTest(smaliMethodParser, [
             Ljava/lang/InstantiationException;
         }
     .end annotation
+.end method
+`,
+		stringParserTestSnapshot,
+	],
+]);
+
+stringParserTest(smaliCodeOperationParser, [
+	[
+		`    .packed-switch 0x0
+        :pswitch_5
+    .end packed-switch
+`,
+		stringParserTestSnapshot,
+	],
+]);
+
+stringParserTest(smaliMethodParser, [
+	[
+		`.method public final a()Landroid/os/Bundle;
+    .registers 2
+
+    iget v0, p0, Landroidx/lifecycle/b0;->a:I
+
+    packed-switch v0, :pswitch_data_c
+
+    :pswitch_5
+    iget-object v0, p0, Landroidx/lifecycle/b0;->b:Landroidx/lifecycle/c0;
+
+    invoke-static {v0}, Landroidx/lifecycle/c0;->a(Landroidx/lifecycle/c0;)Landroid/os/Bundle;
+
+    move-result-object v0
+
+    return-object v0
+
+    :pswitch_data_c
+    .packed-switch 0x0
+        :pswitch_5
+    .end packed-switch
 .end method
 `,
 		stringParserTestSnapshot,
