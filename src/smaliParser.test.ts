@@ -223,6 +223,19 @@ stringParserTest(smaliCodeOperationParser, [
 	],
 ]);
 
+stringParserTest(smaliCodeOperationParser, [
+	[
+		`    .sparse-switch
+        -0x7073f927 -> :sswitch_47
+        -0x3465cce -> :sswitch_3e
+        0x388694fe -> :sswitch_33
+        0x3cbf870b -> :sswitch_28
+    .end sparse-switch
+`,
+		stringParserTestSnapshot,
+	],
+]);
+
 stringParserTest(smaliMethodParser, [
 	[
 		`.method public final a()Landroid/os/Bundle;

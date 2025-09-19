@@ -19,14 +19,16 @@ import { formatSizes } from "./dalvikBytecodeParser/formatSizes.js";
 import { operationFormats } from "./dalvikBytecodeParser/operationFormats.js";
 import { createSeparatedNonEmptyArrayParser } from "./separatedNonEmptyArrayParser.js";
 import { parserCreatorCompose } from "./parserCreatorCompose.js";
+import { Simplify } from "type-fest";
+import { IndexIntoMethodIds } from "./dalvikExecutableParser/typedNumbers.js";
 
-function getOperationFormatSize(operation: DalvikBytecodeOperation): number {
+function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	if (operation.operation === 'packed-switch-payload') {
-		return -1;
+		return (operation.branchOffsetIndices.length * 2) + 4;
 	}
 
 	if (operation.operation === 'sparse-switch-payload') {
-		return -1;
+		return (operation.branchOffsetIndices.length * 4) + 2;
 	}
 
 	const operationFormat = operationFormats[operation.operation];
@@ -925,9 +927,9 @@ const smaliOneLineCodeOperationParser: Parser<DalvikBytecodeOperation, string> =
 
 setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
 
-type SmaliCodeOperationBody = unknown; // TODO
+type SmaliCodeOperationLabelsBody = string[];
 
-const createMultilineSmaliCodeOperationBodyParser: (operationName: string) => Parser<SmaliCodeOperationBody, string> = operationName => promiseCompose(
+const createMultilineSmaliCodeOperationLabelsBodyParser: (operationName: string) => Parser<SmaliCodeOperationLabelsBody, string> = operationName => promiseCompose(
 	createTupleParser([
 		createArrayParser(
 			promiseCompose(
@@ -953,7 +955,58 @@ const createMultilineSmaliCodeOperationBodyParser: (operationName: string) => Pa
 	]) => labels,
 );
 
-const smaliMultilineCodeOperationParser: Parser<DalvikBytecodeOperation, string> = parserCreatorCompose(
+type SmaliCodeOperationLabelMapBody = (readonly [number | bigint, string])[];
+
+const createMultilineSmaliCodeOperationLabelMapBodyParser: (operationName: string) => Parser<SmaliCodeOperationLabelMapBody, string> = operationName => promiseCompose(
+	createTupleParser([
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					smaliIndentationParser,
+					smaliParametersIntegerParser,
+					createExactSequenceParser(' -> '),
+					smaliCodeLabelParser,
+					createExactSequenceParser('\n'),
+				]),
+				([
+					_indentation,
+					key,
+					_arrow,
+					label,
+					_newline,
+				]) => [
+					key,
+					label,
+				] as const,
+			),
+		),
+		smaliIndentationParser,
+		createExactSequenceParser('.end '),
+		createExactSequenceParser(operationName),
+		createExactSequenceParser('\n'),
+	]),
+	([
+		labels,
+	]) => labels,
+);
+
+type SmaliCodeOperationBody =
+	| SmaliCodeOperationLabelsBody
+	| SmaliCodeOperationLabelMapBody
+;
+
+const createMultilineSmaliCodeOperationBodyParser: (operationName: string) => Parser<SmaliCodeOperationBody, string> = operationName => createUnionParser([
+	createMultilineSmaliCodeOperationLabelsBodyParser(operationName),
+	createMultilineSmaliCodeOperationLabelMapBodyParser(operationName),
+]);
+
+type SmaliMultilineCodeOperation = {
+	operation: string;
+	parameters: SmaliCodeOperationParameter[];
+	body: SmaliCodeOperationBody;
+};
+
+const smaliMultilineCodeOperationParser: Parser<SmaliMultilineCodeOperation, string> = parserCreatorCompose(
 	() => promiseCompose(
 		createTupleParser([
 			smaliSingleIndentationParser,
@@ -977,7 +1030,7 @@ const smaliMultilineCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 		]) => ({
 			operation,
 			parameters,
-		} as any), // TODO
+		}),
 	),
 	({ operation, parameters }) => promiseCompose(
 		createMultilineSmaliCodeOperationBodyParser(operation),
@@ -985,20 +1038,34 @@ const smaliMultilineCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 			operation,
 			parameters,
 			body,
-		}) as any, // TODO
+		}),
 	),
 )();
 
 setParserName(smaliMultilineCodeOperationParser, 'smaliMultilineCodeOperationParser');
 
-const smaliLooseCodeOperationParser: Parser<any, string> = createUnionParser([
+type SmaliLooseCodeOperation = any; // TODO
+
+const smaliLooseCodeOperationParser: Parser<SmaliLooseCodeOperation, string> = createUnionParser([
 	smaliOneLineCodeOperationParser,
 	smaliMultilineCodeOperationParser,
 ]);
 
 setParserName(smaliLooseCodeOperationParser, 'smaliLooseCodeOperationParser');
 
-export const smaliCodeOperationParser: Parser<any, string> = promiseCompose(
+type SmaliCodeOperationFromDalvikBytecodeOperation<T extends DalvikBytecodeOperation> =
+	T extends { branchOffsets: number[]; }
+	? Simplify<Omit<T, 'branchOffsets'> & { branchOffsetIndices: number[]; }>
+	: T extends { branchOffset: number; }
+	? Simplify<Omit<T, 'branchOffset'> & { branchOffsetIndex: number; }>
+	: T extends { methodIndex: IndexIntoMethodIds; }
+	? Simplify<Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod; }>
+	: T
+;
+
+type SmaliCodeOperation = SmaliCodeOperationFromDalvikBytecodeOperation<DalvikBytecodeOperation>;
+
+export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = promiseCompose(
 	smaliLooseCodeOperationParser,
 	operation => {
 		const operation_ = {
@@ -1014,7 +1081,14 @@ export const smaliCodeOperationParser: Parser<any, string> = promiseCompose(
 			invariant(operationDexName, 'Unknown payload operation for %s', operation.operation);
 
 			operation_.operation = operationDexName;
-			operation_.branchLabels = operation.body;
+
+			if (operationDexName === 'sparse-switch-payload') {
+				const map = new Map<number | bigint, string>(operation.body);
+				operation_.keys = [ ...map.keys() ];
+				operation_.branchLabels = [ ...map.values() ];
+			} else {
+				operation_.branchLabels = operation.body;
+			}
 		}
 
 		const hasRegisters = Array.isArray(operation.parameters.at(0));
@@ -1123,7 +1197,7 @@ function isOperationWithLabels(value: unknown): value is DalvikBytecodeOperation
 	);
 }
 
-const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promiseCompose(
+const smaliAnnotatedCodeOperationParser: Parser<SmaliCodeOperation, string> = promiseCompose(
 	createTupleParser([
 		createArrayParser(smaliCodeLineParser),
 		createOptionalParser(smaliCodeLocalParser),
@@ -1351,7 +1425,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				insSize: -1, // TODO
 				outsSize: -1, // TODO
 				debugInfo: undefined, // TODO
-				instructions,
+				instructions: instructions as any, // TODO
 				tries: [], // TODO
 				// _annotations,
 			},
@@ -1368,12 +1442,23 @@ const sortRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
 	'if-ne',
 ]);
 
+const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
+	'move',
+]);
+
 function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeOperation {
 	if (
 		sortRegistersOperations.has(operation.operation)
 			&& 'registers' in operation
 	) {
 		operation.registers.sort();
+	}
+
+	if (
+		reverseRegistersOperations.has(operation.operation)
+			&& 'registers' in operation
+	) {
+		operation.registers.reverse();
 	}
 
 	return operation;

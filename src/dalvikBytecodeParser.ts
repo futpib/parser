@@ -2083,6 +2083,15 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationSparseSwitch
 	| DalvikBytecodeOperationSparseSwitchPayload
 
+	| DalvikBytecodeOperationMoveResult1
+	| DalvikBytecodeOperationMove
+	| DalvikBytecodeOperationMoveWide
+	| DalvikBytecodeOperationMoveObject
+	| DalvikBytecodeOperationMoveFrom16
+	| DalvikBytecodeOperationMoveWideFrom16
+	| DalvikBytecodeOperationMoveObjectFrom16
+	| DalvikBytecodeOperationMoveWide16
+
 	| DalvikBytecodeOperationInvoke
 	| DalvikBytecodeOperationInvokeRange
 

@@ -131,12 +131,12 @@ test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3
 	isolate: true,
 });
 
-test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
 	smaliFilePath: 'l4/a',
 	isolate: true,
 });
 
-test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
 	smaliFilePath: 'android/app/AppComponentFactory',
 	isolate: true,
 });
@@ -372,6 +372,167 @@ const smali = `
     .line 120
     .line 121
     .line 122
+.end method
+
+.method public final e()Landroid/content/IntentFilter;
+    .registers 3
+
+    new-instance v0, Landroid/content/IntentFilter;
+
+    invoke-direct {v0}, Landroid/content/IntentFilter;-><init>()V
+
+    const-string v1, "android.os.action.CHARGING"
+
+    invoke-virtual {v0, v1}, Landroid/content/IntentFilter;->addAction(Ljava/lang/String;)V
+
+    const-string v1, "android.os.action.DISCHARGING"
+
+    invoke-virtual {v0, v1}, Landroid/content/IntentFilter;->addAction(Ljava/lang/String;)V
+
+    return-object v0
+.end method
+
+.method public final f(Landroid/content/Intent;)V
+    .registers 8
+
+    invoke-virtual {p1}, Landroid/content/Intent;->getAction()Ljava/lang/String;
+
+    move-result-object p1
+
+    if-nez p1, :cond_7
+
+    return-void
+
+    :cond_7
+    invoke-static {}, Le4/k;->c()Le4/k;
+
+    move-result-object v0
+
+    sget-object v1, Ll4/a;->i:Ljava/lang/String;
+
+    const/4 v2, 0x1
+
+    new-array v3, v2, [Ljava/lang/Object;
+
+    const/4 v4, 0x0
+
+    aput-object p1, v3, v4
+
+    const-string v5, "Received %s"
+
+    invoke-static {v5, v3}, Ljava/lang/String;->format(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v3
+
+    new-array v5, v4, [Ljava/lang/Throwable;
+
+    invoke-virtual {v0, v1, v3, v5}, Le4/k;->a(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Throwable;)V
+
+    const/4 v0, -0x1
+
+    invoke-virtual {p1}, Ljava/lang/String;->hashCode()I
+
+    move-result v1
+
+    sparse-switch v1, :sswitch_data_5e
+
+    :goto_26
+    move v2, v0
+
+    goto :goto_51
+
+    :sswitch_28
+    const-string v1, "android.intent.action.ACTION_POWER_CONNECTED"
+
+    invoke-virtual {p1, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    if-nez p1, :cond_31
+
+    goto :goto_26
+
+    :cond_31
+    const/4 v2, 0x3
+
+    goto :goto_51
+
+    :sswitch_33
+    const-string v1, "android.os.action.CHARGING"
+
+    invoke-virtual {p1, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    if-nez p1, :cond_3c
+
+    goto :goto_26
+
+    :cond_3c
+    const/4 v2, 0x2
+
+    goto :goto_51
+
+    :sswitch_3e
+    const-string v1, "android.os.action.DISCHARGING"
+
+    invoke-virtual {p1, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    if-nez p1, :cond_51
+
+    goto :goto_26
+
+    :sswitch_47
+    const-string v1, "android.intent.action.ACTION_POWER_DISCONNECTED"
+
+    invoke-virtual {p1, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    if-nez p1, :cond_50
+
+    goto :goto_26
+
+    :cond_50
+    move v2, v4
+
+    :cond_51
+    :goto_51
+    packed-switch v2, :pswitch_data_70
+
+    goto :goto_5d
+
+    :pswitch_55
+    sget-object p1, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
+
+    goto :goto_5a
+
+    :pswitch_58
+    sget-object p1, Ljava/lang/Boolean;->FALSE:Ljava/lang/Boolean;
+
+    :goto_5a
+    invoke-virtual {p0, p1}, Ll4/d;->b(Ljava/lang/Object;)V
+
+    :goto_5d
+    return-void
+
+    :sswitch_data_5e
+    .sparse-switch
+        -0x7073f927 -> :sswitch_47
+        -0x3465cce -> :sswitch_3e
+        0x388694fe -> :sswitch_33
+        0x3cbf870b -> :sswitch_28
+    .end sparse-switch
+
+    :pswitch_data_70
+    .packed-switch 0x0
+        :pswitch_58
+        :pswitch_58
+        :pswitch_55
+        :pswitch_55
+    .end packed-switch
 .end method
 `;
 
