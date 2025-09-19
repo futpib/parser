@@ -40,3 +40,35 @@ export async function backsmaliSmaliIsolateClass(
 	const smali = await baksmaliClass(dexStream, smaliFilePath);
 	return smaliClass(smali);
 }
+
+export async function baksmaliListClasses(
+	dexStream: Uint8Array | AsyncIterable<Uint8Array>,
+): Promise<string[]> {
+	const inputFilePath = temporaryFile();
+
+	await fs.writeFile(inputFilePath, dexStream);
+
+	const result = await execa('baksmali', [
+		'list',
+		'classes',
+		inputFilePath,
+	]);
+
+	await fs.unlink(inputFilePath);
+
+	if (result.stderr) {
+		throw new Error(`baksmali error: ${result.stderr}`);
+	}
+
+	const classes = result.stdout
+		.split('\n')
+		.filter(line => line.trim())
+		.map(line => line.trim())
+		.map(class_ => (
+			class_
+				.replace(/^L/, '')
+				.replace(/;$/, '')
+		));
+
+	return classes;
+}

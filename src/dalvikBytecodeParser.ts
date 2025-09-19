@@ -2074,6 +2074,12 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationIfTest
 	| DalvikBytecodeOperationIfTestZero
 
+	| DalvikBytecodeOperationBinaryOperation
+	| DalvikBytecodeOperationBinaryOperationLiteral8
+	| DalvikBytecodeOperationBinaryOperationLiteral16
+	| DalvikBytecodeOperationBinaryOperationInPlace
+	| DalvikBytecodeOperationUnaryOperation
+
 	| DalvikBytecodeOperationGoto
 	| DalvikBytecodeOperationGoto16
 	| DalvikBytecodeOperationGoto32

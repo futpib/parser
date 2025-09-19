@@ -1440,6 +1440,7 @@ setParserName(smaliExecutableCodeParser, 'smaliExecutableCodeParser');
 const sortRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
 	'if-eq',
 	'if-ne',
+	'add-int/2addr',
 ]);
 
 const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
@@ -1553,7 +1554,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 					prototype,
 					name,
 				},
-				code: code ? {
+				code: code?.instructions.length ? {
 					...code,
 					instructions: code.instructions.map(normalizeOperation),
 				} : undefined,

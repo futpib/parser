@@ -4,7 +4,7 @@ import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './pa
 import { dalvikExecutableParser } from './dalvikExecutableParser.js';
 import { fetchCid } from './fetchCid.js';
 import { hasExecutable } from './hasExecutable.js';
-import { backsmaliSmaliIsolateClass, baksmaliClass } from './backsmali.js';
+import { backsmaliSmaliIsolateClass, baksmaliClass, baksmaliListClasses } from './backsmali.js';
 import { smaliParser } from './smaliParser.js';
 import { smaliClass } from './smali.js';
 
@@ -74,6 +74,8 @@ const parseDexAgainstSmaliMacro = test.macro({
 
 		const smali = await baksmaliClass(dexStream, smaliFilePath);
 
+		// console.log(smali);
+
 		const classDefinitionFromSmali = await runParser(smaliParser, smali, stringParserInputCompanion, {
 			errorJoinMode: 'all',
 		});
@@ -114,6 +116,36 @@ const parseDexAgainstSmaliMacro = test.macro({
 	},
 });
 
+const parseAllClassesInDexAgainstSmaliMacro = test.macro({
+	title: (providedTitle, dexCid: string) => {
+		return providedTitle ?? `parse all classes from dex ${dexCid} against smali`;
+	},
+	async exec(t, dexCid: string) {
+		const hasBaksmali = await hasBaksmaliPromise;
+
+		if (!hasBaksmali) {
+			t.pass('skipping test because baksmali is not available');
+			return;
+		}
+
+		const dexStream: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
+
+		const classes = await baksmaliListClasses(dexStream);
+
+		for (const smaliFilePath of classes) {
+			console.log(smaliFilePath);
+			console.log('='.repeat(smaliFilePath.length));
+
+			const result = await t.try(parseDexAgainstSmaliMacro, dexCid, {
+				smaliFilePath,
+				isolate: true,
+			});
+
+			result.commit();
+		}
+	},
+});
+
 test.serial(parseDexAgainstSmaliMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', 'pl/czak/minimal/MainActivity');
 
 test.serial(parseDexAgainstSmaliMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', {
@@ -137,11 +169,18 @@ test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3
 });
 
 test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	smaliFilePath: 'a/b',
+	isolate: true,
+});
+
+test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
 	smaliFilePath: 'android/app/AppComponentFactory',
 	isolate: true,
 });
 
 test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
+
+test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq');
 
 const smali = `
 .class public final Ll4/a;

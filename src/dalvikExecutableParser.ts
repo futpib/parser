@@ -346,7 +346,7 @@ const parseAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
 	final: Boolean(flags & 0b00010000),
 	synchronized: Boolean(flags & 0b00100000),
 	volatile: Boolean(flags & 0b01000000),
-	bridge: Boolean(flags & 0b01000000),
+	bridge: false, // TODO // Boolean(flags & 0b01000000),
 	transient: Boolean(flags & 0b10000000),
 	varargs: Boolean(flags & 0b10000000),
 	native: Boolean(flags & 0b00000001_00000000),
