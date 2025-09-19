@@ -1439,7 +1439,7 @@ const createDalvikBytecodeOperationIfTest = <T extends string>(operation: T, opc
 	]),
 	([ _opcode, { registers, branchOffset } ]) => ({
 		operation,
-		registers,
+		registers: registers.sort((a, b) => a - b),
 		branchOffset,
 	}),
 );
@@ -2084,7 +2084,10 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationSparseSwitchPayload
 
 	| DalvikBytecodeOperationInvoke
+	| DalvikBytecodeOperationInvokeRange
+
 	| DalvikBytecodeOperationNewInstance
+	| DalvikBytecodeOperationNewArray
 	| DalvikBytecodeOperationCheckCast
 	| DalvikBytecodeOperationInstanceOf
 

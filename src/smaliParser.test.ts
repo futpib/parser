@@ -198,6 +198,23 @@ stringParserTest(smaliMethodParser, [
 
 stringParserTest(smaliCodeOperationParser, [
 	[
+		`    invoke-static {}, Le4/k;->c()Le4/k;
+`,
+		{
+			operation: 'invoke-static',
+			registers: [],
+			method: {
+				class: 'Le4/k;',
+				name: 'c',
+				prototype: {
+					parameters: [],
+					returnType: 'Le4/k;',
+					shorty: 'L',
+				},
+			},
+		},
+	],
+	[
 		`    .packed-switch 0x0
         :pswitch_5
     .end packed-switch

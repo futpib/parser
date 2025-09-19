@@ -2613,7 +2613,13 @@ const createDalvikExecutableParser = <Instructions>({
 			}
 
 			function resolveAnnotationSetItem(annotationSetItem: undefined | DalvikExecutableAnnotationSetItem): undefined | DalvikExecutableAnnotation[] {
-				return annotationSetItem?.entries.map(resolveAnnotationOffsetItem);
+				const annotationSet =  annotationSetItem?.entries.map(resolveAnnotationOffsetItem);
+
+				if (!annotationSet?.length) {
+					return [];
+				}
+
+				return annotationSet.map(resolveAnnotationElements);
 			}
 
 			function resolveAnnotationElements(annotation: DalvikExecutableAnnotation) {
@@ -2621,7 +2627,9 @@ const createDalvikExecutableParser = <Instructions>({
 					return annotation;
 				}
 
-				if (annotation.type === 'Ldalvik/annotation/Throws;') {
+				if (
+					annotation.type === 'Ldalvik/annotation/Throws;'
+				) {
 					const elements = annotation.elements.map((element) => {
 						if (
 							element.name !== 'value'
@@ -2639,6 +2647,34 @@ const createDalvikExecutableParser = <Instructions>({
 							invariant(type, 'Type must be there. Type id: %s', encodedValue);
 
 							return type;
+						});
+
+						return { ...element, value };
+					});
+
+					return { ...annotation, elements };
+				}
+
+				if (
+					annotation.type === 'Ldalvik/annotation/Signature;'
+				) {
+					const elements = annotation.elements.map((element) => {
+						if (
+							element.name !== 'value'
+								|| !Array.isArray(element.value)
+						) {
+							return element;
+						}
+
+						const value = element.value.map((encodedValue) => {
+							if (typeof encodedValue !== 'number') {
+								return encodedValue;
+							}
+
+							const string = strings.at(isoIndexIntoStringIds.wrap(encodedValue));
+							invariant(string, 'String must be there. String id: %s', encodedValue);
+
+							return string;
 						});
 
 						return { ...element, value };
@@ -2691,14 +2727,17 @@ const createDalvikExecutableParser = <Instructions>({
 						const field = fields.at(fieldAnnotation.fieldIndex);
 						invariant(field, 'Field must be there. Field id: %s', fieldAnnotation.fieldIndex);
 
-						const annotations = annotationSetItemByOffset.get(fieldAnnotation.annotationsOffset);
+						const annotationSetItem = annotationSetItemByOffset.get(fieldAnnotation.annotationsOffset);
 						invariant(
-							isoOffsetToAnnotationSetItem.unwrap(fieldAnnotation.annotationsOffset) === 0 || annotations,
+							isoOffsetToAnnotationSetItem.unwrap(fieldAnnotation.annotationsOffset) === 0 || annotationSetItem,
 							'Annotations must be there. Annotations offset: %s',
 							fieldAnnotation.annotationsOffset,
 						);
 
-						return { field, annotations: annotations?.entries.map(resolveAnnotationOffsetItem) };
+						return {
+							field,
+							annotations: resolveAnnotationSetItem(annotationSetItem) ?? [],
+						};
 					});
 
 					const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.flatMap((methodAnnotation) => {
@@ -2712,13 +2751,10 @@ const createDalvikExecutableParser = <Instructions>({
 							methodAnnotation.annotationsOffset,
 						);
 
-						const annotations = resolveAnnotationSetItem(annotationSetItem);
-
-						if (!annotations?.length) {
-							return [];
-						}
-
-						return { method, annotations: annotations.map(resolveAnnotationElements) };
+						return {
+							method,
+							annotations: resolveAnnotationSetItem(annotationSetItem) ?? [],
+						};
 					});
 
 					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.flatMap((parameterAnnotation) => {

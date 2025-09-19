@@ -316,7 +316,10 @@ const smaliFieldsParser: Parser<SmaliFields, string> = promiseCompose(
 
 			const field = fieldOrComment as DalvikExecutableFieldWithAccess;
 
-			if (type === 'staticField') {
+			if (
+				type === 'staticField'
+				|| field.accessFlags.static
+			) {
 				staticFields.push(field);
 
 				continue;
@@ -715,6 +718,7 @@ setParserName(smaliParametersStringParser, 'smaliParametersStringParser');
 
 const smaliParametersIntegerParser: Parser<number | bigint, string> = promiseCompose(
 	createTupleParser([
+		createOptionalParser(createExactSequenceParser('-')),
 		createExactSequenceParser('0x'),
 		async parserContext => {
 			const characters: string[] = [];
@@ -746,15 +750,20 @@ const smaliParametersIntegerParser: Parser<number | bigint, string> = promiseCom
 		createOptionalParser(createExactSequenceParser('L')),
 	]),
 	([
+		optionalMinus,
 		_0x,
 		value,
 		optionalL,
 	]) => {
 		if (optionalL) {
-			return BigInt('0x' + value);
+			const sign = optionalMinus ? -1n : 1n;
+
+			return sign * BigInt('0x' + value);
 		}
 
-		return parseInt(value, 16);
+		const sign = optionalMinus ? -1 : 1;
+
+		return sign * Number.parseInt(value, 16);
 	},
 );
 
@@ -982,15 +991,96 @@ const smaliMultilineCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 
 setParserName(smaliMultilineCodeOperationParser, 'smaliMultilineCodeOperationParser');
 
-export const smaliCodeOperationParser: Parser<DalvikBytecodeOperation, string> = createUnionParser([
+const smaliLooseCodeOperationParser: Parser<any, string> = createUnionParser([
 	smaliOneLineCodeOperationParser,
 	smaliMultilineCodeOperationParser,
 ]);
+
+setParserName(smaliLooseCodeOperationParser, 'smaliLooseCodeOperationParser');
+
+export const smaliCodeOperationParser: Parser<any, string> = promiseCompose(
+	smaliLooseCodeOperationParser,
+	operation => {
+		const operation_ = {
+			operation: operation.operation,
+			// line,
+			// local,
+			// parameters: (operation as any).parameters,
+		} as any; // TODO
+
+		if ('body' in operation) {
+			const operationDexName = payloadOperationSmaliNameToDexName.get(operation.operation);
+
+			invariant(operationDexName, 'Unknown payload operation for %s', operation.operation);
+
+			operation_.operation = operationDexName;
+			operation_.branchLabels = operation.body;
+		}
+
+		const hasRegisters = Array.isArray(operation.parameters.at(0));
+		if (hasRegisters) {
+			operation_.registers = [];
+		}
+
+		for (const parameter of (operation as unknown as { parameters: unknown[]; }).parameters.flat() ?? []) {
+			if (isDalvikExecutableMethod(parameter)) {
+				operation_.method = parameter;
+
+				continue;
+			}
+
+			if (isDalvikExecutableField(parameter)) {
+				operation_.field = parameter;
+
+				continue;
+			}
+
+			if (isSmaliRegister(parameter)) {
+				if (!operation_.registers) {
+					operation_.registers = [];
+				}
+
+				operation_.registers.push(parameter);
+
+				continue;
+			}
+
+			if (typeof parameter === 'string') {
+				if (operationsWithTypeArgument.has(operation_.operation)) {
+					operation_.type = parameter;
+
+					continue;
+				}
+
+				if (operationsWithBranchLabelArgument.has(operation_.operation)) {
+					operation_.branchLabel = parameter;
+
+					continue;
+				}
+
+				operation_.string = parameter;
+
+				continue;
+			}
+
+			if (typeof parameter === 'number' || typeof parameter === 'bigint') {
+				operation_.value = parameter;
+
+				continue;
+			}
+
+			invariant(false, 'TODO: parameter: %s, operation: %s', JSON.stringify(parameter), JSON.stringify(operation));
+		}
+
+		return operation_;
+	},
+);
 
 setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
 
 const operationsWithTypeArgument = new Set<DalvikBytecodeOperation['operation']>([
 	'new-instance',
+	'new-array',
 	'check-cast',
 	'instance-of',
 ]);
@@ -1046,77 +1136,11 @@ const smaliAnnotatedCodeOperationParser: Parser<DalvikBytecodeOperation, string>
 		labels,
 		operation,
 	]) => {
-		const operation_ = {
-			operation: operation.operation,
-			// line,
-			// local,
-			// parameters: (operation as any).parameters,
-		} as any; // TODO
-
-		if ('body' in operation) {
-			const operationDexName = payloadOperationSmaliNameToDexName.get(operation.operation);
-
-			invariant(operationDexName, 'Unknown payload operation for %s', operation.operation);
-
-			operation_.operation = operationDexName;
-			operation_.branchLabels = operation.body;
-		}
-
 		if (labels.length) {
-			operation_.labels = new Set(labels);
+			(operation as any).labels = new Set(labels);
 		}
 
-		for (const parameter of (operation as unknown as { parameters: unknown[]; }).parameters.flat() ?? []) {
-			if (isDalvikExecutableMethod(parameter)) {
-				operation_.method = parameter;
-
-				continue;
-			}
-
-			if (isDalvikExecutableField(parameter)) {
-				operation_.field = parameter;
-
-				continue;
-			}
-
-			if (isSmaliRegister(parameter)) {
-				if (!operation_.registers) {
-					operation_.registers = [];
-				}
-
-				operation_.registers.push(parameter);
-
-				continue;
-			}
-
-			if (typeof parameter === 'string') {
-				if (operationsWithTypeArgument.has(operation_.operation)) {
-					operation_.type = parameter;
-
-					continue;
-				}
-
-				if (operationsWithBranchLabelArgument.has(operation_.operation)) {
-					operation_.branchLabel = parameter;
-
-					continue;
-				}
-
-				operation_.string = parameter;
-
-				continue;
-			}
-
-			if (typeof parameter === 'number' || typeof parameter === 'bigint') {
-				operation_.value = parameter;
-
-				continue;
-			}
-
-			invariant(false, 'TODO: parameter: %s, operation: %s', JSON.stringify(parameter), JSON.stringify(operation));
-		}
-
-		return operation_;
+		return operation;
 	},
 );
 
@@ -1339,8 +1363,16 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 
 setParserName(smaliExecutableCodeParser, 'smaliExecutableCodeParser');
 
+const sortRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
+	'if-eq',
+	'if-ne',
+]);
+
 function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeOperation {
-	if (operation.operation === 'if-eq') {
+	if (
+		sortRegistersOperations.has(operation.operation)
+			&& 'registers' in operation
+	) {
 		operation.registers.sort();
 	}
 
@@ -1567,8 +1599,30 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		smaliClassDeclarationParser,
 		smaliSuperDeclarationParser,
 		smaliSourceDeclarationParser,
-		smaliCommentsOrNewlinesParser,
-		createArrayParser(smaliInterfaceDeclarationParser),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					smaliCommentsOrNewlinesParser,
+					createNonEmptyArrayParser(smaliInterfaceDeclarationParser),
+				]),
+				([
+					_commentsOrNewlines,
+					interfaces,
+				]) => interfaces,
+			),
+		),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					smaliCommentsOrNewlinesParser,
+					createNonEmptyArrayParser(smaliAnnotationParser),
+				]),
+				([
+					_commentsOrNewlines,
+					classAnnotations,
+				]) => classAnnotations,
+			),
+		),
 		createOptionalParser(
 			promiseCompose(
 				createTupleParser([
@@ -1594,13 +1648,13 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		{
 			sourceFile,
 		},
-		_commentsOrNewlines0,
 		interfaces,
+		classAnnotations,
 		fields,
 		methods,
 	]) => {
 		const annotations: DalvikExecutableClassAnnotations = {
-			classAnnotations: [], // TODO
+			classAnnotations: classAnnotations as any ?? [], // TODO
 			fieldAnnotations: [], // TODO
 			methodAnnotations: methods.methodAnnotations,
 			parameterAnnotations: methods.parameterAnnotations,
@@ -1638,37 +1692,46 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 					})
 					: undefined
 			),
-			classData: {
-				directMethods: methods.directMethods.map((method) => ({
-					...method,
-					method: {
-						...method.method,
-						class: class_,
-					},
-				})),
-				virtualMethods: methods.virtualMethods.map((method) => ({
-					...method,
-					method: {
-						...method.method,
-						class: class_,
-					},
-				})),
-				staticFields: (fields?.staticFields ?? []).map((field) => ({
-					...field,
-					field: {
-						...field.field,
-						class: class_,
-					},
-				})),
-				instanceFields: (fields?.instanceFields ?? []).map((field) => ({
-					...field,
-					field: {
-						...field.field,
-						class: class_,
-					},
-				})),
-			},
-			interfaces,
+			classData: (
+				(
+					methods.directMethods.length
+						|| methods.virtualMethods.length
+						|| (fields?.staticFields.length ?? 0)
+						|| (fields?.instanceFields.length ?? 0)
+				)
+					? ({
+						directMethods: methods.directMethods.map((method) => ({
+							...method,
+							method: {
+								...method.method,
+								class: class_,
+							},
+						})),
+						virtualMethods: methods.virtualMethods.map((method) => ({
+							...method,
+							method: {
+								...method.method,
+								class: class_,
+							},
+						})),
+						staticFields: (fields?.staticFields ?? []).map((field) => ({
+							...field,
+							field: {
+								...field.field,
+								class: class_,
+							},
+						})),
+						instanceFields: (fields?.instanceFields ?? []).map((field) => ({
+							...field,
+							field: {
+								...field.field,
+								class: class_,
+							},
+						})),
+					})
+					: undefined
+			),
+			interfaces: interfaces ?? [],
 			staticValues: [], // TODO
 		};
 	},
