@@ -70,8 +70,14 @@ type DalvikBytecodeFormat20t = {
 };
 
 export const dalvikBytecodeFormat20tParser: Parser<DalvikBytecodeFormat20t, Uint8Array> = promiseCompose(
-	shortParser,
-	(branchOffset) => ({
+	createTupleParser([
+		ubyteParser,
+		shortParser,
+	]),
+	([
+		_zero,
+		branchOffset,
+	]) => ({
 		branchOffset,
 	}),
 );
