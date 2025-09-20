@@ -538,6 +538,20 @@ function shortyFromLongy(longy: string): string {
 	return longy.slice(0, 1);
 }
 
+function shortyGetInsSize(shorty: string): number {
+	let size = 0;
+
+	for (const char of shorty.slice(1)) {
+		if (char === 'J' || char === 'D') {
+			size += 2;
+		} else if (char !== 'V') {
+			size += 1;
+		}
+	}
+
+	return size;
+}
+
 const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('('),
@@ -1497,6 +1511,13 @@ const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>
 
 	'add-int/2addr',
 	'sub-int/2addr',
+	'mul-int/2addr',
+	'div-int/2addr',
+
+	'add-float/2addr',
+	'sub-float/2addr',
+	'mul-float/2addr',
+	'div-float/2addr',
 ]);
 
 function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeOperation {
@@ -1557,7 +1578,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 		}
 
 		if (code) {
-			const insSize = (accessFlags.static ? 0 : 1) + prototype.parameters.length;
+			const insSize = (accessFlags.static ? 0 : 1) + shortyGetInsSize(prototype.shorty);
 
 			code.insSize = insSize;
 

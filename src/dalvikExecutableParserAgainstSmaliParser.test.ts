@@ -183,6 +183,11 @@ test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3
 	isolate: true,
 });
 
+test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	smaliFilePath: 'a0/l',
+	isolate: true,
+});
+
 test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
 test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq');
@@ -192,66 +197,15 @@ const smali = `
 .super Ljava/lang/Object;
 .source "SourceFile"
 
-
-# static fields
-.field public static final a:F
-
-
 # direct methods
-.method public static constructor <clinit>()V
-    .registers 1
-
-    const/16 v0, 0xa
-
-    int-to-float v0, v0
-
-    sput v0, La0/l;->a:F
-
-    return-void
-.end method
-
 .method public static final a(Lh1/p;ZJ)F
     .registers 6
 
-    .line 1
-    invoke-static {p2, p3}, Lq0/f;->d(J)F
-
-    .line 37
-    double-to-float p2, p2
-
-    .line 38
-    const/high16 p3, 0x40000000    # 2.0f
-
-    .line 39
-    .line 40
-    div-float/2addr p2, p3
-
-    .line 41
-    if-eqz p1, :cond_31
-
-    .line 42
-    .line 43
-    sget p1, La0/l;->a:F
-
-    .line 44
-    .line 45
-    invoke-virtual {p0, p1}, Lh1/p;->A(F)F
-
-    .line 46
-    .line 47
-    .line 48
-    move-result p0
-
-    .line 49
-    add-float/2addr p2, p0
-
-    .line 50
-    :cond_31
-    return p2
+    return v0
 .end method
 `;
 
-test.serial.skip(
+test.serial(
 	'parse(dex(smali)) againts parse(smali)',
 	async t => {
 		const hasSmali = await hasSmaliPromise;
