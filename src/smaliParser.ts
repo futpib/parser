@@ -102,6 +102,20 @@ const smaliCommentsOrNewlinesParser: Parser<string[], string> = promiseCompose(
 	(newlinesOrComments) => newlinesOrComments.filter((newlineOrComment): newlineOrComment is string => typeof newlineOrComment === 'string'),
 );
 
+const smaliLineEndPraser: Parser<undefined | string, string> = promiseCompose(
+	createTupleParser([
+		createOptionalParser(smaliWhitespaceParser),
+		createUnionParser<undefined | string, string, string>([
+			smaliNewlinesParser,
+			smaliCommentParser,
+		]),
+	]),
+	([
+		_optionalWhitespace,
+		newlineOrComment,
+	]) => newlineOrComment,
+);
+
 const smaliIdentifierParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
 	const characters: string[] = [];
 
@@ -196,7 +210,7 @@ const smaliClassDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<u
 			),
 		),
 		smaliTypeDescriptorParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_commentsOrNewlines,
@@ -215,7 +229,7 @@ const smaliSuperDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<u
 	createTupleParser([
 		createExactSequenceParser('.super '),
 		smaliTypeDescriptorParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_super,
@@ -232,7 +246,7 @@ const smaliInterfaceDeclarationParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('.implements '),
 		smaliTypeDescriptorParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_interface,
@@ -247,7 +261,7 @@ const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<
 	createTupleParser([
 		createExactSequenceParser('.source '),
 		smaliQuotedStringParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_source,
@@ -285,7 +299,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 						),
 						createExactSequenceParser(',\n'),
 					),
-					createExactSequenceParser('\n'),
+					smaliLineEndPraser,
 					smaliIndentationParser,
 					createExactSequenceParser('}'),
 				]),
@@ -311,7 +325,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 						),
 						createExactSequenceParser(',\n'),
 					),
-					createExactSequenceParser('\n'),
+					smaliLineEndPraser,
 					smaliIndentationParser,
 					createExactSequenceParser('}'),
 				]),
@@ -322,7 +336,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 				]) => value,
 			),
 		]),
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		name,
@@ -354,7 +368,7 @@ export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCom
 		]),
 		smaliSingleWhitespaceParser,
 		smaliTypeDescriptorParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 		smaliIndentationParser,
 		createArrayParser(
 			smaliAnnotationElementParser,
@@ -394,7 +408,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		smaliMemberNameParser,
 		createExactSequenceParser(':'),
 		smaliTypeDescriptorParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 		createOptionalParser(
 			promiseCompose(
 				createTupleParser([
@@ -555,7 +569,7 @@ const smaliCodeRegistersParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .registers '),
 		jsonNumberParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_registers,
@@ -570,7 +584,7 @@ const smaliCodeLineParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .line '),
 		jsonNumberParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_line,
@@ -632,7 +646,7 @@ const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
 				smaliTypeDescriptorParser,
 			]),
 		),
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_local,
@@ -710,7 +724,7 @@ const smaliCodeLabelLineParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
 		smaliIndentationParser,
 		smaliCodeLabelParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_label,
@@ -945,7 +959,7 @@ const smaliOneLineCodeOperationParser: Parser<DalvikBytecodeOperation, string> =
 			])),
 			(undefinedOrParameters) => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
 		),
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		_indent,
@@ -969,7 +983,7 @@ const createMultilineSmaliCodeOperationLabelsBodyParser: (operationName: string)
 				createTupleParser([
 					smaliIndentationParser,
 					smaliCodeLabelParser,
-					createExactSequenceParser('\n'),
+					smaliLineEndPraser,
 				]),
 				([
 					_indentation,
@@ -981,7 +995,7 @@ const createMultilineSmaliCodeOperationLabelsBodyParser: (operationName: string)
 		smaliIndentationParser,
 		createExactSequenceParser('.end '),
 		createExactSequenceParser(operationName),
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		labels,
@@ -999,7 +1013,7 @@ const createMultilineSmaliCodeOperationLabelMapBodyParser: (operationName: strin
 					smaliParametersIntegerParser,
 					createExactSequenceParser(' -> '),
 					smaliCodeLabelParser,
-					createExactSequenceParser('\n'),
+					smaliLineEndPraser,
 				]),
 				([
 					_indentation,
@@ -1016,7 +1030,7 @@ const createMultilineSmaliCodeOperationLabelMapBodyParser: (operationName: strin
 		smaliIndentationParser,
 		createExactSequenceParser('.end '),
 		createExactSequenceParser(operationName),
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 	]),
 	([
 		labels,
@@ -1052,7 +1066,7 @@ const smaliMultilineCodeOperationParser: Parser<SmaliMultilineCodeOperation, str
 				])),
 				(undefinedOrParameters) => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
 			),
-			createExactSequenceParser('\n'),
+			smaliLineEndPraser,
 		]),
 		([
 			_indent,
@@ -1516,7 +1530,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 		smaliSingleWhitespaceParser,
 		smaliMemberNameParser,
 		smaliMethodPrototypeParser,
-		createExactSequenceParser('\n'),
+		smaliLineEndPraser,
 		smaliExecutableCodeParser,
 		createArrayParser(smaliCodeLineParser),
 		createExactSequenceParser('.end method\n'),
