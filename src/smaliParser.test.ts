@@ -92,31 +92,92 @@ stringParserTest(smaliFieldParser, [
 	[
 		'.field private barcodeScannerView:Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;\n',
 		{
-			accessFlags: {
-				abstract: false,
-				annotation: false,
-				bridge: false,
-				constructor: false,
-				declaredSynchronized: false,
-				enum: false,
-				final: false,
-				interface: false,
-				native: false,
-				private: true,
-				protected: false,
-				public: false,
-				static: false,
-				strict: false,
-				synchronized: false,
-				synthetic: false,
-				transient: false,
-				varargs: false,
-				volatile: false,
-			},
 			field: {
-				class: 'FILLED_LATER',
-				name: 'barcodeScannerView',
-				type: 'Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;',
+				accessFlags: {
+					abstract: false,
+					annotation: false,
+					bridge: false,
+					constructor: false,
+					declaredSynchronized: false,
+					enum: false,
+					final: false,
+					interface: false,
+					native: false,
+					private: true,
+					protected: false,
+					public: false,
+					static: false,
+					strict: false,
+					synchronized: false,
+					synthetic: false,
+					transient: false,
+					varargs: false,
+					volatile: false,
+				},
+				field: {
+					class: 'FILLED_LATER',
+					name: 'barcodeScannerView',
+					type: 'Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;',
+				},
+			},
+			annotation: undefined,
+		},
+	],
+	[
+		`.field public final g:Lo/b;
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "Lo/b<",
+            "Ljava/lang/Float;",
+            "Lo/i;",
+            ">;"
+        }
+    .end annotation
+.end field
+`,
+		{
+			field: {
+				accessFlags: {
+					abstract: false,
+					annotation: false,
+					bridge: false,
+					constructor: false,
+					declaredSynchronized: false,
+					enum: false,
+					final: true,
+					interface: false,
+					native: false,
+					private: false,
+					protected: false,
+					public: true,
+					static: false,
+					strict: false,
+					synchronized: false,
+					synthetic: false,
+					transient: false,
+					varargs: false,
+					volatile: false,
+				},
+				field: {
+					class: 'FILLED_LATER',
+					name: 'g',
+					type: 'Lo/b;',
+				},
+			},
+			annotation: {
+				visibility: 'system',
+				type: 'Ldalvik/annotation/Signature;',
+				elements: [
+					{
+						name: 'value',
+						value: [
+							'Lo/b<',
+							'Ljava/lang/Float;',
+							'Lo/i;',
+							'>;',
+						],
+					},
+				],
 			},
 		},
 	],
@@ -155,6 +216,32 @@ stringParserTest(smaliAnnotationParser, [
 			visibility: 'build',
 			type: 'Landroid/annotation/NonNull;',
 			elements: [],
+		},
+	],
+	[
+		`    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "Lo/b<",
+            "Ljava/lang/Float;",
+            "Lo/i;",
+            ">;"
+        }
+    .end annotation
+`,
+		{
+			visibility: 'system',
+			type: 'Ldalvik/annotation/Signature;',
+			elements: [
+				{
+					name: 'value',
+					value: [
+						'Lo/b<',
+						'Ljava/lang/Float;',
+						'Lo/i;',
+						'>;',
+					],
+				},
+			],
 		},
 	],
 ]);

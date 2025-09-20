@@ -168,6 +168,14 @@ export function isDalvikExecutableField(x: unknown): x is DalvikExecutableField 
 	);
 }
 
+export function dalvikExecutableFieldEquals(a: DalvikExecutableField, b: DalvikExecutableField): boolean {
+	return (
+		a.class === b.class
+			&& a.type === b.type
+			&& a.name === b.name
+	);
+}
+
 export type DalvikExecutableFieldWithAccess = {
 	field: DalvikExecutableField;
 	accessFlags: DalvikExecutableAccessFlags;

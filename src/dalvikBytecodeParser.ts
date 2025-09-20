@@ -882,7 +882,7 @@ const dalvikBytecodeOperationAddIntInPlaceParser = createDalvikBytecodeOperation
 
 type DalvikBytecodeOperationAddIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddIntInPlaceParser>>;
 
-const dalvikBytecodeOperationReverseSubtractIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rsub-int', 0xb1);
+const dalvikBytecodeOperationReverseSubtractIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-int/2addr', 0xb1);
 
 type DalvikBytecodeOperationReverseSubtractIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationReverseSubtractIntInPlaceParser>>;
 
