@@ -31,6 +31,11 @@ function getOperationFormatSize(operation: SmaliCodeOperation): number {
 		return (operation.branchOffsetIndices.length * 4) + 2;
 	}
 
+	if (operation.operation === 'fill-array-data-payload') {
+		console.log(operation);
+		return (operation.values.length * operation.value + 1) / 2 + 4;
+	}
+
 	const operationFormat = operationFormats[operation.operation];
 	invariant(operationFormat, 'Unknown operation format for %s', operation.operation);
 
@@ -908,6 +913,13 @@ const smaliCodeOperationParametersParser: Parser<SmaliCodeOperationParameter[], 
 				smaliParametersRegistersParser,
 				smaliParametersStringParser,
 				smaliParametersIntegerParser,
+				promiseCompose(
+					createTupleParser([
+						createNegativeLookaheadParser(smaliParametersIntegerParser),
+						jsonNumberParser,
+					]),
+					([ _notInteger, number ]) => number,
+				),
 				smaliParametersLabelParser,
 				promiseCompose(
 					createTupleParser([
@@ -962,7 +974,12 @@ const smaliCodeOperationNameParser: Parser<string, string> = promiseCompose(
 
 setParserName(smaliCodeOperationNameParser, 'smaliCodeOperationNameParser');
 
-const smaliOneLineCodeOperationParser: Parser<DalvikBytecodeOperation, string> = promiseCompose(
+type SmaliOneLineCodeOperation = {
+	operation: string;
+	parameters: SmaliCodeOperationParameter[];
+}
+
+const smaliOneLineCodeOperationParser: Parser<SmaliOneLineCodeOperation, string> = promiseCompose(
 	createTupleParser([
 		smaliSingleIndentationParser,
 		smaliCodeOperationNameParser,
@@ -983,7 +1000,7 @@ const smaliOneLineCodeOperationParser: Parser<DalvikBytecodeOperation, string> =
 	]) => ({
 		operation,
 		parameters,
-	} as any), // TODO
+	}),
 );
 
 setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
@@ -1051,13 +1068,42 @@ const createMultilineSmaliCodeOperationLabelMapBodyParser: (operationName: strin
 	]) => labels,
 );
 
+type SmaliCodeOperationIntegersBody = (number | bigint)[];
+
+const createMultilineSmaliCodeOperationIntegersBodyParser: (operationName: string) => Parser<SmaliCodeOperationIntegersBody, string> = operationName => promiseCompose(
+	createTupleParser([
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					smaliIndentationParser,
+					smaliParametersIntegerParser,
+					smaliLineEndPraser,
+				]),
+				([
+					_indentation,
+					key,
+				]) => key,
+			),
+		),
+		smaliIndentationParser,
+		createExactSequenceParser('.end '),
+		createExactSequenceParser(operationName),
+		smaliLineEndPraser,
+	]),
+	([
+		labels,
+	]) => labels,
+);
+
 type SmaliCodeOperationBody =
 	| SmaliCodeOperationLabelsBody
+	| SmaliCodeOperationIntegersBody
 	| SmaliCodeOperationLabelMapBody
 ;
 
 const createMultilineSmaliCodeOperationBodyParser: (operationName: string) => Parser<SmaliCodeOperationBody, string> = operationName => createUnionParser([
 	createMultilineSmaliCodeOperationLabelsBodyParser(operationName),
+	createMultilineSmaliCodeOperationIntegersBodyParser(operationName),
 	createMultilineSmaliCodeOperationLabelMapBodyParser(operationName),
 ]);
 
@@ -1105,7 +1151,10 @@ const smaliMultilineCodeOperationParser: Parser<SmaliMultilineCodeOperation, str
 
 setParserName(smaliMultilineCodeOperationParser, 'smaliMultilineCodeOperationParser');
 
-type SmaliLooseCodeOperation = any; // TODO
+type SmaliLooseCodeOperation =
+	| SmaliOneLineCodeOperation
+	| SmaliMultilineCodeOperation
+;
 
 const smaliLooseCodeOperationParser: Parser<SmaliLooseCodeOperation, string> = createUnionParser([
 	smaliOneLineCodeOperationParser,
@@ -1121,6 +1170,8 @@ type SmaliCodeOperationFromDalvikBytecodeOperation<T extends DalvikBytecodeOpera
 	? Simplify<Omit<T, 'branchOffset'> & { branchOffsetIndex: number; }>
 	: T extends { methodIndex: IndexIntoMethodIds; }
 	? Simplify<Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod; }>
+	: T extends { operation: 'fill-array-data-payload' }
+	? Simplify<Omit<T, 'elementWidth' | 'data'> & { values: number[]; value: number; }>
 	: T
 ;
 
@@ -1144,9 +1195,11 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 			operation_.operation = operationDexName;
 
 			if (operationDexName === 'sparse-switch-payload') {
-				const map = new Map<number | bigint, string>(operation.body);
+				const map = new Map<number | bigint, string>(operation.body as SmaliCodeOperationLabelMapBody);
 				operation_.keys = [ ...map.keys() ];
 				operation_.branchLabels = [ ...map.values() ];
+			} else if (operationDexName === 'fill-array-data-payload') {
+				operation_.values = operation.body;
 			} else {
 				operation_.branchLabels = operation.body;
 			}

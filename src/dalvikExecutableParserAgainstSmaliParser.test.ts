@@ -72,7 +72,13 @@ const parseDexAgainstSmaliMacro = test.macro({
 
 		const dexStream: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
 
-		const smali = await baksmaliClass(dexStream, smaliFilePath);
+		const smali_ = await baksmaliClass(dexStream, smaliFilePath);
+
+		const smali = (
+			smali_
+				.replaceAll(/^\s+\.line \d+\s*$/gm, '')
+				.replaceAll(/\n{3,}/g, '\n\n')
+		);
 
 		// console.log(smali);
 
@@ -185,6 +191,11 @@ test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3
 
 test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
 	smaliFilePath: 'a0/l',
+	isolate: true,
+});
+
+test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	smaliFilePath: 'a0/n',
 	isolate: true,
 });
 

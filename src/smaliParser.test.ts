@@ -323,6 +323,17 @@ stringParserTest(smaliCodeOperationParser, [
 	],
 ]);
 
+stringParserTest(smaliCodeOperationParser, [
+	[
+		`    .array-data 4
+        0x10100a7
+        0x101009e
+    .end array-data
+`,
+		stringParserTestSnapshot,
+	],
+]);
+
 stringParserTest(smaliMethodParser, [
 	[
 		`.method public final a()Landroid/os/Bundle;

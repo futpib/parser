@@ -354,6 +354,39 @@ const dalvikBytecodeOperationSparseSwitchPayloadParser: Parser<DalvikBytecodeOpe
 
 setParserName(dalvikBytecodeOperationSparseSwitchPayloadParser, 'dalvikBytecodeOperationSparseSwitchPayloadParser');
 
+type DalvikBytecodeOperationFillArrayDataPayload = {
+	operation: 'fill-array-data-payload';
+	elementWidth: number;
+	data: number[];
+};
+
+const dalvikBytecodeOperationFillArrayDataPayloadParser: Parser<DalvikBytecodeOperationFillArrayDataPayload, Uint8Array> = parserCreatorCompose(
+	() => promiseCompose(
+		createTupleParser([
+			createExactUshortParser(0x0300),
+			ushortParser,
+			ushortParser,
+		]),
+		([ _ident, elementWidth, size ]) => ({
+			elementWidth,
+			size,
+		}),
+	),
+	({ elementWidth, size }) => promiseCompose(
+		createQuantifierParser(
+			ubyteParser,
+			size,
+		),
+		(data) => ({
+			operation: 'fill-array-data-payload' as const,
+			elementWidth,
+			data,
+		}),
+	),
+)();
+
+setParserName(dalvikBytecodeOperationFillArrayDataPayloadParser, 'dalvikBytecodeOperationFillArrayDataPayloadParser');
+
 type DalvikBytecodeOperationInstanceOf = {
 	operation: 'instance-of';
 	registers: number[];
@@ -2088,6 +2121,8 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationPackedSwitchPayload
 	| DalvikBytecodeOperationSparseSwitch
 	| DalvikBytecodeOperationSparseSwitchPayload
+	| DalvikBytecodeOperationNewArray
+	| DalvikBytecodeOperationFillArrayDataPayload
 
 	| DalvikBytecodeOperationMoveResult1
 	| DalvikBytecodeOperationMove
