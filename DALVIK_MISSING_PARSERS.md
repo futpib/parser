@@ -7,20 +7,20 @@ Reference: [Android Dalvik Bytecode Specification](https://source.android.com/do
 ## Implementation Status
 
 **Total formats:** 32  
-**Implemented:** 21  
-**Missing:** 11
+**Implemented:** 23  
+**Missing:** 9
 
 ## Missing Format Parsers Checklist
 
 ### High Priority Formats
 
-- [ ] **Format 11n** (const/high16)
+- [x] **Format 11n** (const/4) - ✅ IMPLEMENTED
   - **Description:** vA, #+B - Immediate constant with 4-bit register and 4-bit signed immediate value
   - **Size:** 2 bytes (1 unit)
   - **Syntax:** `AA|op BBBB`
   - **Use case:** Small constant values (e.g., `const/4`)
 
-- [ ] **Format 51l** (const-wide)
+- [x] **Format 51l** (const-wide) - ✅ IMPLEMENTED
   - **Description:** vAA, #+BBBBBBBBBBBBBBBB - 64-bit immediate constant
   - **Size:** 10 bytes (5 units)
   - **Syntax:** `AA|op BBBBlo BBBBhi`
@@ -93,8 +93,6 @@ Reference: [Android Dalvik Bytecode Specification](https://source.android.com/do
 ### Priority Recommendations
 
 1. **Immediate Priority:**
-   - Format 11n - Used frequently for small constants
-   - Format 51l - Essential for 64-bit constant values
    - Format 31c - Needed for large DEX files with many string/type references
 
 2. **Medium Priority:**
@@ -140,10 +138,11 @@ export const dalvikBytecodeFormat11nParser: Parser<DalvikBytecodeFormat11n, Uint
 
 ## Current Implementation Status
 
-### Implemented Formats (21/32)
+### Implemented Formats (23/32)
 
 - ✓ Format 10t
 - ✓ Format 10x
+- ✓ Format 11n
 - ✓ Format 11x
 - ✓ Format 12x
 - ✓ Format 20t
@@ -163,10 +162,9 @@ export const dalvikBytecodeFormat11nParser: Parser<DalvikBytecodeFormat11n, Uint
 - ✓ Format 32x
 - ✓ Format 35c
 - ✓ Format 3rc
+- ✓ Format 51l
 
-### Not Implemented Formats (11/32)
-
-- ✗ Format 11n
+### Not Implemented Formats (9/32)
 - ✗ Format 20bc
 - ✗ Format 22cs
 - ✗ Format 31c
@@ -176,7 +174,6 @@ export const dalvikBytecodeFormat11nParser: Parser<DalvikBytecodeFormat11n, Uint
 - ✗ Format 3rms
 - ✗ Format 45cc
 - ✗ Format 4rcc
-- ✗ Format 51l
 
 ---
 
