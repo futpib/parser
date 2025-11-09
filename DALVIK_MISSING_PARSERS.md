@@ -7,8 +7,8 @@ Reference: [Android Dalvik Bytecode Specification](https://source.android.com/do
 ## Implementation Status
 
 **Total formats:** 32  
-**Implemented:** 23  
-**Missing:** 9
+**Implemented:** 24  
+**Missing:** 8
 
 ## Missing Format Parsers Checklist
 
@@ -26,11 +26,13 @@ Reference: [Android Dalvik Bytecode Specification](https://source.android.com/do
   - **Syntax:** `AA|op BBBBlo BBBBhi`
   - **Use case:** Wide (64-bit) constant values
 
-- [ ] **Format 31c** (const-string/jumbo)
-  - **Description:** vAA, thing@BBBBBBBB - Constant pool index with 8-bit register
+- [x] **Format 31c** (const-string/jumbo) - ✅ IMPLEMENTED
+  - **Description:** vAA, thing@BBBBBBBB - Constant pool index with 8-bit register and 32-bit index
   - **Size:** 6 bytes (3 units)
   - **Syntax:** `AA|op BBBBlo BBBBhi`
   - **Use case:** Large constant pool references (> 65535 items)
+  - **Opcode:** 0x1b
+  - **Implementation:** `createDalvikBytecodeFormat31cParser` in `src/dalvikBytecodeParser/formatParsers.ts`
 
 ### Method Invocation Formats (Deprecated/Optimized)
 
@@ -138,7 +140,7 @@ export const dalvikBytecodeFormat11nParser: Parser<DalvikBytecodeFormat11n, Uint
 
 ## Current Implementation Status
 
-### Implemented Formats (23/32)
+### Implemented Formats (24/32)
 
 - ✓ Format 10t
 - ✓ Format 10x
@@ -157,6 +159,7 @@ export const dalvikBytecodeFormat11nParser: Parser<DalvikBytecodeFormat11n, Uint
 - ✓ Format 22x
 - ✓ Format 23x
 - ✓ Format 30t
+- ✓ Format 31c
 - ✓ Format 31i
 - ✓ Format 31t
 - ✓ Format 32x
@@ -164,10 +167,9 @@ export const dalvikBytecodeFormat11nParser: Parser<DalvikBytecodeFormat11n, Uint
 - ✓ Format 3rc
 - ✓ Format 51l
 
-### Not Implemented Formats (9/32)
+### Not Implemented Formats (8/32)
 - ✗ Format 20bc
 - ✗ Format 22cs
-- ✗ Format 31c
 - ✗ Format 35mi
 - ✗ Format 35ms
 - ✗ Format 3rmi

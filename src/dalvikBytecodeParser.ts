@@ -8,6 +8,7 @@ import {
 	createDalvikBytecodeFormat22sParser,
 	createDalvikBytecodeFormat22tParser,
 	dalvikBytecodeFormat23xParser,
+	createDalvikBytecodeFormat31cParser,
 	dalvikBytecodeFormat31iParser,
 	dalvikBytecodeFormat31tParser,
 	createDalvikBytecodeFormat35cParser,
@@ -1605,6 +1606,28 @@ const dalvikBytecodeOperationConstStringParser: Parser<DalvikBytecodeOperationCo
 
 setParserName(dalvikBytecodeOperationConstStringParser, 'dalvikBytecodeOperationConstStringParser');
 
+type DalvikBytecodeOperationConstStringJumbo = {
+	operation: 'const-string/jumbo';
+	stringIndex: IndexIntoStringIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationConstStringJumboParser: Parser<DalvikBytecodeOperationConstStringJumbo, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x1b),
+		createDalvikBytecodeFormat31cParser({
+			isoIndex: isoIndexIntoStringIds,
+		}),
+	]),
+	([ _opcode, { index, registers } ]) => ({
+		operation: 'const-string/jumbo',
+		stringIndex: index,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationConstStringJumboParser, 'dalvikBytecodeOperationConstStringJumboParser');
+
 type DalvikBytecodeOperationConstMethodHandle = {
 	operation: 'const-method-handle';
 	methodIndex: IndexIntoMethodIds;
@@ -2195,6 +2218,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 			dalvikBytecodeOperationStaticFieldParser,
 
 			dalvikBytecodeOperationConstStringParser,
+			dalvikBytecodeOperationConstStringJumboParser,
 			dalvikBytecodeOperationConstMethodHandleParser,
 			dalvikBytecodeOperationConstClassParser,
 
