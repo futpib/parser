@@ -325,6 +325,14 @@ stringParserTest(smaliCodeOperationParser, [
 
 stringParserTest(smaliCodeOperationParser, [
 	[
+		`    invoke-virtual/range {v0 .. v6}, La0/n;->e(JIJF)V
+`,
+		stringParserTestSnapshot,
+	],
+]);
+
+stringParserTest(smaliCodeOperationParser, [
+	[
 		`    .array-data 4
         0x10100a7
         0x101009e
