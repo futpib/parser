@@ -15,6 +15,7 @@ import {
 	dalvikBytecodeFormat10tParser,
 	dalvikBytecodeFormat10xParser,
 	dalvikBytecodeFormat11xParser,
+	dalvikBytecodeFormat11nParser,
 	dalvikBytecodeFormat12xParser,
 	dalvikBytecodeFormat20tParser,
 	dalvikBytecodeFormat22xParser,
@@ -1932,20 +1933,15 @@ type DalvikBytecodeOperationConst4 = {
 const dalvikBytecodeOperationConst4Parser: Parser<DalvikBytecodeOperationConst4, Uint8Array> = promiseCompose(
 	createTupleParser([
 		createExactElementParser(0x12),
-		nibblesParser,
+		dalvikBytecodeFormat11nParser,
 	]),
 	([
 		_opcode,
-		[
-			value,
-			register0,
-		],
+		{ value, registers },
 	]) => ({
 		operation: 'const/4',
-		registers: [
-			register0,
-		],
-		value: value << 28 >> 28,
+		registers,
+		value,
 	}),
 );
 
