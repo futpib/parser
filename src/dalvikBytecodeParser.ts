@@ -24,10 +24,12 @@ import {
 	dalvikBytecodeFormat32xParser,
 	dalvikBytecodeFormat30tParser,
 	dalvikBytecodeFormat51lParser,
+	createDalvikBytecodeFormat45ccParser,
+	createDalvikBytecodeFormat4rccParser,
 } from "./dalvikBytecodeParser/formatParsers.js";
 import { ubyteParser, ushortParser, intParser, createExactUshortParser } from "./dalvikExecutableParser/typeParsers.js";
 import { DalvikExecutableField, DalvikExecutableMethod } from "./dalvikExecutable.js";
-import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
+import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoPrototypeIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
 import { createExactElementParser } from "./exactElementParser.js";
 import { Parser, setParserName } from "./parser.js";
 import { promiseCompose } from "./promiseCompose.js";
@@ -198,6 +200,63 @@ const dalvikBytecodeOperationInvokeRangeParser: Parser<DalvikBytecodeOperationIn
 ]);
 
 setParserName(dalvikBytecodeOperationInvokeRangeParser, 'dalvikBytecodeOperationInvokeRangeParser');
+
+// invoke-polymorphic and invoke-polymorphic/range (Android 8.0+)
+type DalvikBytecodeOperationInvokePolymorphic = {
+	operation: 'invoke-polymorphic';
+	methodIndex: IndexIntoMethodIds;
+	protoIndex: IndexIntoPrototypeIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationInvokePolymorphicParser: Parser<DalvikBytecodeOperationInvokePolymorphic, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0xfa),
+		createDalvikBytecodeFormat45ccParser({
+			isoMethodIndex: isoIndexIntoMethodIds,
+			isoProtoIndex: isoIndexIntoPrototypeIds,
+		}),
+	]),
+	([
+		_opcode,
+		{ methodIndex, protoIndex, registers }
+	]) => ({
+		operation: 'invoke-polymorphic',
+		methodIndex,
+		protoIndex,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationInvokePolymorphicParser, 'dalvikBytecodeOperationInvokePolymorphicParser');
+
+type DalvikBytecodeOperationInvokePolymorphicRange = {
+	operation: 'invoke-polymorphic/range';
+	methodIndex: IndexIntoMethodIds;
+	protoIndex: IndexIntoPrototypeIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationInvokePolymorphicRangeParser: Parser<DalvikBytecodeOperationInvokePolymorphicRange, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0xfb),
+		createDalvikBytecodeFormat4rccParser({
+			isoMethodIndex: isoIndexIntoMethodIds,
+			isoProtoIndex: isoIndexIntoPrototypeIds,
+		}),
+	]),
+	([
+		_opcode,
+		{ methodIndex, protoIndex, registers }
+	]) => ({
+		operation: 'invoke-polymorphic/range',
+		methodIndex,
+		protoIndex,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationInvokePolymorphicRangeParser, 'dalvikBytecodeOperationInvokePolymorphicRangeParser');
 
 type DalvikBytecodeOperationGoto = {
 	operation: 'goto';
@@ -2175,6 +2234,8 @@ export type DalvikBytecodeOperation =
 
 	| DalvikBytecodeOperationInvoke
 	| DalvikBytecodeOperationInvokeRange
+	| DalvikBytecodeOperationInvokePolymorphic
+	| DalvikBytecodeOperationInvokePolymorphicRange
 
 	| DalvikBytecodeOperationNewInstance
 	| DalvikBytecodeOperationNewArray
@@ -2207,6 +2268,8 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 
 			dalvikBytecodeOperationInvokeParser,
 			dalvikBytecodeOperationInvokeRangeParser,
+			dalvikBytecodeOperationInvokePolymorphicParser,
+			dalvikBytecodeOperationInvokePolymorphicRangeParser,
 
 			dalvikBytecodeOperationNewInstanceParser,
 			dalvikBytecodeOperationNewArrayParser,
