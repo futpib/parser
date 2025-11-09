@@ -48,6 +48,24 @@ export const dalvikBytecodeFormat11xParser: Parser<DalvikBytecodeFormat11x, Uint
 	}),
 );
 
+type DalvikBytecodeFormat11n = {
+	value: number;
+	registers: number[];
+};
+
+export const dalvikBytecodeFormat11nParser: Parser<DalvikBytecodeFormat11n, Uint8Array> = promiseCompose(
+	nibblesParser,
+	([
+		value,
+		register0,
+	]) => ({
+		value: value << 28 >> 28, // Sign extend 4-bit value
+		registers: [
+			register0,
+		],
+	}),
+);
+
 type DalvikBytecodeFormat12x = {
 	registers: number[];
 };
