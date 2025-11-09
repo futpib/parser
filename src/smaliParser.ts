@@ -754,7 +754,46 @@ const smaliCodeLabelLineParser: Parser<string, string> = promiseCompose(
 
 setParserName(smaliCodeLabelLineParser, 'smaliCodeLabelLineParser');
 
-const smaliParametersRegistersParser: Parser<SmaliRegister[], string> = promiseCompose(
+const smaliParametersRegisterRangeParser: Parser<SmaliRegister[], string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('{'),
+		smaliParametersRegisterParser,
+		createExactSequenceParser(' .. '),
+		smaliParametersRegisterParser,
+		createExactSequenceParser('}'),
+	]),
+	([
+		_openBrace,
+		startRegister,
+		_dotDot,
+		endRegister,
+		_closeBrace,
+	]) => {
+		invariant(
+			startRegister.prefix === endRegister.prefix,
+			'Register range must use the same prefix',
+		);
+		
+		invariant(
+			startRegister.index <= endRegister.index,
+			'Register range start must be less than or equal to end',
+		);
+		
+		const registers: SmaliRegister[] = [];
+		for (let i = startRegister.index; i <= endRegister.index; i++) {
+			registers.push({
+				prefix: startRegister.prefix,
+				index: i,
+			});
+		}
+		
+		return registers;
+	},
+);
+
+setParserName(smaliParametersRegisterRangeParser, 'smaliParametersRegisterRangeParser');
+
+const smaliParametersRegisterListParser: Parser<SmaliRegister[], string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('{'),
 		createArrayParser(
@@ -777,6 +816,13 @@ const smaliParametersRegistersParser: Parser<SmaliRegister[], string> = promiseC
 		_closeBrace,
 	]) => parameters,
 );
+
+setParserName(smaliParametersRegisterListParser, 'smaliParametersRegisterListParser');
+
+const smaliParametersRegistersParser: Parser<SmaliRegister[], string> = createUnionParser([
+	smaliParametersRegisterRangeParser,
+	smaliParametersRegisterListParser,
+]);
 
 setParserName(smaliParametersRegistersParser, 'smaliParametersRegistersParser');
 
