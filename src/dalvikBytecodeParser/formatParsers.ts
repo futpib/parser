@@ -475,3 +475,24 @@ export const createDalvikBytecodeFormat3rcParser = <Index>({
 		registers: Array.from({ length: registerCount }, (_, index) => firstRegister + index),
 	}),
 );
+
+type DalvikBytecodeFormat51l = {
+	value: bigint;
+	registers: number[];
+};
+
+export const dalvikBytecodeFormat51lParser: Parser<DalvikBytecodeFormat51l, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		longParser,
+	]),
+	([
+		register0,
+		value,
+	]) => ({
+		value,
+		registers: [
+			register0,
+		],
+	}),
+);

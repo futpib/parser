@@ -22,6 +22,7 @@ import {
 	nibblesParser,
 	dalvikBytecodeFormat32xParser,
 	dalvikBytecodeFormat30tParser,
+	dalvikBytecodeFormat51lParser,
 } from "./dalvikBytecodeParser/formatParsers.js";
 import { ubyteParser, ushortParser, intParser, createExactUshortParser } from "./dalvikExecutableParser/typeParsers.js";
 import { DalvikExecutableField, DalvikExecutableMethod } from "./dalvikExecutable.js";
@@ -2007,6 +2008,26 @@ const dalvikBytecodeOperationConstWide16Parser: Parser<DalvikBytecodeOperationCo
 
 setParserName(dalvikBytecodeOperationConstWide16Parser, 'dalvikBytecodeOperationConstWide16Parser');
 
+type DalvikBytecodeOperationConstWide = {
+	operation: 'const-wide';
+	registers: number[];
+	value: bigint;
+};
+
+const dalvikBytecodeOperationConstWideParser: Parser<DalvikBytecodeOperationConstWide, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x18),
+		dalvikBytecodeFormat51lParser,
+	]),
+	([ _opcode, { registers, value } ]) => ({
+		operation: 'const-wide',
+		registers,
+		value,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationConstWideParser, 'dalvikBytecodeOperationConstWideParser');
+
 type DalvikBytecodeOperationConst = {
 	operation: 'const';
 	registers: number[];
@@ -2203,6 +2224,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 			dalvikBytecodeOperationConst16Parser,
 			dalvikBytecodeOperationConstHigh16Parser,
 			dalvikBytecodeOperationConstWide16Parser,
+			dalvikBytecodeOperationConstWideParser,
 			dalvikBytecodeOperationConstParser,
 
 			dalvikBytecodeOperationCompareParser,
