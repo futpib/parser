@@ -2,7 +2,7 @@ name: Copilot Setup Steps
 on:
   workflow_dispatch:
 jobs:
-  setup:
+  copilot-setup-steps:
     name: Setup smali and baksmali
     runs-on: ubuntu-latest
     permissions: {}
