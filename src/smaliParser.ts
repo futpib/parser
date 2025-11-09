@@ -1848,6 +1848,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			),
 		),
 		smaliMethodsParser,
+		createOptionalParser(smaliCommentsOrNewlinesParser),
 	]),
 	([
 		{
@@ -1864,6 +1865,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		classAnnotations,
 		smaliFields,
 		methods,
+		_trailingCommentsOrNewlines,
 	]) => {
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
