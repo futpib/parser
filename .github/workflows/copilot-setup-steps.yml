@@ -1,0 +1,13 @@
+name: Copilot Setup Steps
+on:
+  workflow_dispatch:
+jobs:
+  setup:
+    name: Setup smali and baksmali
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsmali-java
