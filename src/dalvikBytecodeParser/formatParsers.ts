@@ -521,3 +521,258 @@ export const dalvikBytecodeFormat51lParser: Parser<DalvikBytecodeFormat51l, Uint
 		],
 	}),
 );
+
+// Format 20bc: throw-verification-error
+type DalvikBytecodeFormat20bc = {
+	kind: number;
+	index: number;
+};
+
+export const dalvikBytecodeFormat20bcParser: Parser<DalvikBytecodeFormat20bc, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		ushortParser,
+	]),
+	([
+		kind,
+		index,
+	]) => ({
+		kind,
+		index,
+	}),
+);
+
+// Format 22cs: field access quick (deprecated)
+type DalvikBytecodeFormat22cs = {
+	registers: number[];
+	fieldOffset: number;
+};
+
+export const dalvikBytecodeFormat22csParser: Parser<DalvikBytecodeFormat22cs, Uint8Array> = promiseCompose(
+	createTupleParser([
+		nibblesParser,
+		ushortParser,
+	]),
+	([
+		[
+			register0,
+			register1,
+		],
+		fieldOffset,
+	]) => ({
+		fieldOffset,
+		registers: [
+			register0,
+			register1,
+		],
+	}),
+);
+
+// Format 35mi: invoke-*/inline (deprecated)
+type DalvikBytecodeFormat35mi = {
+	inlineIndex: number;
+	registers: number[];
+};
+
+export const dalvikBytecodeFormat35miParser: Parser<DalvikBytecodeFormat35mi, Uint8Array> = promiseCompose(
+	createTupleParser([
+		nibblesParser,
+		ushortParser,
+		nibblesParser,
+		nibblesParser,
+	]),
+	([
+		[
+			registerCount,
+			register4,
+		],
+		inlineIndex,
+		[
+			register1,
+			register0,
+		],
+		[
+			register3,
+			register2,
+		],
+	]) => ({
+		inlineIndex,
+		registers: Object.assign([
+			register0,
+			register1,
+			register2,
+			register3,
+			register4,
+		], {
+			length: registerCount,
+		}),
+	}),
+);
+
+// Format 35ms: invoke-*/quick (deprecated)
+type DalvikBytecodeFormat35ms = {
+	vtableOffset: number;
+	registers: number[];
+};
+
+export const dalvikBytecodeFormat35msParser: Parser<DalvikBytecodeFormat35ms, Uint8Array> = promiseCompose(
+	createTupleParser([
+		nibblesParser,
+		ushortParser,
+		nibblesParser,
+		nibblesParser,
+	]),
+	([
+		[
+			registerCount,
+			register4,
+		],
+		vtableOffset,
+		[
+			register1,
+			register0,
+		],
+		[
+			register3,
+			register2,
+		],
+	]) => ({
+		vtableOffset,
+		registers: Object.assign([
+			register0,
+			register1,
+			register2,
+			register3,
+			register4,
+		], {
+			length: registerCount,
+		}),
+	}),
+);
+
+// Format 3rmi: invoke-*/inline/range (deprecated)
+type DalvikBytecodeFormat3rmi = {
+	inlineIndex: number;
+	registers: number[];
+};
+
+export const dalvikBytecodeFormat3rmiParser: Parser<DalvikBytecodeFormat3rmi, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		ushortParser,
+		ushortParser,
+	]),
+	([
+		registerCount,
+		inlineIndex,
+		firstRegister,
+	]) => ({
+		inlineIndex,
+		registers: Array.from({ length: registerCount }, (_, index) => firstRegister + index),
+	}),
+);
+
+// Format 3rms: invoke-*/quick/range (deprecated)
+type DalvikBytecodeFormat3rms = {
+	vtableOffset: number;
+	registers: number[];
+};
+
+export const dalvikBytecodeFormat3rmsParser: Parser<DalvikBytecodeFormat3rms, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		ushortParser,
+		ushortParser,
+	]),
+	([
+		registerCount,
+		vtableOffset,
+		firstRegister,
+	]) => ({
+		vtableOffset,
+		registers: Array.from({ length: registerCount }, (_, index) => firstRegister + index),
+	}),
+);
+
+// Format 45cc: invoke-polymorphic
+type DalvikBytecodeFormat45cc<MethodIndex, ProtoIndex> = {
+	methodIndex: MethodIndex;
+	protoIndex: ProtoIndex;
+	registers: number[];
+};
+
+export const createDalvikBytecodeFormat45ccParser = <MethodIndex, ProtoIndex>({
+	isoMethodIndex,
+	isoProtoIndex,
+}: {
+	isoMethodIndex: Iso<MethodIndex, number>;
+	isoProtoIndex: Iso<ProtoIndex, number>;
+}): Parser<DalvikBytecodeFormat45cc<MethodIndex, ProtoIndex>, Uint8Array> => promiseCompose(
+	createTupleParser([
+		nibblesParser,
+		ushortParser,
+		nibblesParser,
+		nibblesParser,
+		ushortParser,
+	]),
+	([
+		[
+			registerCount,
+			register4,
+		],
+		methodIndex,
+		[
+			register1,
+			register0,
+		],
+		[
+			register3,
+			register2,
+		],
+		protoIndex,
+	]) => ({
+		methodIndex: isoMethodIndex.wrap(methodIndex),
+		protoIndex: isoProtoIndex.wrap(protoIndex),
+		registers: Object.assign([
+			register0,
+			register1,
+			register2,
+			register3,
+			register4,
+		], {
+			length: registerCount,
+		}),
+	}),
+);
+
+// Format 4rcc: invoke-polymorphic/range
+type DalvikBytecodeFormat4rcc<MethodIndex, ProtoIndex> = {
+	methodIndex: MethodIndex;
+	protoIndex: ProtoIndex;
+	registers: number[];
+};
+
+export const createDalvikBytecodeFormat4rccParser = <MethodIndex, ProtoIndex>({
+	isoMethodIndex,
+	isoProtoIndex,
+}: {
+	isoMethodIndex: Iso<MethodIndex, number>;
+	isoProtoIndex: Iso<ProtoIndex, number>;
+}): Parser<DalvikBytecodeFormat4rcc<MethodIndex, ProtoIndex>, Uint8Array> => promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		ushortParser,
+		ushortParser,
+		ushortParser,
+	]),
+	([
+		registerCount,
+		methodIndex,
+		firstRegister,
+		protoIndex,
+	]) => ({
+		methodIndex: isoMethodIndex.wrap(methodIndex),
+		protoIndex: isoProtoIndex.wrap(protoIndex),
+		registers: Array.from({ length: registerCount }, (_, index) => firstRegister + index),
+	}),
+);
