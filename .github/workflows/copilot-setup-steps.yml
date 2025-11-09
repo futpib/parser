@@ -5,6 +5,7 @@ jobs:
   setup:
     name: Setup smali and baksmali
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Install system dependencies
         run: |
