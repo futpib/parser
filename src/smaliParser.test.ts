@@ -396,3 +396,34 @@ test.serial(smaliFromDexMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey7
 test.serial(smaliFromDexMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', 'd/m', true);
 test.serial(smaliFromDexMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', 'com/journeyapps/barcodescanner/CaptureActivity', true);
 test.serial.skip(smaliFromDexMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '', false);
+
+// Minimal failing test case reproducing the a0/n parsing issue
+test('parse smali with virtual method after direct methods (a0/n issue)', async t => {
+	const smali = `.class public final La0/n;
+.super Landroid/view/View;
+.source "SourceFile"
+
+# direct methods
+.method public static constructor <clinit>()V
+    .registers 1
+
+    return-void
+.end method
+
+# virtual methods
+.method public final b(Lr/o;ZJIJFLa0/a;)V
+    .registers 21
+
+    invoke-virtual/range {v0 .. v6}, La0/n;->e(JIJF)V
+
+    return-void
+.end method
+`;
+
+	const actual = await runParser(smaliParser, smali, stringParserInputCompanion, {
+		errorJoinMode: 'all',
+	});
+
+	t.truthy(actual);
+	t.is(actual.classData?.virtualMethods.length, 1);
+});
