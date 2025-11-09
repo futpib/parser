@@ -1,5 +1,5 @@
 import { Iso } from "monocle-ts";
-import { byteParser, intParser, longParser, shortParser, ubyteParser, ushortParser } from "../dalvikExecutableParser/typeParsers.js";
+import { byteParser, intParser, longParser, shortParser, ubyteParser, uintParser, ushortParser } from "../dalvikExecutableParser/typeParsers.js";
 import { createElementParser } from "../elementParser.js";
 import { Parser, setParserName } from "../parser.js";
 import { promiseCompose } from "../promiseCompose.js";
@@ -360,6 +360,31 @@ export const dalvikBytecodeFormat31iParser: Parser<DalvikBytecodeFormat31i, Uint
 		value,
 	]) => ({
 		value,
+		registers: [
+			register0,
+		],
+	}),
+);
+
+type DalvikBytecodeFormat31c<Index> = {
+	index: Index;
+	registers: number[];
+};
+
+export const createDalvikBytecodeFormat31cParser = <Index>({
+	isoIndex,
+}: {
+	isoIndex: Iso<Index, number>;
+}): Parser<DalvikBytecodeFormat31c<Index>, Uint8Array> => promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		uintParser,
+	]),
+	([
+		register0,
+		index,
+	]) => ({
+		index: isoIndex.wrap(index),
 		registers: [
 			register0,
 		],
