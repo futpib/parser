@@ -2270,7 +2270,28 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationCheckCast
 	| DalvikBytecodeOperationInstanceOf
 
+	| DalvikBytecodeOperationArrayElement
+	| DalvikBytecodeOperationInstanceField
+	| DalvikBytecodeOperationStaticField
+
+	| DalvikBytecodeOperationConst4
+	| DalvikBytecodeOperationConst16
+	| DalvikBytecodeOperationConstHigh16
+	| DalvikBytecodeOperationConstWide16
+	| DalvikBytecodeOperationConstWide
+	| DalvikBytecodeOperationConst
+
+	| DalvikBytecodeOperationConstString
+	| DalvikBytecodeOperationConstStringJumbo
+	| DalvikBytecodeOperationConstMethodHandle
+	| DalvikBytecodeOperationConstClass
+
+	| DalvikBytecodeOperationThrow
+
+	| DalvikBytecodeOperationCompare
+
 	| DalvikBytecodeOperationReturnVoid
+	| DalvikBytecodeOperationReturn1
 
 	| DalvikBytecodeOperationMoveResult1
 ;
