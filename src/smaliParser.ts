@@ -1636,21 +1636,79 @@ const sortRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
 	'if-ne',
 ]);
 
-// TODO: ???
+// All 12x format operations need register reversal because:
+// - Bytecode format is B|A (B in high nibble, A in low nibble)
+// - nibblesParser returns [B, A]
+// - Smali syntax is "op vA, vB" (destination first)
+// - So we need to reverse to get [A, B]
 const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
+	// Move operations
 	'move',
 	'move-wide',
 	'move-object',
 
+	// Unary operations (negation, bitwise not)
+	'neg-int',
+	'not-int',
+	'neg-long',
+	'not-long',
+	'neg-float',
+	'neg-double',
+
+	// Type conversion operations
+	'int-to-long',
+	'int-to-float',
+	'int-to-double',
+	'long-to-int',
+	'long-to-float',
+	'long-to-double',
+	'float-to-int',
+	'float-to-long',
+	'float-to-double',
+	'double-to-int',
+	'double-to-long',
+	'double-to-float',
+	'int-to-byte',
+	'int-to-char',
+	'int-to-short',
+
+	// Binary operations with /2addr suffix
 	'add-int/2addr',
 	'sub-int/2addr',
 	'mul-int/2addr',
 	'div-int/2addr',
+	'rem-int/2addr',
+	'and-int/2addr',
+	'or-int/2addr',
+	'xor-int/2addr',
+	'shl-int/2addr',
+	'shr-int/2addr',
+	'ushr-int/2addr',
+
+	'add-long/2addr',
+	'mul-long/2addr',
+	'div-long/2addr',
+	'rem-long/2addr',
+	'and-long/2addr',
+	'or-long/2addr',
+	'xor-long/2addr',
+	'shl-long/2addr',
+	'shr-long/2addr',
+	'ushr-long/2addr',
 
 	'add-float/2addr',
 	'sub-float/2addr',
 	'mul-float/2addr',
 	'div-float/2addr',
+
+	'add-double/2addr',
+	'sub-double/2addr',
+	'mul-double/2addr',
+	'div-double/2addr',
+	'rem-double/2addr',
+
+	// Reverse subtract (also 12x format)
+	'rsub-long',
 ]);
 
 function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeOperation {
