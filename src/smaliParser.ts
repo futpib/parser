@@ -1370,7 +1370,7 @@ const operationsWithBranchLabelArgument = new Set<DalvikBytecodeOperation['opera
 	'if-lez',
 	'packed-switch',
 	'sparse-switch',
-	// 'fill-array-data', // TODO
+	'fill-array-data',
 ]);
 
 const payloadOperationSmaliNameToDexName = new Map<string, string>(Object.entries({
