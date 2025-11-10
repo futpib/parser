@@ -286,19 +286,21 @@ const smaliNumberLiteralParser: Parser<number, string> = parserCreatorCompose(
 		parserCreatorCompose(
 			() => elementParser,
 			character => async parserContext => {
-				const isDigit = character >= '0' && character <= '9';
-				const isHexChar = (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F');
-				const isHexPrefix = character === 'x' || character === 'X';
-				const isTypeSuffix = character === 'f' || character === 'F' || character === 'd' || character === 'D' || character === 'l' || character === 'L';
-				
 				parserContext.invariant(
 					(
 						character === '-'
-							|| isDigit
+							|| (character >= '0' && character <= '9')
 							|| character === '.'
-							|| isHexPrefix
-							|| isHexChar
-							|| isTypeSuffix
+							|| character === 'x'
+							|| character === 'X'
+							|| (character >= 'a' && character <= 'f')
+							|| (character >= 'A' && character <= 'F')
+							|| character === 'f'
+							|| character === 'F'
+							|| character === 'd'
+							|| character === 'D'
+							|| character === 'l'
+							|| character === 'L'
 					),
 					'Expected number literal character, got "%s"',
 					character,
@@ -312,14 +314,10 @@ const smaliNumberLiteralParser: Parser<number, string> = parserCreatorCompose(
 		parserContext.invariant(characters.length > 0, 'Expected at least one character');
 
 		const numberString = characters.join('');
-		
-		// Validate that this is actually a valid number format before conversion
-		// Reject if it looks like it could be something else (e.g., a type descriptor starting with 'L')
-		const startsWithDigit = numberString[0] >= '0' && numberString[0] <= '9';
-		const startsWithMinus = numberString[0] === '-';
-		
+
+		// Numbers must start with a digit or minus (not hex chars or suffixes)
 		parserContext.invariant(
-			startsWithDigit || startsWithMinus,
+			numberString[0] === '-' || (numberString[0] >= '0' && numberString[0] <= '9'),
 			'Expected number to start with digit or minus, got "%s"',
 			numberString[0],
 		);
