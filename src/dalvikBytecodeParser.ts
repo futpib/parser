@@ -1760,6 +1760,26 @@ const dalvikBytecodeOperationNewArrayParser: Parser<DalvikBytecodeOperationNewAr
 
 setParserName(dalvikBytecodeOperationNewArrayParser, 'dalvikBytecodeOperationNewArrayParser');
 
+type DalvikBytecodeOperationFillArrayData = {
+	operation: 'fill-array-data';
+	branchOffset: number;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationFillArrayDataParser: Parser<DalvikBytecodeOperationFillArrayData, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x26),
+		dalvikBytecodeFormat31tParser,
+	]),
+	([ _opcode, { branchOffset, registers } ]) => ({
+		operation: 'fill-array-data',
+		branchOffset,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationFillArrayDataParser, 'dalvikBytecodeOperationFillArrayDataParser');
+
 type DalvikBytecodeOperationCheckCast = {
 	operation: 'check-cast';
 	typeIndex: IndexIntoTypeIds;
@@ -2246,6 +2266,7 @@ export type DalvikBytecodeOperation =
 
 	| DalvikBytecodeOperationNewInstance
 	| DalvikBytecodeOperationNewArray
+	| DalvikBytecodeOperationFillArrayData
 	| DalvikBytecodeOperationCheckCast
 	| DalvikBytecodeOperationInstanceOf
 
@@ -2280,6 +2301,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 
 			dalvikBytecodeOperationNewInstanceParser,
 			dalvikBytecodeOperationNewArrayParser,
+			dalvikBytecodeOperationFillArrayDataParser,
 			dalvikBytecodeOperationCheckCastParser,
 			dalvikBytecodeOperationInstanceOfParser,
 
