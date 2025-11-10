@@ -434,17 +434,24 @@ const dalvikBytecodeOperationFillArrayDataPayloadParser: Parser<DalvikBytecodeOp
 			size,
 		}),
 	),
-	({ elementWidth, size }: { elementWidth: number; size: number }) => promiseCompose(
-		createQuantifierParser(
-			ubyteParser,
-			size * elementWidth,
-		),
-		(data) => ({
-			operation: 'fill-array-data-payload' as const,
-			elementWidth,
-			data,
-		}),
-	),
+	({ elementWidth, size }: { elementWidth: number; size: number }) => {
+		const dataSize = size * elementWidth;
+		const paddingSize = dataSize % 2; // 1 if odd, 0 if even
+		return promiseCompose(
+			createTupleParser([
+				createQuantifierParser(
+					ubyteParser,
+					dataSize,
+				),
+				paddingSize > 0 ? createQuantifierParser(ubyteParser, paddingSize) : () => [],
+			]),
+			([ data, _padding ]) => ({
+				operation: 'fill-array-data-payload' as const,
+				elementWidth,
+				data,
+			}),
+		);
+	},
 )();
 
 setParserName(dalvikBytecodeOperationFillArrayDataPayloadParser, 'dalvikBytecodeOperationFillArrayDataPayloadParser');
