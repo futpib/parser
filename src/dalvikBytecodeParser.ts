@@ -1530,6 +1530,24 @@ const dalvikBytecodeOperationUnaryOperationParser: Parser<DalvikBytecodeOperatio
 
 setParserName(dalvikBytecodeOperationUnaryOperationParser, 'dalvikBytecodeOperationUnaryOperationParser');
 
+// For commutative comparison operations (if-eq, if-ne), sort registers to match baksmali's canonical output
+const createDalvikBytecodeOperationIfTestCommutative = <T extends string>(operation: T, opcode: number): Parser<{
+	operation: T;
+	registers: number[];
+	branchOffset: number;
+}, Uint8Array> => promiseCompose(
+	createTupleParser([
+		createExactElementParser(opcode),
+		createDalvikBytecodeFormat22tParser(),
+	]),
+	([ _opcode, { registers, branchOffset } ]) => ({
+		operation,
+		registers: registers.sort((a, b) => a - b),
+		branchOffset,
+	}),
+);
+
+// For non-commutative comparison operations (if-lt, if-ge, if-gt, if-le), reverse to get correct semantic order
 const createDalvikBytecodeOperationIfTest = <T extends string>(operation: T, opcode: number): Parser<{
 	operation: T;
 	registers: number[];
@@ -1546,11 +1564,11 @@ const createDalvikBytecodeOperationIfTest = <T extends string>(operation: T, opc
 	}),
 );
 
-const dalvikBytecodeIfEqualParser = createDalvikBytecodeOperationIfTest('if-eq', 0x32);
+const dalvikBytecodeIfEqualParser = createDalvikBytecodeOperationIfTestCommutative('if-eq', 0x32);
 
 type DalvikBytecodeOperationIfEqual = Awaited<ReturnType<typeof dalvikBytecodeIfEqualParser>>;
 
-const dalvikBytecodeIfNotEqualParser = createDalvikBytecodeOperationIfTest('if-ne', 0x33);
+const dalvikBytecodeIfNotEqualParser = createDalvikBytecodeOperationIfTestCommutative('if-ne', 0x33);
 
 type DalvikBytecodeOperationIfNotEqual = Awaited<ReturnType<typeof dalvikBytecodeIfNotEqualParser>>;
 
