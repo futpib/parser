@@ -21,6 +21,7 @@ import { createSeparatedNonEmptyArrayParser } from "./separatedNonEmptyArrayPars
 import { parserCreatorCompose } from "./parserCreatorCompose.js";
 import { Simplify } from "type-fest";
 import { IndexIntoMethodIds } from "./dalvikExecutableParser/typedNumbers.js";
+import { createElementParser } from "./elementParser.js";
 
 function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	if (operation.operation === 'packed-switch-payload') {
@@ -278,97 +279,63 @@ const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<
 	}),
 );
 
-const smaliNumberLiteralParser: Parser<number, string> = promiseCompose(
-	async (parserContext: ParserContext<string, string>) => {
-		const characters: string[] = [];
-		let position = 0;
-		let isHex = false;
-		let hasDigits = false;
+const elementParser: Parser<string, string> = createElementParser();
 
-		// Check if it starts with optional minus
-		let character = await parserContext.peek(position);
-		if (character === '-') {
-			characters.push(character);
-			position += 1;
-			character = await parserContext.peek(position);
-		}
+const smaliNumberLiteralParser: Parser<number, string> = parserCreatorCompose(
+	() => createArrayParser(
+		parserCreatorCompose(
+			() => elementParser,
+			character => async parserContext => {
+				const isDigit = character >= '0' && character <= '9';
+				const isHexChar = (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F');
+				const isHexPrefix = character === 'x' || character === 'X';
+				const isTypeSuffix = character === 'f' || character === 'F' || character === 'd' || character === 'D' || character === 'l' || character === 'L';
+				
+				parserContext.invariant(
+					(
+						character === '-'
+							|| isDigit
+							|| character === '.'
+							|| isHexPrefix
+							|| isHexChar
+							|| isTypeSuffix
+					),
+					'Expected number literal character, got "%s"',
+					character,
+				);
 
-		// Check for hex prefix 0x or 0X
-		if (character === '0') {
-			const nextChar = await parserContext.peek(position + 1);
-			if (nextChar === 'x' || nextChar === 'X') {
-				isHex = true;
-				characters.push(character);
-				characters.push(nextChar);
-				position += 2;
-				hasDigits = true; // 0 counts as a digit
-			}
-		}
+				return character;
+			},
+		)(),
+	),
+	characters => async parserContext => {
+		parserContext.invariant(characters.length > 0, 'Expected at least one character');
 
+		const numberString = characters.join('');
+		
+		// Validate that this is actually a valid number format before conversion
+		// Reject if it looks like it could be something else (e.g., a type descriptor starting with 'L')
+		const startsWithDigit = numberString[0] >= '0' && numberString[0] <= '9';
+		const startsWithMinus = numberString[0] === '-';
+		
 		parserContext.invariant(
-			character !== undefined,
-			'Expected number literal',
+			startsWithDigit || startsWithMinus,
+			'Expected number to start with digit or minus, got "%s"',
+			numberString[0],
 		);
 
-		// Parse the rest of the number
-		while (true) {
-			character = await parserContext.peek(position);
-
-			if (character === undefined) {
-				break;
-			}
-
-			if (isHex) {
-				// Hex digits
-				if (
-					(character >= '0' && character <= '9')
-					|| (character >= 'a' && character <= 'f')
-					|| (character >= 'A' && character <= 'F')
-				) {
-					characters.push(character);
-					position += 1;
-				} else {
-					break;
-				}
-			} else {
-				// Decimal number: digits, dot, and optional suffix
-				if (character >= '0' && character <= '9') {
-					characters.push(character);
-					position += 1;
-					hasDigits = true;
-				} else if (character === '.' && hasDigits) {
-					characters.push(character);
-					position += 1;
-				} else if ((character === 'f' || character === 'F' || character === 'd' || character === 'D' || character === 'l' || character === 'L') && hasDigits) {
-					characters.push(character);
-					position += 1;
-					break; // Suffix is the last character
-				} else {
-					break;
-				}
-			}
-		}
-
-		parserContext.invariant(
-			hasDigits,
-			'Expected number literal with at least one digit',
-		);
-
-		parserContext.skip(characters.length);
-
-		return characters.join('');
-	},
-	(numberString) => {
 		// Convert string to number
 		if (numberString.startsWith('0x') || numberString.startsWith('0X')) {
-			return parseInt(numberString, 16);
-		} else if (numberString.includes('.') || numberString.toLowerCase().includes('f') || numberString.toLowerCase().includes('d')) {
-			return parseFloat(numberString);
-		} else {
-			return parseInt(numberString, 10);
+			return Number.parseInt(numberString, 16);
 		}
+
+		if (numberString.includes('.') || numberString.toLowerCase().includes('f') || numberString.toLowerCase().includes('d')) {
+			return Number.parseFloat(numberString);
+		}
+
+		return Number.parseInt(numberString, 10);
 	},
-);
+)();
 
 type SmaliAnnotationElement = {
 	name: string;
