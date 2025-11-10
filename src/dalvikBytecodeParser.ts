@@ -1541,7 +1541,7 @@ const createDalvikBytecodeOperationIfTest = <T extends string>(operation: T, opc
 	]),
 	([ _opcode, { registers, branchOffset } ]) => ({
 		operation,
-		registers: registers.sort((a, b) => a - b),
+		registers: registers.reverse(),
 		branchOffset,
 	}),
 );

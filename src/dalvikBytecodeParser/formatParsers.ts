@@ -77,8 +77,8 @@ export const dalvikBytecodeFormat12xParser: Parser<DalvikBytecodeFormat12x, Uint
 		register1,
 	]) => ({
 		registers: [
-			register0,
 			register1,
+			register0,
 		],
 	}),
 );
