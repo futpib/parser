@@ -1298,7 +1298,12 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 			}
 
 			if (typeof parameter === 'number' || typeof parameter === 'bigint') {
-				operation_.value = parameter;
+				// Const-wide operations always use bigint values
+				if (operationsWithBigintValue.has(operation_.operation)) {
+					operation_.value = typeof parameter === 'number' ? BigInt(parameter) : parameter;
+				} else {
+					operation_.value = parameter;
+				}
 
 				continue;
 			}
@@ -1317,6 +1322,11 @@ const operationsWithTypeArgument = new Set<DalvikBytecodeOperation['operation']>
 	'new-array',
 	'check-cast',
 	'instance-of',
+]);
+
+const operationsWithBigintValue = new Set<DalvikBytecodeOperation['operation']>([
+	'const-wide/16',
+	'const-wide',
 ]);
 
 const operationsWithBranchLabelArgument = new Set<DalvikBytecodeOperation['operation']>([
