@@ -2683,6 +2683,48 @@ const createDalvikExecutableParser = <Instructions>({
 					return { ...annotation, elements };
 				}
 
+				if (
+					annotation.type === 'Ldalvik/annotation/EnclosingClass;'
+				) {
+					const elements = annotation.elements.map((element) => {
+						if (
+							element.name !== 'value'
+								|| typeof element.value !== 'number'
+						) {
+							return element;
+						}
+
+						const type = types.at(isoIndexIntoTypeIds.wrap(element.value));
+						invariant(type, 'Type must be there. Type id: %s', element.value);
+
+						return { ...element, value: type as any };
+					});
+
+					return { ...annotation, elements };
+				}
+
+				if (
+					annotation.type === 'Ldalvik/annotation/InnerClass;'
+				) {
+					const elements = annotation.elements.map((element) => {
+						if (typeof element.value !== 'number') {
+							return element;
+						}
+
+						if (element.name === 'name') {
+							const string = strings.at(isoIndexIntoStringIds.wrap(element.value));
+							invariant(string, 'String must be there. String id: %s', element.value);
+
+							return { ...element, value: string as any };
+						}
+
+						// accessFlags remains as a number
+						return element;
+					});
+
+					return { ...annotation, elements };
+				}
+
 				return annotation;
 			}
 
