@@ -5,35 +5,6 @@ import envPaths from 'env-paths';
 
 const paths = envPaths('parser.futpib.github.io');
 
-function readableWebStreamOnFinish<T>(readableWebStream: ReadableStream<T>, onFinish: () => void): ReadableStream<T> {
-	const reader = readableWebStream.getReader();
-
-	const stream = new ReadableStream<T>({
-		async start(controller) {
-			try {
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) {
-						break;
-					}
-
-					controller.enqueue(value);
-				}
-			} finally {
-				controller.close();
-				reader.releaseLock();
-				onFinish();
-			}
-		},
-		async cancel(reason) {
-			await reader.cancel(reason);
-			onFinish();
-		},
-	});
-
-	return stream;
-}
-
 class FsCache {
 	private get _basePath() {
 		return path.join(paths.cache, 'fetchCid');
@@ -49,11 +20,10 @@ class FsCache {
 
 			const stream = file.readableWebStream() as ReadableStream<Uint8Array>;
 
-			const streamWithClose = readableWebStreamOnFinish(stream, () => {
-				file.close();
-			});
+			// Note: file.readableWebStream() automatically closes the file handle
+			// when the stream is finished or cancelled, so we don't need to manually close it
 
-			return [ streamWithClose, undefined as any ];
+			return [ stream, undefined as any ];
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 				return undefined;
@@ -108,11 +78,10 @@ export async function fetchCid(cidOrPath: string): Promise<AsyncIterable<Uint8Ar
 
 		const stream = file.readableWebStream() as ReadableStream<Uint8Array>;
 
-		const streamWithClose = readableWebStreamOnFinish(stream, () => {
-			file.close();
-		});
+		// Note: file.readableWebStream() automatically closes the file handle
+		// when the stream is finished or cancelled, so we don't need to manually close it
 
-		return streamWithClose;
+		return stream;
 	}
 
 	const [ readable, unused ] = await cachedReallyFetchCid(cidOrPath);
