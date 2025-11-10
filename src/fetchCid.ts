@@ -18,12 +18,17 @@ class FsCache {
 		try {
 			const file = await fsPromises.open(this._getKeyPath(key), 'r');
 
-			const stream = file.readableWebStream() as ReadableStream<Uint8Array>;
+			const stream = file.readableWebStream();
 
-			// Note: file.readableWebStream() automatically closes the file handle
-			// when the stream is finished or cancelled, so we don't need to manually close it
+			// file.readableWebStream() returns ArrayBuffer chunks, but we need Uint8Array
+			// Use pipeThrough to convert, with type assertion due to Node/Web Streams API incompatibility
+			const uint8ArrayStream = (stream as any).pipeThrough(new TransformStream({
+				transform(chunk: ArrayBuffer, controller) {
+					controller.enqueue(new Uint8Array(chunk));
+				},
+			})) as ReadableStream<Uint8Array>;
 
-			return [ stream, undefined as any ];
+			return [ uint8ArrayStream, undefined as any ];
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 				return undefined;
@@ -76,12 +81,17 @@ export async function fetchCid(cidOrPath: string): Promise<AsyncIterable<Uint8Ar
 	if (cidOrPath.includes('/')) {
 		const file = await fsPromises.open(cidOrPath, 'r');
 
-		const stream = file.readableWebStream() as ReadableStream<Uint8Array>;
+		const stream = file.readableWebStream();
 
-		// Note: file.readableWebStream() automatically closes the file handle
-		// when the stream is finished or cancelled, so we don't need to manually close it
+		// file.readableWebStream() returns ArrayBuffer chunks, but we need Uint8Array
+		// Use pipeThrough to convert, with type assertion due to Node/Web Streams API incompatibility
+		const uint8ArrayStream = (stream as any).pipeThrough(new TransformStream({
+			transform(chunk: ArrayBuffer, controller) {
+				controller.enqueue(new Uint8Array(chunk));
+			},
+		})) as ReadableStream<Uint8Array>;
 
-		return stream;
+		return uint8ArrayStream;
 	}
 
 	const [ readable, unused ] = await cachedReallyFetchCid(cidOrPath);
