@@ -281,63 +281,60 @@ const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<
 
 const elementParser: Parser<string, string> = createElementParser();
 
+// Extend jsonNumberParser pattern to support smali-specific number formats (hex and type suffixes)
 const smaliNumberLiteralParser: Parser<number, string> = parserCreatorCompose(
-	() => {
-		let isFirstCharacter = true;
-		return createArrayParser(
-			parserCreatorCompose(
-				() => elementParser,
-				character => async parserContext => {
-					// First character must be digit or minus
-					if (isFirstCharacter) {
-						parserContext.invariant(
-							character === '-' || (character >= '0' && character <= '9'),
-							'Expected number to start with digit or minus, got "%s"',
-							character,
-						);
-						isFirstCharacter = false;
-					} else {
-						// Subsequent characters can include hex digits, decimal point, and type suffixes
-						parserContext.invariant(
-							(
-								(character >= '0' && character <= '9')
-									|| character === '.'
-									|| character === 'x'
-									|| character === 'X'
-									|| (character >= 'a' && character <= 'f')
-									|| (character >= 'A' && character <= 'F')
-									|| character === 'f'
-									|| character === 'F'
-									|| character === 'd'
-									|| character === 'D'
-									|| character === 'l'
-									|| character === 'L'
-							),
-							'Expected number literal character, got "%s"',
-							character,
-						);
-					}
+	() => createArrayParser(
+		parserCreatorCompose(
+			() => elementParser,
+			character => async parserContext => {
+				parserContext.invariant(
+					(
+						character === '-'
+							|| (character >= '0' && character <= '9')
+							|| character === '.'
+							|| character === 'x'
+							|| character === 'X'
+							|| (character >= 'a' && character <= 'f')
+							|| (character >= 'A' && character <= 'F')
+							|| character === 'f'
+							|| character === 'F'
+							|| character === 'd'
+							|| character === 'D'
+							|| character === 'l'
+							|| character === 'L'
+					),
+					'Expected number literal character, got "%s"',
+					character,
+				);
 
-					return character;
-				},
-			)(),
-		);
-	},
+				return character;
+			},
+		)(),
+	),
 	characters => async parserContext => {
 		parserContext.invariant(characters.length > 0, 'Expected at least one character');
 
 		const numberString = characters.join('');
+		
+		let result: number;
 
-		// Convert string to number
+		// Convert string to number (like Number() in jsonNumberParser but with hex support)
 		if (numberString.startsWith('0x') || numberString.startsWith('0X')) {
-			return Number.parseInt(numberString, 16);
+			result = Number.parseInt(numberString, 16);
+		} else if (numberString.includes('.') || numberString.toLowerCase().includes('f') || numberString.toLowerCase().includes('d')) {
+			result = Number.parseFloat(numberString);
+		} else {
+			result = Number.parseInt(numberString, 10);
 		}
 
-		if (numberString.includes('.') || numberString.toLowerCase().includes('f') || numberString.toLowerCase().includes('d')) {
-			return Number.parseFloat(numberString);
-		}
+		// Ensure the result is a valid number (not NaN)
+		parserContext.invariant(
+			!Number.isNaN(result),
+			'Invalid number format: "%s"',
+			numberString,
+		);
 
-		return Number.parseInt(numberString, 10);
+		return result;
 	},
 )();
 
