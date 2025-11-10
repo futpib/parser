@@ -1639,6 +1639,7 @@ const sortRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
 // TODO: ???
 const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
 	'move',
+	'move-wide',
 	'move-object',
 
 	'add-int/2addr',
