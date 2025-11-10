@@ -27,7 +27,7 @@ import {
 	createDalvikBytecodeFormat45ccParser,
 	createDalvikBytecodeFormat4rccParser,
 } from "./dalvikBytecodeParser/formatParsers.js";
-import { ubyteParser, ushortParser, intParser, createExactUshortParser } from "./dalvikExecutableParser/typeParsers.js";
+import { ubyteParser, ushortParser, intParser, uintParser, createExactUshortParser } from "./dalvikExecutableParser/typeParsers.js";
 import { DalvikExecutableField, DalvikExecutableMethod } from "./dalvikExecutable.js";
 import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoPrototypeIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
 import { createExactElementParser } from "./exactElementParser.js";
@@ -427,24 +427,31 @@ const dalvikBytecodeOperationFillArrayDataPayloadParser: Parser<DalvikBytecodeOp
 		createTupleParser([
 			createExactUshortParser(0x0300),
 			ushortParser,
-			ushortParser,
+			uintParser,
 		]),
-		([ _ident, elementWidth, size ]) => ({
+		([ _ident, elementWidth, size ]): { elementWidth: number; size: number } => ({
 			elementWidth,
 			size,
 		}),
 	),
-	({ elementWidth, size }) => promiseCompose(
-		createQuantifierParser(
-			ubyteParser,
-			size,
-		),
-		(data) => ({
-			operation: 'fill-array-data-payload' as const,
-			elementWidth,
-			data,
-		}),
-	),
+	({ elementWidth, size }: { elementWidth: number; size: number }) => {
+		const dataSize = size * elementWidth;
+		const paddingSize = dataSize % 2; // 1 if odd, 0 if even
+		return promiseCompose(
+			createTupleParser([
+				createQuantifierParser(
+					ubyteParser,
+					dataSize,
+				),
+				paddingSize > 0 ? createQuantifierParser(ubyteParser, paddingSize) : () => [],
+			]),
+			([ data, _padding ]) => ({
+				operation: 'fill-array-data-payload' as const,
+				elementWidth,
+				data,
+			}),
+		);
+	},
 )();
 
 setParserName(dalvikBytecodeOperationFillArrayDataPayloadParser, 'dalvikBytecodeOperationFillArrayDataPayloadParser');
@@ -1753,6 +1760,26 @@ const dalvikBytecodeOperationNewArrayParser: Parser<DalvikBytecodeOperationNewAr
 
 setParserName(dalvikBytecodeOperationNewArrayParser, 'dalvikBytecodeOperationNewArrayParser');
 
+type DalvikBytecodeOperationFillArrayData = {
+	operation: 'fill-array-data';
+	branchOffset: number;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationFillArrayDataParser: Parser<DalvikBytecodeOperationFillArrayData, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x26),
+		dalvikBytecodeFormat31tParser,
+	]),
+	([ _opcode, { branchOffset, registers } ]) => ({
+		operation: 'fill-array-data',
+		branchOffset,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationFillArrayDataParser, 'dalvikBytecodeOperationFillArrayDataParser');
+
 type DalvikBytecodeOperationCheckCast = {
 	operation: 'check-cast';
 	typeIndex: IndexIntoTypeIds;
@@ -2239,6 +2266,7 @@ export type DalvikBytecodeOperation =
 
 	| DalvikBytecodeOperationNewInstance
 	| DalvikBytecodeOperationNewArray
+	| DalvikBytecodeOperationFillArrayData
 	| DalvikBytecodeOperationCheckCast
 	| DalvikBytecodeOperationInstanceOf
 
@@ -2273,6 +2301,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 
 			dalvikBytecodeOperationNewInstanceParser,
 			dalvikBytecodeOperationNewArrayParser,
+			dalvikBytecodeOperationFillArrayDataParser,
 			dalvikBytecodeOperationCheckCastParser,
 			dalvikBytecodeOperationInstanceOfParser,
 
@@ -2297,6 +2326,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 			dalvikBytecodeOperationPackedSwitchPayloadParser,
 			dalvikBytecodeOperationSparseSwitchParser,
 			dalvikBytecodeOperationSparseSwitchPayloadParser,
+			dalvikBytecodeOperationFillArrayDataPayloadParser,
 
 			dalvikBytecodeOperationMoveResult1Parser,
 			dalvikBytecodeOperationMoveParser,
