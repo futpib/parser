@@ -32,12 +32,13 @@ function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	}
 
 	if (operation.operation === 'fill-array-data-payload') {
-		console.log(operation);
-		return (operation.values.length * operation.value + 1) / 2 + 4;
+		const dataSize = operation.data.length;
+		const paddingSize = dataSize % 2; // 1 if odd, 0 if even
+		return dataSize + paddingSize + 8; // 8 bytes for header (ident + elementWidth + size)
 	}
 
 	const operationFormat = operationFormats[operation.operation];
-	invariant(operationFormat, 'Unknown operation format for %s', operation.operation);
+	invariant(operationFormat, 'Unknown operation format for "%s" (operation: %o)', operation.operation, operation);
 
 	const operationSize = formatSizes[operationFormat];
 	invariant(operationSize, `Unknown operation size for format %s of operation %s`, operationFormat, operation.operation);
@@ -1216,8 +1217,6 @@ type SmaliCodeOperationFromDalvikBytecodeOperation<T extends DalvikBytecodeOpera
 	? Simplify<Omit<T, 'branchOffset'> & { branchOffsetIndex: number; }>
 	: T extends { methodIndex: IndexIntoMethodIds; }
 	? Simplify<Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod; }>
-	: T extends { operation: 'fill-array-data-payload' }
-	? Simplify<Omit<T, 'elementWidth' | 'data'> & { values: number[]; value: number; }>
 	: T
 ;
 
@@ -1245,7 +1244,26 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				operation_.keys = [ ...map.keys() ];
 				operation_.branchLabels = [ ...map.values() ];
 			} else if (operationDexName === 'fill-array-data-payload') {
-				operation_.values = operation.body;
+				// Get elementWidth from parameters (first parameter)
+				const elementWidth = operation.parameters[0];
+				invariant(typeof elementWidth === 'number', 'Expected elementWidth to be a number');
+				
+				operation_.elementWidth = elementWidth;
+				
+				// Convert integer values to bytes (little-endian)
+				const values = operation.body as SmaliCodeOperationIntegersBody;
+				const data: number[] = [];
+				
+				for (const value of values) {
+					const numValue = typeof value === 'bigint' ? Number(value) : value;
+					
+					// Convert to bytes based on elementWidth (little-endian)
+					for (let i = 0; i < elementWidth; i++) {
+						data.push((numValue >> (i * 8)) & 0xFF);
+					}
+				}
+				
+				operation_.data = data;
 			} else {
 				operation_.branchLabels = operation.body;
 			}
@@ -1298,6 +1316,11 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 			}
 
 			if (typeof parameter === 'number' || typeof parameter === 'bigint') {
+				// Skip for fill-array-data-payload, already handled in body processing
+				if (operation_.operation === 'fill-array-data-payload') {
+					continue;
+				}
+				
 				// Const-wide operations always use bigint values
 				if (operationsWithBigintValue.has(operation_.operation)) {
 					operation_.value = typeof parameter === 'number' ? BigInt(parameter) : parameter;
