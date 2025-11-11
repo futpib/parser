@@ -21,6 +21,8 @@ import { createSeparatedNonEmptyArrayParser } from "./separatedNonEmptyArrayPars
 import { parserCreatorCompose } from "./parserCreatorCompose.js";
 import { Simplify } from "type-fest";
 import { IndexIntoMethodIds } from "./dalvikExecutableParser/typedNumbers.js";
+import { createDebugLogInputParser } from "./debugLogInputParser.js";
+import { createDebugLogParser } from "./debugLogParser.js";
 import { createElementParser } from "./elementParser.js";
 
 function getOperationFormatSize(operation: SmaliCodeOperation): number {
@@ -162,6 +164,58 @@ const smaliIdentifierParser: Parser<string, string> = async (parserContext: Pars
 
 setParserName(smaliIdentifierParser, 'smaliIdentifierParser');
 
+const elementParser = createElementParser<string>();
+
+const smaliHexNumberParser: Parser<number, string> = promiseCompose(
+	createTupleParser([
+		createOptionalParser(createExactSequenceParser('-')),
+		createExactSequenceParser('0x'),
+		createArrayParser(
+			parserCreatorCompose(
+				() => elementParser,
+				character => async parserContext => {
+					parserContext.invariant(
+						(
+							(character >= '0' && character <= '9')
+								|| (character >= 'a' && character <= 'f')
+								|| (character >= 'A' && character <= 'F')
+						),
+						'Expected "0" to "9", "a" to "f", "A" to "F", got "%s"',
+						character,
+					);
+
+					return character;
+				},
+			)(),
+		),
+	]),
+	([
+		optionalMinus,
+		_0x,
+		valueCharacters,
+	]) => {
+		const sign = optionalMinus ? -1 : 1;
+
+		return sign * Number.parseInt(valueCharacters.join(''), 16);
+	},
+);
+
+const smaliNumberParser = createUnionParser<number, string>([
+	promiseCompose(
+		createTupleParser([
+			createNegativeLookaheadParser(createExactSequenceParser('0x')),
+			jsonNumberParser,
+		]),
+		([
+			_not0x,
+			number,
+		]) => number,
+	),
+	smaliHexNumberParser,
+]);
+
+setParserName(smaliNumberParser, 'smaliNumberParser');
+
 const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	jsonStringParser,
 	(string) => string.replaceAll(/\\'/g, "'"),
@@ -292,7 +346,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		createUnionParser([
 			smaliQuotedStringParser,
 			smaliTypeDescriptorParser,
-			jsonNumberParser,
+			smaliNumberParser,
 			promiseCompose(
 				createTupleParser([
 					createExactSequenceParser('{\n'),
@@ -592,7 +646,7 @@ setParserName(smaliMethodPrototypeParser, 'smaliMethodPrototypeParser');
 const smaliCodeRegistersParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .registers '),
-		jsonNumberParser,
+		smaliNumberParser,
 		smaliLineEndPraser,
 	]),
 	([
@@ -607,7 +661,7 @@ setParserName(smaliCodeRegistersParser, 'smaliCodeRegistersParser');
 const smaliCodeLineParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .line '),
-		jsonNumberParser,
+		smaliNumberParser,
 		smaliLineEndPraser,
 	]),
 	([
@@ -639,11 +693,11 @@ const smaliParametersRegisterParser: Parser<SmaliRegister, string> = promiseComp
 	createUnionParser<['v' | 'p', number], string>([
 		createTupleParser([
 			createExactSequenceParser('v'),
-			jsonNumberParser,
+			smaliNumberParser,
 		]),
 		createTupleParser([
 			createExactSequenceParser('p'),
-			jsonNumberParser,
+			smaliNumberParser,
 		]),
 	]),
 	([
@@ -967,7 +1021,7 @@ const smaliCodeOperationParametersParser: Parser<SmaliCodeOperationParameter[], 
 				promiseCompose(
 					createTupleParser([
 						createNegativeLookaheadParser(smaliParametersIntegerParser),
-						jsonNumberParser,
+						smaliNumberParser,
 					]),
 					([ _notInteger, number ]) => number,
 				),
