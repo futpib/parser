@@ -2710,7 +2710,7 @@ const createDalvikExecutableParser = <Instructions>({
 			function resolveTaggedEncodedValueForStaticValues(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue {
 				const { type, value } = taggedValue;
 
-				// For primitive types, return the value as a number
+				// For primitive types, return the value
 				if (
 					type === 'byte'
 					|| type === 'short'
@@ -2719,15 +2719,15 @@ const createDalvikExecutableParser = <Instructions>({
 					|| type === 'float'
 					|| type === 'double'
 				) {
-					return value as number;
+					return value;
 				}
 
 				// For method handle (index without typed wrapper), return as number
 				if (type === 'methodHandle') {
-					return value as number;
+					return value;
 				}
 
-				// For typed indices, unwrap to number
+				// For typed indices, unwrap to number (keep as index for static values)
 				if (
 					type === 'methodType'
 					|| type === 'string'
@@ -2749,15 +2749,14 @@ const createDalvikExecutableParser = <Instructions>({
 					return value;
 				}
 
-				// For null values, return undefined
+				// For null values, return null
 				if (type === 'null') {
-					return undefined;
+					return null;
 				}
 
 				// For arrays, recursively resolve elements
 				if (type === 'array') {
-					const array = value as DalvikExecutableTaggedEncodedValue[];
-					return array.map(resolveTaggedEncodedValueForStaticValues);
+					return value.map(resolveTaggedEncodedValueForStaticValues);
 				}
 
 				// For annotations
@@ -2783,22 +2782,37 @@ const createDalvikExecutableParser = <Instructions>({
 					|| type === 'float'
 					|| type === 'double'
 				) {
-					return value as number;
+					return value;
 				}
 
 				// For method handle (index without typed wrapper), return as number
 				if (type === 'methodHandle') {
-					return value as number;
+					return value;
 				}
 
-				// For typed indices that stay as numbers, unwrap them
-				if (
-					type === 'methodType'
-					|| type === 'field'
-					|| type === 'method'
-					|| type === 'enum'
-				) {
-					return (value as any).value;
+				// For typed indices that stay as numbers/objects, resolve them
+				if (type === 'methodType') {
+					const prototype = prototypes.at(value);
+					invariant(prototype, 'Prototype must be there. Prototype id: %s', isoIndexIntoPrototypeIds.unwrap(value));
+					return prototype as any;
+				}
+
+				if (type === 'field') {
+					const field = fields.at(value);
+					invariant(field, 'Field must be there. Field id: %s', isoIndexIntoFieldIds.unwrap(value));
+					return field as any;
+				}
+
+				if (type === 'method') {
+					const method = methods.at(value);
+					invariant(method, 'Method must be there. Method id: %s', isoIndexIntoMethodIds.unwrap(value));
+					return method as any;
+				}
+
+				if (type === 'enum') {
+					const enumField = fields.at(value);
+					invariant(enumField, 'Enum field must be there. Field id: %s', isoIndexIntoFieldIds.unwrap(value));
+					return enumField as any;
 				}
 
 				// For long values, return as bigint
@@ -2811,21 +2825,20 @@ const createDalvikExecutableParser = <Instructions>({
 					return value;
 				}
 
-				// For null values, return undefined
+				// For null values, return null
 				if (type === 'null') {
-					return undefined;
+					return null;
 				}
 
 				// For string type, resolve the string index to actual string
 				// Note: string index 0 might be used as "null" in some contexts
 				if (type === 'string') {
-					const stringIndex = value as IndexIntoStringIds;
-					if (isoIndexIntoStringIds.unwrap(stringIndex) === 0) {
+					if (isoIndexIntoStringIds.unwrap(value) === 0) {
 						// String index 0 might not exist, treat as undefined/null
 						return undefined;
 					}
-					const string = strings.at(stringIndex);
-					invariant(string, 'String must be there. String id: %s', isoIndexIntoStringIds.unwrap(stringIndex));
+					const string = strings.at(value);
+					invariant(string, 'String must be there. String id: %s', isoIndexIntoStringIds.unwrap(value));
 					// Return string directly for use in annotation arrays
 					return string as any;
 				}
@@ -2833,21 +2846,19 @@ const createDalvikExecutableParser = <Instructions>({
 				// For type, resolve the type index to actual type string
 				// Note: type index 0 might be used as "null" in some contexts
 				if (type === 'type') {
-					const typeIndex = value as IndexIntoTypeIds;
-					if (isoIndexIntoTypeIds.unwrap(typeIndex) === 0) {
+					if (isoIndexIntoTypeIds.unwrap(value) === 0) {
 						// Type index 0 might not exist, treat as undefined/null
 						return undefined;
 					}
-					const typeString = types.at(typeIndex);
-					invariant(typeString, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(typeIndex));
+					const typeString = types.at(value);
+					invariant(typeString, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(value));
 					// Return type string directly for use in annotation arrays
 					return typeString as any;
 				}
 
 				// For arrays, recursively resolve elements
 				if (type === 'array') {
-					const array = value as DalvikExecutableTaggedEncodedValue[];
-					return array.map(resolveTaggedEncodedValueForAnnotations) as any;
+					return value.map(resolveTaggedEncodedValueForAnnotations) as any;
 				}
 
 				// For annotations
