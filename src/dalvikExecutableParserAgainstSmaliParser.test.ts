@@ -155,6 +155,10 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 			if (failures.length >= 4) {
 				for (const failure of failures) {
+					console.log(failure.errors.at(0));
+				}
+
+				for (const failure of failures) {
 					failure.commit();
 				}
 			}
@@ -176,6 +180,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a', isolate: true },
 		{ smaliFilePath: 'a/b', isolate: true },
 		{ smaliFilePath: 'android/app/AppComponentFactory', isolate: true },
+		{ smaliFilePath: 'android/app/job/JobInfo$TriggerContentUri', isolate: true },
 		{ smaliFilePath: 'android/graphics/BlendModeColorFilter', isolate: true },
 		{ smaliFilePath: 'a0/i', isolate: true },
 		{ smaliFilePath: 'a0/l', isolate: true },

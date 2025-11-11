@@ -2136,30 +2136,32 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 				});
 			}
 
-			// Build parameter annotations array with correct length
-			const parameterCount = method.dalvikExecutableMethodWithAccess.method.prototype.parameters.length;
-			const annotationsArray: DalvikExecutableAnnotation[][] = Array.from({ length: parameterCount }, () => []);
-			
-			let hasAnyAnnotations = false;
-			for (const parameterAnnotation of method.parameterAnnotations) {
-				// Parameter registers are 1-based (p1, p2, ...) but array indices are 0-based
-				const parameterIndex = parameterAnnotation.register.index - 1;
-				
-				if (parameterAnnotation.annotation) {
-					annotationsArray[parameterIndex] = [ {
+			// Create an annotations array for all parameters, not just those with annotations
+			// In smali, instance methods have p0 as 'this', p1 as first param, etc.
+			// But DEX parameter annotations only include the actual parameters (not 'this')
+			const isStatic = method.dalvikExecutableMethodWithAccess.accessFlags.static;
+			const smaliRegisterOffset = isStatic ? 0 : 1; // P0 is 'this' for instance methods
+
+			const allParameterAnnotations = method.dalvikExecutableMethodWithAccess.method.prototype.parameters.map((_, parameterIndex) => {
+				const smaliRegisterIndex = parameterIndex + smaliRegisterOffset;
+				const parameterAnnotation = method.parameterAnnotations.find(pa => pa.register.prefix === 'p' && pa.register.index === smaliRegisterIndex);
+
+				if (parameterAnnotation?.annotation) {
+					return [ {
 						type: parameterAnnotation.annotation.type,
 						visibility: parameterAnnotation.annotation.visibility,
 						elements: parameterAnnotation.annotation.elements as any ?? [], // TODO
 					} ];
-					hasAnyAnnotations = true;
 				}
-			}
 
-			// Only push if there are actual annotations
-			if (hasAnyAnnotations) {
+				return [];
+			});
+
+			// Only push parameter annotations if there are some actual annotations
+			if (allParameterAnnotations.some(annotations => annotations.length > 0)) {
 				pushParameterAnnotation({
 					method: method.dalvikExecutableMethodWithAccess.method,
-					annotations: annotationsArray,
+					annotations: allParameterAnnotations,
 				});
 			}
 
