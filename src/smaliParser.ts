@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
 import {
-	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
@@ -2136,14 +2136,32 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 				});
 			}
 
-			pushParameterAnnotation({
-				method: method.dalvikExecutableMethodWithAccess.method,
-				annotations: method.parameterAnnotations.map(parameterAnnotation => [ {
-					type: parameterAnnotation.annotation!.type, // TODO
-					visibility: parameterAnnotation.annotation!.visibility, // TODO
-					elements: parameterAnnotation.annotation?.elements as any ?? [], // TODO
-				} ]),
-			});
+			// Build parameter annotations array with correct length
+			const parameterCount = method.dalvikExecutableMethodWithAccess.method.prototype.parameters.length;
+			const annotationsArray: DalvikExecutableAnnotation[][] = Array.from({ length: parameterCount }, () => []);
+			
+			let hasAnyAnnotations = false;
+			for (const parameterAnnotation of method.parameterAnnotations) {
+				// Parameter registers are 1-based (p1, p2, ...) but array indices are 0-based
+				const parameterIndex = parameterAnnotation.register.index - 1;
+				
+				if (parameterAnnotation.annotation) {
+					annotationsArray[parameterIndex] = [ {
+						type: parameterAnnotation.annotation.type,
+						visibility: parameterAnnotation.annotation.visibility,
+						elements: parameterAnnotation.annotation.elements as any ?? [], // TODO
+					} ];
+					hasAnyAnnotations = true;
+				}
+			}
+
+			// Only push if there are actual annotations
+			if (hasAnyAnnotations) {
+				pushParameterAnnotation({
+					method: method.dalvikExecutableMethodWithAccess.method,
+					annotations: annotationsArray,
+				});
+			}
 
 			if (type === 'directMethod') {
 				directMethods.push(method.dalvikExecutableMethodWithAccess);
