@@ -1456,6 +1456,7 @@ const operationsWithTypeArgument = new Set<DalvikBytecodeOperation['operation']>
 	'new-array',
 	'check-cast',
 	'instance-of',
+	'const-class',
 ]);
 
 const operationsWithBigintValue = new Set<DalvikBytecodeOperation['operation']>([
