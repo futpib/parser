@@ -145,3 +145,7 @@ flycheck_*.el
 # network security
 /network-security.data
 
+# xo config transpiled files
+xo.config.js
+xo.config.d.ts
+
