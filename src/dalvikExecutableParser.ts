@@ -2699,8 +2699,10 @@ const createDalvikExecutableParser = <Instructions>({
 					return annotation;
 				}
 
+				// Annotations with 'value' element containing array of type indices
 				if (
 					annotation.type === 'Ldalvik/annotation/Throws;'
+						|| annotation.type === 'Ldalvik/annotation/MemberClasses;'
 				) {
 					const elements = annotation.elements.map(element => {
 						if (

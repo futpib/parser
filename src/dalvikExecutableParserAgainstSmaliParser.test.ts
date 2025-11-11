@@ -203,6 +203,11 @@ test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3
 });
 
 test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	smaliFilePath: 'a0/v',
+	isolate: true,
+});
+
+test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
 	smaliFilePath: 'a0/v$a',
 	isolate: true,
 });
