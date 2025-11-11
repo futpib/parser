@@ -3012,7 +3012,8 @@ const createDalvikExecutableParser = <Instructions>({
 
 				const accessFlags = {
 					...classDefinitionItem.accessFlags,
-					synthetic: allMembersAreSynthetic,
+					// Use the synthetic flag from the class definition, or compute it from members if not set
+					synthetic: classDefinitionItem.accessFlags.synthetic || allMembersAreSynthetic,
 				};
 
 				return {
