@@ -176,6 +176,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a', isolate: true },
 		{ smaliFilePath: 'a/b', isolate: true },
 		{ smaliFilePath: 'android/app/AppComponentFactory', isolate: true },
+		{ smaliFilePath: 'android/app/job/JobInfo$TriggerContentUri', isolate: true },
 		{ smaliFilePath: 'a0/i', isolate: true },
 		{ smaliFilePath: 'a0/l', isolate: true },
 		{ smaliFilePath: 'a0/n', isolate: true },
