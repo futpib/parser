@@ -806,7 +806,7 @@ const createSkipToThenClassDataItemsParser = (sizeOffset: SizeOffset): Parser<Da
 });
 
 // Internal type for encoded values with type tags during parsing
-type TaggedEncodedValue =
+type DalvikExecutableTaggedEncodedValue =
 	| { type: 'byte'; value: number }
 	| { type: 'short'; value: number }
 	| { type: 'char'; value: number }
@@ -821,7 +821,7 @@ type TaggedEncodedValue =
 	| { type: 'field'; value: IndexIntoFieldIds }
 	| { type: 'method'; value: IndexIntoMethodIds }
 	| { type: 'enum'; value: IndexIntoFieldIds }
-	| { type: 'array'; value: TaggedEncodedValue[] }
+	| { type: 'array'; value: DalvikExecutableTaggedEncodedValue[] }
 	| { type: 'annotation'; value: DalvikExecutableEncodedAnnotation }
 	| { type: 'null'; value: null }
 	| { type: 'boolean'; value: boolean };
@@ -848,7 +848,7 @@ const createEncodedValueArgParser = (valueType: number): Parser<number, Uint8Arr
 	byte => byte >> 5,
 );
 
-const encodedValueByteParser: Parser<TaggedEncodedValue, Uint8Array> = promiseCompose(
+const encodedValueByteParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		createExactElementParser(0),
 		ubyteParser,
@@ -858,7 +858,7 @@ const encodedValueByteParser: Parser<TaggedEncodedValue, Uint8Array> = promiseCo
 
 setParserName(encodedValueByteParser, 'encodedValueByteParser');
 
-const encodedValueShortParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueShortParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x02),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -887,7 +887,7 @@ const encodedValueShortParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 
 setParserName(encodedValueShortParser, 'encodedValueShortParser');
 
-const encodedValueCharParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueCharParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x03),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -916,7 +916,7 @@ const encodedValueCharParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 
 setParserName(encodedValueCharParser, 'encodedValueCharParser');
 
-const encodedValueIntParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueIntParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x04),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -969,7 +969,7 @@ const encodedValueIntParser: Parser<TaggedEncodedValue, Uint8Array> = parserCrea
 
 setParserName(encodedValueIntParser, 'encodedValueIntParser');
 
-const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueLongParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x06),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1046,7 +1046,7 @@ const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 
 setParserName(encodedValueLongParser, 'encodedValueLongParser');
 
-const encodedValueFloatParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueFloatParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x10),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1085,7 +1085,7 @@ const encodedValueFloatParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 
 setParserName(encodedValueFloatParser, 'encodedValueFloatParser');
 
-const encodedValueDoubleParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueDoubleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x11),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1134,7 +1134,7 @@ const encodedValueDoubleParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 
 setParserName(encodedValueDoubleParser, 'encodedValueDoubleParser');
 
-const encodedValueMethodTypeParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueMethodTypeParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x15),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1173,7 +1173,7 @@ const encodedValueMethodTypeParser: Parser<TaggedEncodedValue, Uint8Array> = par
 
 setParserName(encodedValueMethodTypeParser, 'encodedValueMethodTypeParser');
 
-const encodedValueMethodHandleParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueMethodHandleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x16),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1212,7 +1212,7 @@ const encodedValueMethodHandleParser: Parser<TaggedEncodedValue, Uint8Array> = p
 
 setParserName(encodedValueMethodHandleParser, 'encodedValueMethodHandleParser');
 
-const encodedValueStringParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueStringParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x17),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1251,7 +1251,7 @@ const encodedValueStringParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 
 setParserName(encodedValueStringParser, 'encodedValueStringParser');
 
-const encodedValueTypeParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueTypeParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x18),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1290,7 +1290,7 @@ const encodedValueTypeParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 
 setParserName(encodedValueTypeParser, 'encodedValueTypeParser');
 
-const encodedValueFieldParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueFieldParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x19),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1329,7 +1329,7 @@ const encodedValueFieldParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 
 setParserName(encodedValueFieldParser, 'encodedValueFieldParser');
 
-const encodedValueMethodParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueMethodParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x1A),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1368,7 +1368,7 @@ const encodedValueMethodParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 
 setParserName(encodedValueMethodParser, 'encodedValueMethodParser');
 
-const encodedValueEnumParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueEnumParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x1B),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1407,9 +1407,9 @@ const encodedValueEnumParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 
 setParserName(encodedValueEnumParser, 'encodedValueEnumParser');
 
-type DalvikExecutableEncodedArray = TaggedEncodedValue[];
+type DalvikExecutableEncodedArray = DalvikExecutableTaggedEncodedValue[];
 
-const encodedArrayParser: Parser<TaggedEncodedValue[], Uint8Array> = parserCreatorCompose(
+const encodedArrayParser: Parser<DalvikExecutableTaggedEncodedValue[], Uint8Array> = parserCreatorCompose(
 	() => uleb128NumberParser,
 	size => createQuantifierParser(
 		encodedValueParser,
@@ -1419,7 +1419,7 @@ const encodedArrayParser: Parser<TaggedEncodedValue[], Uint8Array> = parserCreat
 
 setParserName(encodedArrayParser, 'encodedArrayParser');
 
-const encodedValueArrayParser: Parser<TaggedEncodedValue, Uint8Array> = promiseCompose(
+const encodedValueArrayParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		parserCreatorCompose(
 			() => createEncodedValueArgParser(0x1C),
@@ -1436,7 +1436,7 @@ setParserName(encodedValueArrayParser, 'encodedValueArrayParser');
 
 type DalvikExecutableAnnotationElement = {
 	nameIndex: IndexIntoStringIds;
-	value: TaggedEncodedValue;
+	value: DalvikExecutableTaggedEncodedValue;
 };
 
 type DalvikExecutableEncodedAnnotation = {
@@ -1488,7 +1488,7 @@ const encodedAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Uint8Ar
 
 setParserName(encodedAnnotationParser, 'encodedAnnotationParser');
 
-const encodedValueAnnotationParser: Parser<TaggedEncodedValue, Uint8Array> = promiseCompose(
+const encodedValueAnnotationParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		parserCreatorCompose(
 			() => createEncodedValueArgParser(0x1D),
@@ -1503,7 +1503,7 @@ const encodedValueAnnotationParser: Parser<TaggedEncodedValue, Uint8Array> = pro
 
 setParserName(encodedValueAnnotationParser, 'encodedValueAnnotationParser');
 
-const encodedValueNullParser: Parser<TaggedEncodedValue, Uint8Array> = parserCreatorCompose(
+const encodedValueNullParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x1E),
 	valueArg => parserContext => {
 		parserContext.invariant(valueArg === 0, '(encodedValueNullParser) valueArg: %s', valueArg);
@@ -1513,14 +1513,14 @@ const encodedValueNullParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 
 setParserName(encodedValueNullParser, 'encodedValueNullParser');
 
-const encodedValueBooleanParser: Parser<TaggedEncodedValue, Uint8Array> = promiseCompose(
+const encodedValueBooleanParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createEncodedValueArgParser(0x1F),
 	valueArg => ({ type: 'boolean' as const, value: Boolean(valueArg) }),
 );
 
 setParserName(encodedValueBooleanParser, 'encodedValueBooleanParser');
 
-const encodedValueParser: Parser<TaggedEncodedValue, Uint8Array> = createDisjunctionParser([
+const encodedValueParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = createDisjunctionParser([
 	encodedValueByteParser,
 	encodedValueShortParser,
 	encodedValueCharParser,
@@ -2707,7 +2707,7 @@ const createDalvikExecutableParser = <Instructions>({
 
 			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for static values
 			// Static values don't allow strings, so we keep indices as numbers
-			function resolveTaggedEncodedValueForStaticValues(taggedValue: TaggedEncodedValue): DalvikExecutableEncodedValue {
+			function resolveTaggedEncodedValueForStaticValues(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue {
 				const { type, value } = taggedValue;
 
 				// For primitive types, return the value as a number
@@ -2752,7 +2752,7 @@ const createDalvikExecutableParser = <Instructions>({
 
 				// For arrays, recursively resolve elements
 				if (type === 'array') {
-					const array = value as TaggedEncodedValue[];
+					const array = value as DalvikExecutableTaggedEncodedValue[];
 					return array.map(resolveTaggedEncodedValueForStaticValues);
 				}
 
@@ -2767,7 +2767,7 @@ const createDalvikExecutableParser = <Instructions>({
 
 			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for annotation elements
 			// Annotation elements allow strings in arrays for specific value types
-			function resolveTaggedEncodedValueForAnnotations(taggedValue: TaggedEncodedValue): DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string> {
+			function resolveTaggedEncodedValueForAnnotations(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string> {
 				const { type, value } = taggedValue;
 
 				// For primitive types, return the value as a number
@@ -2838,7 +2838,7 @@ const createDalvikExecutableParser = <Instructions>({
 
 				// For arrays, recursively resolve elements
 				if (type === 'array') {
-					const array = value as TaggedEncodedValue[];
+					const array = value as DalvikExecutableTaggedEncodedValue[];
 					return array.map(resolveTaggedEncodedValueForAnnotations) as any;
 				}
 
