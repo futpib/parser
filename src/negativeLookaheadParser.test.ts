@@ -17,27 +17,23 @@ testProp(
 			fc.string({
 				minLength: 1,
 			}),
-		).filter(([ a, b ]) => !a.startsWith(b))
+		).filter(([ a, b ]) => !a.startsWith(b)),
 	],
 	async (t, [ stringA, stringB ]) => {
 		const result = await runParser(
 			createTupleParser([
-				createNegativeLookaheadParser(
-					createExactSequenceParser(stringB),
-				),
+				createNegativeLookaheadParser(createExactSequenceParser(stringB)),
 				createExactSequenceParser(stringA + stringB),
 			]),
 			stringA + stringB,
 			stringParserInputCompanion,
 		);
 
-		t.deepEqual(result, [undefined, stringA + stringB]);
+		t.deepEqual(result, [ undefined, stringA + stringB ]);
 
-		await t.throwsAsync(() => runParser(
+		await t.throwsAsync(async () => runParser(
 			createTupleParser([
-				createNegativeLookaheadParser(
-					createExactSequenceParser(stringA),
-				),
+				createNegativeLookaheadParser(createExactSequenceParser(stringA)),
 				createExactSequenceParser(stringA + stringB),
 			]),
 			stringA + stringB,

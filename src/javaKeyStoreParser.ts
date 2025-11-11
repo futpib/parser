@@ -66,9 +66,7 @@ const javaKeyStorePrivateKeyEntryCertificateParser = promiseCompose(
 	([ type, certificate ]) => ({ type, certificate }),
 );
 
-const javaKeyStorePrivateKeyEntryCertificateChainParser = createUint32BECountPrefixedParser(
-	javaKeyStorePrivateKeyEntryCertificateParser,
-);
+const javaKeyStorePrivateKeyEntryCertificateChainParser = createUint32BECountPrefixedParser(javaKeyStorePrivateKeyEntryCertificateParser);
 
 const javaKeyStorePrivateKeyEntryParser = promiseCompose(
 	createTupleParser([
@@ -109,9 +107,7 @@ const javaKeyStoreEntryParser = createUnionParser([
 	javaKeyStoreSecretKeyEntryParser,
 ]);
 
-const javaKeyStoreEntriesParser = createUint32BECountPrefixedParser(
-	javaKeyStoreEntryParser,
-);
+const javaKeyStoreEntriesParser = createUint32BECountPrefixedParser(javaKeyStoreEntryParser);
 
 const javaKeyStoreParser_ = createTupleParser([
 	javaKeyStoreImplementationParser,

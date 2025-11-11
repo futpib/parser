@@ -1,4 +1,4 @@
-import { StringParserInputCompanion, Uint8ArrayParserInputCompanion } from "./parserInputCompanion.js";
+import { StringParserInputCompanion, Uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 
 export type UnparserOutputCompanion<Sequence, Element> = {
 	is(value: unknown): value is Sequence;

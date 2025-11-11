@@ -2,7 +2,7 @@ import { getParserName, setParserName, type Parser } from './parser.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { promiseSettled } from './promiseSettled.js';
-import { DeriveSequenceElement } from './sequence.js';
+import { type DeriveSequenceElement } from './sequence.js';
 
 export const createDisjunctionParser = <
 	Output,

@@ -1,8 +1,10 @@
-import invariant from "invariant";
-import { DeriveSequenceElement } from "./sequence.js";
-import { UnparserContext, UnparserContextImplementation, WriteEarlier, WriteLater } from "./unparserContext.js";
-import { UnparserOutputCompanion } from "./unparserOutputCompanion.js";
-import { unparserImplementationInvariant } from "./unparserImplementationInvariant.js";
+import invariant from 'invariant';
+import { type DeriveSequenceElement } from './sequence.js';
+import {
+	type UnparserContext, UnparserContextImplementation, WriteEarlier, WriteLater,
+} from './unparserContext.js';
+import { type UnparserOutputCompanion } from './unparserOutputCompanion.js';
+import { unparserImplementationInvariant } from './unparserImplementationInvariant.js';
 
 type UnparserIterableValue<Sequence, Element> =
 	| Sequence
@@ -49,7 +51,7 @@ async function * elementsToSequences<
 	for await (const value of values) {
 		if (
 			value instanceof WriteLater
-				|| value instanceof WriteEarlier
+			|| value instanceof WriteEarlier
 		) {
 			if (elements.length > 0) {
 				const sequence = unparserOutputCompanion.from(elements);
@@ -91,7 +93,9 @@ function wrapUnparserResult<Sequence, Element>(
 			unparserResult,
 			unparserOutputCompanion,
 		),
-		value => unparserContext.handleYield(value),
+		value => {
+			unparserContext.handleYield(value);
+		},
 	);
 }
 
@@ -119,7 +123,7 @@ export async function * runUnparser<
 	type PushOutput = (value: Sequence | WriteLater<Sequence, Element>) => void;
 	type FinishOutput = () => void;
 
-	const iteratorStack: [ Iterator, PushOutput, FinishOutput ][] = [
+	const iteratorStack: Array<[ Iterator, PushOutput, FinishOutput ]> = [
 		[
 			valuesWithoutElements[Symbol.asyncIterator](),
 			value => outputQueue.push(value),
@@ -130,7 +134,7 @@ export async function * runUnparser<
 	while (true) {
 		while (
 			outputQueue.length > 0
-				&& !(outputQueue[0] instanceof WriteLater)
+			&& !(outputQueue[0] instanceof WriteLater)
 		) {
 			yield outputQueue.shift() as Sequence;
 		}

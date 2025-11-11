@@ -1,7 +1,7 @@
+import fsPromises from 'node:fs/promises';
 import { fc, testProp } from '@fast-check/ava';
 import { temporaryFile } from 'tempy';
 import { execa } from 'execa';
-import fsPromises from 'node:fs/promises';
 import { runUnparser } from './unparser.js';
 import { createZipUnparser } from './zipUnparser.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';

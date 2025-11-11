@@ -1,58 +1,54 @@
 import zlib from 'node:zlib';
-import { Unparser } from "./unparser.js";
-import { Zip, ZipEntry, ZipFileEntry } from "./zip.js";
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { ZipEndOfCentralDirectoryRecord, ZipLocalFileHeader } from './zipParser.js';
+import { type Unparser } from './unparser.js';
+import { type Zip, type ZipEntry, type ZipFileEntry } from './zip.js';
+import { type ZipEndOfCentralDirectoryRecord, type ZipLocalFileHeader } from './zipParser.js';
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 
 const uint16LEUnparser: Unparser<number, Uint8Array> = async function * (uint16LE) {
 	const buffer = Buffer.alloc(2);
 	buffer.writeUInt16LE(uint16LE);
 	yield buffer;
-}
+};
 
 const uint32LEUnparser: Unparser<number, Uint8Array> = async function * (uint32LE) {
 	const buffer = Buffer.alloc(4);
 	buffer.writeUInt32LE(uint32LE);
 	yield buffer;
-}
+};
 
 const uint16LEPrefixedUint8ArrayUnparser: Unparser<Uint8Array, Uint8Array> = async function * (uint8Array, unparserContext) {
 	yield * uint16LEUnparser(uint8Array.length, unparserContext);
 	yield uint8Array;
-}
+};
 
 const uint16LEPrefixedStringUnparser: Unparser<string, Uint8Array> = async function * (string, unparserContext) {
 	yield * uint16LEPrefixedUint8ArrayUnparser(Buffer.from(string, 'utf8'), unparserContext);
-}
+};
 
 const dosDateTimeUnparser: Unparser<Date, Uint8Array> = async function * (date, unparserContext) {
 	yield * uint16LEUnparser(
 		(
 			date.getUTCSeconds() / 2
-				| date.getUTCMinutes() << 5
-				| date.getUTCHours() << 11
+			| date.getUTCMinutes() << 5
+			| date.getUTCHours() << 11
 		),
 		unparserContext,
 	);
 	yield * uint16LEUnparser(
 		(
 			date.getUTCDate()
-				| (date.getUTCMonth() + 1) << 5
-				| (date.getUTCFullYear() - 1980) << 9
+			| (date.getUTCMonth() + 1) << 5
+			| (date.getUTCFullYear() - 1980) << 9
 		),
 		unparserContext,
 	);
-}
+};
 
 const zipCompressionMethodUnparser: Unparser<'store' | 'deflate', Uint8Array> = async function * (compressionMethod, unparserContext) {
-	if (compressionMethod === 'store') {
-		yield * uint16LEUnparser(0, unparserContext);
-	} else {
-		yield * uint16LEUnparser(8, unparserContext);
-	}
-}
+	yield * (compressionMethod === 'store' ? uint16LEUnparser(0, unparserContext) : uint16LEUnparser(8, unparserContext));
+};
 
 export const zipEndOfCentralDirectoryRecordUnparser: Unparser<ZipEndOfCentralDirectoryRecord, Uint8Array> = async function * (zipEndOfCentralDirectoryRecord, unparserContext) {
 	yield Buffer.from('504b0506', 'hex');
@@ -64,7 +60,7 @@ export const zipEndOfCentralDirectoryRecordUnparser: Unparser<ZipEndOfCentralDir
 	yield * uint32LEUnparser(zipEndOfCentralDirectoryRecord.offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber, unparserContext);
 
 	yield * uint16LEPrefixedStringUnparser(zipEndOfCentralDirectoryRecord.zipFileComment, unparserContext);
-}
+};
 
 const zipDataDescriptorUnparser: Unparser<{
 	crc32: number;
@@ -79,7 +75,7 @@ const zipDataDescriptorUnparser: Unparser<{
 	yield * uint32LEUnparser(crc32, unparserContext);
 	yield * uint32LEUnparser(compressedSize, unparserContext);
 	yield * uint32LEUnparser(uncompressedSize, unparserContext);
-}
+};
 
 const zipLocalFileHeaderUnparser: Unparser<ZipLocalFileHeader, Uint8Array> = async function * ({
 	versionNeededToExtract,
@@ -116,33 +112,29 @@ export const createZipUnparser = ({
 }: {
 	dataDescriptor?: boolean;
 } = {}): Unparser<Zip, Uint8Array> => async function * (zip, unparserContext) {
-	const compressedContentByZipFileEntry = new Map<ZipFileEntry, undefined | Promise<Uint8Array>>(
-		zip.entries.flatMap(zipEntry => {
-			if (zipEntry.type !== 'file') {
-				return [];
-			}
+	const compressedContentByZipFileEntry = new Map<ZipFileEntry, undefined | Promise<Uint8Array>>(zip.entries.flatMap(zipEntry => {
+		if (zipEntry.type !== 'file') {
+			return [];
+		}
 
-			if (zipEntry.compression === 'store') {
-				return [[zipEntry, Promise.resolve(zipEntry.content)]];
-			}
+		if (zipEntry.compression === 'store') {
+			return [ [ zipEntry, Promise.resolve(zipEntry.content) ] ];
+		}
 
-			const uncompressedContent = zipEntry.content;
+		const uncompressedContent = zipEntry.content;
 
-			const deflate = zlib.createDeflateRaw();
-			const input = Readable.from(Buffer.from(uncompressedContent));
+		const deflate = zlib.createDeflateRaw();
+		const input = Readable.from(Buffer.from(uncompressedContent));
 
-			const promise = Promise.all([
-				pipeline(input, deflate),
-				uint8ArrayAsyncIterableToUint8Array(deflate),
-			]);
+		const promise = Promise.all([
+			pipeline(input, deflate),
+			uint8ArrayAsyncIterableToUint8Array(deflate),
+		]);
 
-			return [[zipEntry, promise.then(([, compressedContent]) => compressedContent)]];
-		}),
-	);
+		return [ [ zipEntry, promise.then(([ , compressedContent ]) => compressedContent) ] ];
+	}));
 
-	const filePathByZipEntry = new Map<ZipEntry, string>(
-		zip.entries.map(zipEntry => [zipEntry, zipEntry.type === 'file' ? zipEntry.path : zipEntry.path + '/']),
-	);
+	const filePathByZipEntry = new Map<ZipEntry, string>(zip.entries.map(zipEntry => [ zipEntry, zipEntry.type === 'file' ? zipEntry.path : zipEntry.path + '/' ]));
 
 	const localHeaderPositionByZipEntry = new Map<ZipEntry, number>();
 
@@ -206,28 +198,24 @@ export const createZipUnparser = ({
 		yield Buffer.from('504b0102', 'hex');
 
 		if (zipEntry.hostSystem === 'unix') {
-			yield 0; // zip specification version
-			yield 3; // host system
+			yield 0; // Zip specification version
+			yield 3; // Host system
 		} else {
 			yield 0;
 			yield 0;
 		}
 
-		yield * uint16LEUnparser(0, unparserContext); // version needed to extract
-		yield * uint16LEUnparser(0, unparserContext); // general purpose bit flag
+		yield * uint16LEUnparser(0, unparserContext); // Version needed to extract
+		yield * uint16LEUnparser(0, unparserContext); // General purpose bit flag
 
-		if (zipEntry.type === 'file') {
-			yield * zipCompressionMethodUnparser(zipEntry.compression, unparserContext);
-		} else {
-			yield * uint16LEUnparser(0, unparserContext);
-		}
+		yield * (zipEntry.type === 'file' ? zipCompressionMethodUnparser(zipEntry.compression, unparserContext) : uint16LEUnparser(0, unparserContext));
 
 		yield * dosDateTimeUnparser(zipEntry.date, unparserContext);
 
 		if (zipEntry.type === 'file') {
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
-			yield * uint32LEUnparser(0, unparserContext); // crc32 // TODO
+			yield * uint32LEUnparser(0, unparserContext); // Crc32 // TODO
 			yield * uint32LEUnparser(compressedContent.length, unparserContext);
 			yield * uint32LEUnparser(zipEntry.content.length, unparserContext);
 		} else {
@@ -245,18 +233,18 @@ export const createZipUnparser = ({
 		const fileCommentBuffer = Buffer.from(zipEntry.comment, 'utf8');
 		yield * uint16LEUnparser(fileCommentBuffer.length, unparserContext);
 
-		yield * uint16LEUnparser(0, unparserContext); // disk number start
-		yield * uint16LEUnparser(0, unparserContext); // internal file attributes
+		yield * uint16LEUnparser(0, unparserContext); // Disk number start
+		yield * uint16LEUnparser(0, unparserContext); // Internal file attributes
 
 		if (zipEntry.hostSystem === 'unix') {
 			yield * uint32LEUnparser(
 				(
 					0
-						| (
-							zipEntry.type === 'directory'
-								? (0b0100_0000_0000_0000 << 16)
-								: (0b1000_0000_0000_0000 << 16)
-						)
+					| (
+						zipEntry.type === 'directory'
+							? (0b0100_0000_0000_0000 << 16)
+							: (0b1000_0000_0000_0000 << 16)
+					)
 				) >>> 0,
 				unparserContext,
 			);
@@ -264,11 +252,11 @@ export const createZipUnparser = ({
 			yield * uint32LEUnparser(
 				(
 					0
-						| (
-							zipEntry.type === 'directory'
-								? 0b0001_0000
-								: 0
-						)
+					| (
+						zipEntry.type === 'directory'
+							? 0b0001_0000
+							: 0
+					)
 				),
 				unparserContext,
 			);
@@ -295,6 +283,6 @@ export const createZipUnparser = ({
 		offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber: startOfCentralDirectoryPosition,
 		zipFileComment: zip.comment,
 	}, unparserContext);
-}
+};
 
 export const zipUnparser = createZipUnparser();

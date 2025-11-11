@@ -1,5 +1,5 @@
-import invariant from 'invariant';
 import process from 'node:process';
+import invariant from 'invariant';
 
 class HighResolutionSubTimer {
 	private _ended = false;

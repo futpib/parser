@@ -1,12 +1,12 @@
-import invariant from "invariant";
-import { Parser, setParserName } from "../parser.js";
-import { ParserContext } from "../parserContext.js";
-import { promiseCompose } from "../promiseCompose.js";
-import { createSeparatedArrayParser } from "../separatedArrayParser.js";
-import { createExactSequenceParser } from "../exactSequenceParser.js";
-import { createUnionParser } from "../unionParser.js";
-import { createTupleParser } from "../tupleParser.js";
-import { createArrayParser } from "../arrayParser.js";
+import invariant from 'invariant';
+import { type Parser, setParserName } from '../parser.js';
+import { type ParserContext } from '../parserContext.js';
+import { promiseCompose } from '../promiseCompose.js';
+import { createSeparatedArrayParser } from '../separatedArrayParser.js';
+import { createExactSequenceParser } from '../exactSequenceParser.js';
+import { createUnionParser } from '../unionParser.js';
+import { createTupleParser } from '../tupleParser.js';
+import { createArrayParser } from '../arrayParser.js';
 
 export const smaliSimpleNameParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
 	const characters: string[] = [];
@@ -22,47 +22,47 @@ export const smaliSimpleNameParser: Parser<string, string> = async (parserContex
 			(
 				character >= 'a' && character <= 'z'
 			)
-				|| (
-					character >= 'A' && character <= 'Z'
-				)
-				|| (
-					character >= '0' && character <= '9'
-				)
-				|| (
-					character === ' '
-				)
-				|| (
-					character === '$'
-				)
-				|| (
-					character === '-'
-				)
+			|| (
+				character >= 'A' && character <= 'Z'
+			)
+			|| (
+				character >= '0' && character <= '9'
+			)
+			|| (
+				character === ' '
+			)
+			|| (
+				character === '$'
+			)
+			|| (
+				character === '-'
+			)
 				|| (
 					character === '_'
 				)
 				|| (
-					character === '\u00a0'
+					character === '\u00A0'
 				)
 				|| (
-					character >= '\u00a1' && character <= '\u1fff'
+					character >= '\u00A1' && character <= '\u1FFF'
 				)
 				|| (
-					character >= '\u2000' && character <= '\u200a'
+					character >= '\u2000' && character <= '\u200A'
 				)
 				|| (
 					character >= '\u2010' && character <= '\u2027'
 				)
 				|| (
-					character === '\u202f'
+					character === '\u202F'
 				)
 				|| (
-					character >= '\u2030' && character <= '\ud7ff'
+					character >= '\u2030' && character <= '\uD7FF'
 				)
 				|| (
-					character >= '\ue000' && character <= '\uffef'
+					character >= '\uE000' && character <= '\uFFEF'
 				)
 				|| (
-					character >= '\ud800' && character <= '\udbff'
+					character >= '\uD800' && character <= '\uDBFF'
 				)
 		) {
 			parserContext.skip(1);
@@ -90,7 +90,7 @@ export const smaliMemberNameParser: Parser<string, string> = createUnionParser([
 			smaliSimpleNameParser,
 			createExactSequenceParser('>'),
 		]),
-		(strings) => strings.join(''),
+		strings => strings.join(''),
 	),
 ]);
 
@@ -101,7 +101,7 @@ const smaliFullClassNameParser: Parser<string, string> = promiseCompose(
 		smaliMemberNameParser,
 		createExactSequenceParser('/'),
 	),
-	(pathSegments) => pathSegments.join('/'),
+	pathSegments => pathSegments.join('/'),
 );
 
 setParserName(smaliFullClassNameParser, 'smaliFullClassNameParser');

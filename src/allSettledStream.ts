@@ -1,4 +1,4 @@
-import { promiseSettled } from "./promiseSettled.js";
+import { promiseSettled } from './promiseSettled.js';
 
 type AllSettledStreamFulfilledResult<T, Context> = {
 	status: 'fulfilled';
@@ -39,8 +39,8 @@ export function allSettledStream<T, Context>(tasks: Array<AllSettledStreamTask<T
 
 				if (
 					promiseSettledResult.status === 'rejected'
-						&& promiseSettledResult.reason instanceof Error
-						&& promiseSettledResult.reason.stack
+					&& promiseSettledResult.reason instanceof Error
+					&& promiseSettledResult.reason.stack
 				) {
 					promiseSettledResult.reason.stack += `\n${startStack}`;
 				}

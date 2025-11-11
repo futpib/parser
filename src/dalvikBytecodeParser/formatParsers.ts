@@ -1,15 +1,17 @@
-import { Iso } from "monocle-ts";
-import { byteParser, intParser, longParser, shortParser, ubyteParser, uintParser, ushortParser } from "../dalvikExecutableParser/typeParsers.js";
-import { createElementParser } from "../elementParser.js";
-import { Parser, setParserName } from "../parser.js";
-import { promiseCompose } from "../promiseCompose.js";
-import { createTupleParser } from "../tupleParser.js";
+import { type Iso } from 'monocle-ts';
+import {
+	byteParser, intParser, longParser, shortParser, ubyteParser, uintParser, ushortParser,
+} from '../dalvikExecutableParser/typeParsers.js';
+import { createElementParser } from '../elementParser.js';
+import { type Parser, setParserName } from '../parser.js';
+import { promiseCompose } from '../promiseCompose.js';
+import { createTupleParser } from '../tupleParser.js';
 
 // https://source.android.com/docs/core/runtime/instruction-formats
 
 export const nibblesParser: Parser<[ number, number ], Uint8Array> = promiseCompose(
 	createElementParser(),
-	(byte) => [
+	byte => [
 		byte >> 4,
 		byte & 0b1111,
 	],
@@ -23,7 +25,7 @@ type DalvikBytecodeFormat10t = {
 
 export const dalvikBytecodeFormat10tParser: Parser<DalvikBytecodeFormat10t, Uint8Array> = promiseCompose(
 	byteParser,
-	(branchOffset) => ({
+	branchOffset => ({
 		branchOffset,
 	}),
 );
@@ -146,7 +148,7 @@ export const dalvikBytecodeFormat21hParser: Parser<DalvikBytecodeFormat21h, Uint
 	}),
 );
 
-type DalvikBytecodeFormat21t= {
+type DalvikBytecodeFormat21t = {
 	branchOffset: number;
 	registers: number[];
 };
@@ -167,7 +169,7 @@ export const createDalvikBytecodeFormat21tParser = (): Parser<DalvikBytecodeForm
 	}),
 );
 
-type DalvikBytecodeFormat21s= {
+type DalvikBytecodeFormat21s = {
 	registers: number[];
 	value: number;
 };
@@ -313,7 +315,7 @@ export const dalvikBytecodeFormat22xParser: Parser<DalvikBytecodeFormat22x, Uint
 
 type DalvikBytecodeFormat23x = {
 	registers: number[];
-}
+};
 
 export const dalvikBytecodeFormat23xParser: Parser<DalvikBytecodeFormat23x, Uint8Array> = promiseCompose(
 	createTupleParser([
@@ -340,7 +342,7 @@ type DalvikBytecodeFormat30t = {
 
 export const dalvikBytecodeFormat30tParser: Parser<DalvikBytecodeFormat30t, Uint8Array> = promiseCompose(
 	intParser,
-	(branchOffset) => ({
+	branchOffset => ({
 		branchOffset,
 	}),
 );

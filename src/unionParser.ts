@@ -3,7 +3,7 @@ import { getParserName, setParserName, type Parser } from './parser.js';
 import { type ParserContext } from './parserContext.js';
 import { ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-import { DeriveSequenceElement } from './sequence.js';
+import { type DeriveSequenceElement } from './sequence.js';
 
 const bigintReplacer = (_key: string, value: unknown) => {
 	if (typeof value === 'bigint') {
@@ -23,8 +23,8 @@ export const createUnionParser = <
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
 	type TaskContext = {
-		childParser: Parser<unknown, Sequence, Element>,
-		childParserContext: ParserContext<Sequence, Element>,
+		childParser: Parser<unknown, Sequence, Element>;
+		childParserContext: ParserContext<Sequence, Element>;
 	};
 
 	const unionParser: Parser<Output, Sequence, Element> = async parserContext => {
@@ -60,9 +60,7 @@ export const createUnionParser = <
 		let didUnlookahead = false;
 
 		for await (const childParserResult of childParserResults) {
-			runningChildParserContexts = runningChildParserContexts.filter(
-				runningChildParserContext => runningChildParserContext !== childParserResult.context,
-			);
+			runningChildParserContexts = runningChildParserContexts.filter(runningChildParserContext => runningChildParserContext !== childParserResult.context);
 
 			if (childParserResult.status === 'fulfilled') {
 				successfulParserOutputs.push(childParserResult.value);

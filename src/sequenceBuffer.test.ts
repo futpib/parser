@@ -33,7 +33,7 @@ test('sequenceBuffer', t => {
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
 		consumedBufferedSequences: [],
-		unconsumedBufferedSequences: ['abc'],
+		unconsumedBufferedSequences: [ 'abc' ],
 	});
 
 	sequenceBuffer.push('def');
@@ -50,7 +50,7 @@ test('sequenceBuffer', t => {
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
 		consumedBufferedSequences: [],
-		unconsumedBufferedSequences: ['abc', 'def'],
+		unconsumedBufferedSequences: [ 'abc', 'def' ],
 	});
 
 	sequenceBuffer.push('');
@@ -62,7 +62,7 @@ test('sequenceBuffer', t => {
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
 		consumedBufferedSequences: [],
-		unconsumedBufferedSequences: ['abc', 'def', ''],
+		unconsumedBufferedSequences: [ 'abc', 'def', '' ],
 	});
 
 	sequenceBuffer.skip(1);
@@ -73,8 +73,8 @@ test('sequenceBuffer', t => {
 	t.is(sequenceBuffer.peek(5), undefined);
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
-		consumedBufferedSequences: ['a'],
-		unconsumedBufferedSequences: ['bc', 'def', ''],
+		consumedBufferedSequences: [ 'a' ],
+		unconsumedBufferedSequences: [ 'bc', 'def', '' ],
 	});
 
 	sequenceBuffer.skip(3);
@@ -84,8 +84,8 @@ test('sequenceBuffer', t => {
 	t.is(sequenceBuffer.peek(2), undefined);
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
-		consumedBufferedSequences: ['d'],
-		unconsumedBufferedSequences: ['ef', ''],
+		consumedBufferedSequences: [ 'd' ],
+		unconsumedBufferedSequences: [ 'ef', '' ],
 	});
 
 	sequenceBuffer.push('gh');
@@ -101,8 +101,8 @@ test('sequenceBuffer', t => {
 	t.is(sequenceBuffer.peekSequence(1, 5), undefined, 'fgh?');
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
-		consumedBufferedSequences: ['d'],
-		unconsumedBufferedSequences: ['ef', '', 'gh'],
+		consumedBufferedSequences: [ 'd' ],
+		unconsumedBufferedSequences: [ 'ef', '', 'gh' ],
 	});
 });
 

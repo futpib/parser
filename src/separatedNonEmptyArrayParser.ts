@@ -43,7 +43,7 @@ export const createSeparatedNonEmptyArrayParser = <ElementOutput, Sequence>(
 				elementParserContext.dispose();
 			}
 
-			parser = separatorThenElementParser
+			parser = separatorThenElementParser;
 		}
 
 		parserContext.invariant(

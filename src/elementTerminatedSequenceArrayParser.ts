@@ -1,5 +1,5 @@
-import { Parser, setParserName } from "./parser.js";
-import { DeriveSequenceElement } from "./sequence.js";
+import { type Parser, setParserName } from './parser.js';
+import { type DeriveSequenceElement } from './sequence.js';
 
 export const createElementTerminatedSequenceArrayParser = <Sequence, Element = DeriveSequenceElement<Sequence>>(
 	terminatorElement: Element,

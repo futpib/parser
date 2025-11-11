@@ -3,7 +3,7 @@ export function promiseCompose<A, B, C>(
 	f1: (a: A) => B | Promise<B>,
 	f2: (b: B) => C | Promise<C>,
 ): (a: A) => C | Promise<C> {
-	function promiseComposed(a: A) {
+	async function promiseComposed(a: A) {
 		const bOrBPromise = f1(a);
 
 		if (bOrBPromise instanceof Promise) {
@@ -11,7 +11,7 @@ export function promiseCompose<A, B, C>(
 		}
 
 		return f2(bOrBPromise);
-	};
+	}
 
 	Object.defineProperty(promiseComposed, 'name', {
 		value: `promiseCompose(${f1.name}, ${f2.name})`,

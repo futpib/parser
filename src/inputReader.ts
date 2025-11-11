@@ -3,7 +3,7 @@ import invariant from 'invariant';
 import { type SequenceBuffer, SequenceBufferImplementation } from './sequenceBuffer.js';
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-import { InputReaderState } from './inputReaderState.js';
+import { type InputReaderState } from './inputReaderState.js';
 
 export type InputReader<Sequence, Element> = {
 	get position(): number;
@@ -169,9 +169,7 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 	private _initialInputReaderPosition = 0;
 	private _offset = 0;
 
-	constructor(
-		private readonly _inputReader: InputReaderImplementation<Sequence, Element>,
-	) {
+	constructor(private readonly _inputReader: InputReaderImplementation<Sequence, Element>) {
 		this._initialInputReaderPosition = this._inputReader.position;
 	}
 

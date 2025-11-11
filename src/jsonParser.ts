@@ -15,27 +15,25 @@ import { createElementParser } from './elementParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { createSeparatedArrayParser } from './separatedArrayParser.js';
 
-const whitespaceParser: Parser<unknown, string> = createArrayParser(
-	createUnionParser([
-		createExactSequenceParser(' '),
-		createExactSequenceParser('\t'),
-		createExactSequenceParser('\r'),
-		createExactSequenceParser('\n'),
-	]),
-);
+const whitespaceParser: Parser<unknown, string> = createArrayParser(createUnionParser([
+	createExactSequenceParser(' '),
+	createExactSequenceParser('\t'),
+	createExactSequenceParser('\r'),
+	createExactSequenceParser('\n'),
+]));
 
-const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\"'), () => '"');
+const jsonQuoteEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser(String.raw`\"`), () => '"');
 const jsonBackslashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\\\'), () => '\\');
-const jsonSlashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\/'), () => '/');
-const jsonBackspaceEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\b'), () => '\b');
-const jsonFormFeedEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\f'), () => '\f');
-const jsonNewLineEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\n'), () => '\n');
-const jsonCarriageReturnEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\r'), () => '\r');
-const jsonTabEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser('\\t'), () => '\t');
+const jsonSlashEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser(String.raw`\/`), () => '/');
+const jsonBackspaceEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser(String.raw`\b`), () => '\b');
+const jsonFormFeedEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser(String.raw`\f`), () => '\f');
+const jsonNewLineEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser(String.raw`\n`), () => '\n');
+const jsonCarriageReturnEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser(String.raw`\r`), () => '\r');
+const jsonTabEscapeSequenceParser: Parser<string, string> = promiseCompose(createExactSequenceParser(String.raw`\t`), () => '\t');
 
 const jsonUnicodeEscapeSequenceParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
-		createExactSequenceParser('\\u'),
+		createExactSequenceParser(String.raw`\u`),
 		createFixedLengthSequenceParser<string>(4),
 	]),
 	([ , hexCode ]) => String.fromCharCode(Number.parseInt(hexCode, 16)),
@@ -81,27 +79,25 @@ export const jsonStringParser: Parser<string, string> = promiseCompose(
 );
 
 export const jsonNumberParser: Parser<number, string> = parserCreatorCompose(
-	() => createArrayParser(
-		parserCreatorCompose(
-			() => elementParser,
-			character => async parserContext => {
-				parserContext.invariant(
-					(
-						character === '-'
-							|| (character >= '0' && character <= '9')
-							|| character === '.'
-							|| character === 'e'
-							|| character === 'E'
-							|| character === '+'
-					),
-					'Expected "-", "0" to "9", ".", "e", "E", "+", got "%s"',
-					character,
-				);
+	() => createArrayParser(parserCreatorCompose(
+		() => elementParser,
+		character => async parserContext => {
+			parserContext.invariant(
+				(
+					character === '-'
+					|| (character >= '0' && character <= '9')
+					|| character === '.'
+					|| character === 'e'
+					|| character === 'E'
+					|| character === '+'
+				),
+				'Expected "-", "0" to "9", ".", "e", "E", "+", got "%s"',
+				character,
+			);
 
-				return character;
-			},
-		)(),
-	),
+			return character;
+		},
+	)()),
 	characters => async parserContext => {
 		parserContext.invariant(characters.length > 0, 'Expected at least one character');
 

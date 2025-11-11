@@ -114,7 +114,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	async peek(offset: number): Promise<Element | undefined> {
 		if (
 			this._options.sliceEnd !== undefined
-				&& (this.position + offset) >= this._options.sliceEnd
+			&& (this.position + offset) >= this._options.sliceEnd
 		) {
 			return undefined;
 		}
@@ -125,7 +125,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 	async peekSequence(start: number, end: number): Promise<Sequence | undefined> {
 		if (
 			this._options.sliceEnd !== undefined
-				&& (this.position + end - 1) >= this._options.sliceEnd
+			&& (this.position + end - 1) >= this._options.sliceEnd
 		) {
 			return undefined;
 		}

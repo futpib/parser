@@ -11,14 +11,14 @@ import { smaliClass } from './smali.js';
 const hasBaksmaliPromise = hasExecutable('baksmali');
 const hasSmaliPromise = hasExecutable('smali');
 
-type ObjectPath = (string | symbol | number)[];
+type ObjectPath = Array<string | symbol | number>;
 
 function objectWalk(object: unknown, f: (path: ObjectPath, value: unknown) => void, initialPath: ObjectPath = []) {
 	f(initialPath, object);
 
 	if (
 		!object
-			|| typeof object !== 'object'
+		|| typeof object !== 'object'
 	) {
 		return;
 	}
@@ -34,15 +34,13 @@ function objectWalk(object: unknown, f: (path: ObjectPath, value: unknown) => vo
 	}
 }
 
-function normalizeSmaliFilePath(
-	smaliFilePath: string | {
-		smaliFilePath: string;
-		isolate?: boolean;
-	},
-): {
+function normalizeSmaliFilePath(smaliFilePath: string | {
 	smaliFilePath: string;
-	isolate: boolean;
-} {
+	isolate?: boolean;
+}): {
+		smaliFilePath: string;
+		isolate: boolean;
+	} {
 	if (typeof smaliFilePath === 'string') {
 		return {
 			smaliFilePath,
@@ -57,7 +55,7 @@ function normalizeSmaliFilePath(
 }
 
 const parseDexAgainstSmaliMacro = test.macro({
-	title: (providedTitle, dexCid: string, smaliFilePathInput: string | { smaliFilePath: string; isolate?: boolean }) => {
+	title(providedTitle, dexCid: string, smaliFilePathInput: string | { smaliFilePath: string; isolate?: boolean }) {
 		const { smaliFilePath, isolate } = normalizeSmaliFilePath(smaliFilePathInput);
 		return providedTitle ?? `parse(dex) against parse(smali(dex)) ${dexCid} ${smaliFilePath}${isolate ? ' isolated' : ''}`;
 	},
@@ -80,7 +78,7 @@ const parseDexAgainstSmaliMacro = test.macro({
 				.replaceAll(/\n{3,}/g, '\n\n')
 		);
 
-		// console.log(smali);
+		// Console.log(smali);
 
 		const classDefinitionFromSmali = await runParser(smaliParser, smali, stringParserInputCompanion, {
 			errorJoinMode: 'all',
@@ -101,14 +99,14 @@ const parseDexAgainstSmaliMacro = test.macro({
 		objectWalk(classDefinitionFromDex, (_path, value) => {
 			if (
 				value
-					&& typeof value === 'object'
-					&& 'debugInfo' in value
+				&& typeof value === 'object'
+				&& 'debugInfo' in value
 			) {
 				value.debugInfo = undefined;
 			}
 		});
 
-		// console.dir({
+		// Console.dir({
 		// 	classDefinitionFromSmali,
 		// 	classDefinitionFromDex,
 		// }, {
@@ -123,7 +121,7 @@ const parseDexAgainstSmaliMacro = test.macro({
 });
 
 const parseAllClassesInDexAgainstSmaliMacro = test.macro({
-	title: (providedTitle, dexCid: string) => {
+	title(providedTitle, dexCid: string) {
 		return providedTitle ?? `parse all classes from dex ${dexCid} against smali`;
 	},
 	async exec(t, dexCid: string) {
@@ -249,7 +247,7 @@ test.serial(
 
 		const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
 
-		// console.dir({
+		// Console.dir({
 		// 	classDefinitionFromDex,
 		// 	classDefinitionFromSmali,
 		// }, {
@@ -259,8 +257,8 @@ test.serial(
 		objectWalk(classDefinitionFromDex, (_path, value) => {
 			if (
 				value
-					&& typeof value === 'object'
-					&& 'debugInfo' in value
+				&& typeof value === 'object'
+				&& 'debugInfo' in value
 			) {
 				value.debugInfo = undefined;
 			}

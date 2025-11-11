@@ -1,4 +1,4 @@
-import { createArrayParser } from "./arrayParser.js";
+import { createArrayParser } from './arrayParser.js';
 import {
 	createDalvikBytecodeFormat21cParser,
 	createDalvikBytecodeFormat21sParser,
@@ -26,32 +26,36 @@ import {
 	dalvikBytecodeFormat51lParser,
 	createDalvikBytecodeFormat45ccParser,
 	createDalvikBytecodeFormat4rccParser,
-} from "./dalvikBytecodeParser/formatParsers.js";
-import { ubyteParser, ushortParser, intParser, uintParser, createExactUshortParser } from "./dalvikExecutableParser/typeParsers.js";
-import { DalvikExecutableField, DalvikExecutableMethod } from "./dalvikExecutable.js";
-import { IndexIntoFieldIds, IndexIntoMethodIds, IndexIntoPrototypeIds, IndexIntoStringIds, IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds } from "./dalvikExecutableParser/typedNumbers.js";
-import { createExactElementParser } from "./exactElementParser.js";
-import { Parser, setParserName } from "./parser.js";
-import { promiseCompose } from "./promiseCompose.js";
-import { createSliceBoundedParser } from "./sliceBoundedParser.js";
-import { createTupleParser } from "./tupleParser.js";
-import { createUnionParser } from "./unionParser.js";
-import { parserCreatorCompose } from "./parserCreatorCompose.js";
-import { createQuantifierParser } from "./quantifierParser.js";
-import { createDebugLogInputParser } from "./debugLogInputParser.js";
-import { createNegativeLookaheadParser } from "./negativeLookaheadParser.js";
+} from './dalvikBytecodeParser/formatParsers.js';
+import {
+	ubyteParser, ushortParser, intParser, uintParser, createExactUshortParser,
+} from './dalvikExecutableParser/typeParsers.js';
+import { type DalvikExecutableField, type DalvikExecutableMethod } from './dalvikExecutable.js';
+import {
+	type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds,
+} from './dalvikExecutableParser/typedNumbers.js';
+import { createExactElementParser } from './exactElementParser.js';
+import { type Parser, setParserName } from './parser.js';
+import { promiseCompose } from './promiseCompose.js';
+import { createSliceBoundedParser } from './sliceBoundedParser.js';
+import { createTupleParser } from './tupleParser.js';
+import { createUnionParser } from './unionParser.js';
+import { parserCreatorCompose } from './parserCreatorCompose.js';
+import { createQuantifierParser } from './quantifierParser.js';
+import { createDebugLogInputParser } from './debugLogInputParser.js';
+import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 
 // https://source.android.com/docs/core/runtime/dalvik-bytecode
 
-const dalvikBytecodeOperationUnusedParser: Parser<void, Uint8Array> = async (parserContext) => {
+const dalvikBytecodeOperationUnusedParser: Parser<void, Uint8Array> = async parserContext => {
 	const opcode = await parserContext.read(0);
 
 	parserContext.invariant(
 		(
-			(opcode >= 0x3e && opcode <= 0x43)
-				|| (opcode === 0x73)
-				|| (opcode >= 0x79 && opcode <= 0x7a)
-				|| (opcode >= 0xe3 && opcode <= 0xf9)
+			(opcode >= 0x3E && opcode <= 0x43)
+			|| (opcode === 0x73)
+			|| (opcode >= 0x79 && opcode <= 0x7A)
+			|| (opcode >= 0xE3 && opcode <= 0xF9)
 		),
 		'Expected unused opcode',
 	);
@@ -67,13 +71,11 @@ type DalvikBytecodeOperationNoOperation = {
 
 const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNoOperation, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createNegativeLookaheadParser(
-			createUnionParser([
-				createExactUshortParser(0x0100), // packed-switch-payload
-				createExactUshortParser(0x0200), // sparse-switch-payload
-				createExactUshortParser(0x0300), // fill-array-data-payload
-			]),
-		),
+		createNegativeLookaheadParser(createUnionParser([
+			createExactUshortParser(0x01_00), // Packed-switch-payload
+			createExactUshortParser(0x02_00), // Sparse-switch-payload
+			createExactUshortParser(0x03_00), // Fill-array-data-payload
+		])),
 		createExactElementParser(0x00),
 	]),
 	() => ({
@@ -96,7 +98,7 @@ const createDalvikBytecodeOperationInvoke = <T extends string>(operation: T, opc
 	]),
 	([
 		_opcode,
-		{ index, registers }
+		{ index, registers },
 	]) => ({
 		operation,
 		methodIndex: index,
@@ -104,11 +106,11 @@ const createDalvikBytecodeOperationInvoke = <T extends string>(operation: T, opc
 	}),
 );
 
-const dalvikBytecodeOperationInvokeVirtualParser = createDalvikBytecodeOperationInvoke('invoke-virtual', 0x6e);
+const dalvikBytecodeOperationInvokeVirtualParser = createDalvikBytecodeOperationInvoke('invoke-virtual', 0x6E);
 
 type DalvikBytecodeOperationInvokeVirtual = Awaited<ReturnType<typeof dalvikBytecodeOperationInvokeVirtualParser>>;
 
-const dalvikBytecodeOperationInvokeSuperParser = createDalvikBytecodeOperationInvoke('invoke-super', 0x6f);
+const dalvikBytecodeOperationInvokeSuperParser = createDalvikBytecodeOperationInvoke('invoke-super', 0x6F);
 
 type DalvikBytecodeOperationInvokeSuper = Awaited<ReturnType<typeof dalvikBytecodeOperationInvokeSuperParser>>;
 
@@ -155,7 +157,7 @@ const createDalvikBytecodeOperationInvokeRange = <T extends string>(operation: T
 	]),
 	([
 		_opcode,
-		{ index, registers }
+		{ index, registers },
 	]) => ({
 		operation,
 		methodIndex: index,
@@ -201,7 +203,7 @@ const dalvikBytecodeOperationInvokeRangeParser: Parser<DalvikBytecodeOperationIn
 
 setParserName(dalvikBytecodeOperationInvokeRangeParser, 'dalvikBytecodeOperationInvokeRangeParser');
 
-// invoke-polymorphic and invoke-polymorphic/range (Android 8.0+)
+// Invoke-polymorphic and invoke-polymorphic/range (Android 8.0+)
 type DalvikBytecodeOperationInvokePolymorphic = {
 	operation: 'invoke-polymorphic';
 	methodIndex: IndexIntoMethodIds;
@@ -211,7 +213,7 @@ type DalvikBytecodeOperationInvokePolymorphic = {
 
 const dalvikBytecodeOperationInvokePolymorphicParser: Parser<DalvikBytecodeOperationInvokePolymorphic, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0xfa),
+		createExactElementParser(0xFA),
 		createDalvikBytecodeFormat45ccParser({
 			isoMethodIndex: isoIndexIntoMethodIds,
 			isoProtoIndex: isoIndexIntoPrototypeIds,
@@ -219,7 +221,7 @@ const dalvikBytecodeOperationInvokePolymorphicParser: Parser<DalvikBytecodeOpera
 	]),
 	([
 		_opcode,
-		{ methodIndex, protoIndex, registers }
+		{ methodIndex, protoIndex, registers },
 	]) => ({
 		operation: 'invoke-polymorphic',
 		methodIndex,
@@ -239,7 +241,7 @@ type DalvikBytecodeOperationInvokePolymorphicRange = {
 
 const dalvikBytecodeOperationInvokePolymorphicRangeParser: Parser<DalvikBytecodeOperationInvokePolymorphicRange, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0xfb),
+		createExactElementParser(0xFB),
 		createDalvikBytecodeFormat4rccParser({
 			isoMethodIndex: isoIndexIntoMethodIds,
 			isoProtoIndex: isoIndexIntoPrototypeIds,
@@ -247,7 +249,7 @@ const dalvikBytecodeOperationInvokePolymorphicRangeParser: Parser<DalvikBytecode
 	]),
 	([
 		_opcode,
-		{ methodIndex, protoIndex, registers }
+		{ methodIndex, protoIndex, registers },
 	]) => ({
 		operation: 'invoke-polymorphic/range',
 		methodIndex,
@@ -297,7 +299,7 @@ type DalvikBytecodeOperationGoto32 = {
 
 const dalvikBytecodeOperationGoto32Parser: Parser<DalvikBytecodeOperationGoto32, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x2a),
+		createExactElementParser(0x2A),
 		dalvikBytecodeFormat30tParser,
 	]),
 	([ _opcode, { branchOffset } ]) => ({
@@ -314,7 +316,7 @@ type DalvikBytecodeOperationPackedSwitch = {
 
 const dalvikBytecodeOperationPackedSwitchParser: Parser<DalvikBytecodeOperationPackedSwitch, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x2b),
+		createExactElementParser(0x2B),
 		dalvikBytecodeFormat31tParser,
 	]),
 	([ _opcode, { branchOffset, registers } ]) => ({
@@ -335,7 +337,7 @@ type DalvikBytecodeOperationPackedSwitchPayload = {
 const dalvikBytecodeOperationPackedSwitchPayloadParser: Parser<DalvikBytecodeOperationPackedSwitchPayload, Uint8Array> = parserCreatorCompose(
 	() => promiseCompose(
 		createTupleParser([
-			createExactUshortParser(0x0100),
+			createExactUshortParser(0x01_00),
 			ushortParser,
 			intParser,
 		]),
@@ -367,7 +369,7 @@ type DalvikBytecodeOperationSparseSwitch = {
 
 const dalvikBytecodeOperationSparseSwitchParser: Parser<DalvikBytecodeOperationSparseSwitch, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x2c),
+		createExactElementParser(0x2C),
 		dalvikBytecodeFormat31tParser,
 	]),
 	([ _opcode, { branchOffset, registers } ]) => ({
@@ -388,7 +390,7 @@ type DalvikBytecodeOperationSparseSwitchPayload = {
 const dalvikBytecodeOperationSparseSwitchPayloadParser: Parser<DalvikBytecodeOperationSparseSwitchPayload, Uint8Array> = parserCreatorCompose(
 	() => promiseCompose(
 		createTupleParser([
-			createExactUshortParser(0x0200),
+			createExactUshortParser(0x02_00),
 			ushortParser,
 		]),
 		([ _ident, size ]) => ({
@@ -425,7 +427,7 @@ type DalvikBytecodeOperationFillArrayDataPayload = {
 const dalvikBytecodeOperationFillArrayDataPayloadParser: Parser<DalvikBytecodeOperationFillArrayDataPayload, Uint8Array> = parserCreatorCompose(
 	() => promiseCompose(
 		createTupleParser([
-			createExactUshortParser(0x0300),
+			createExactUshortParser(0x03_00),
 			ushortParser,
 			uintParser,
 		]),
@@ -516,27 +518,27 @@ const dalvikBytecodeOperationArrayElementGetCharParser = createDalvikBytecodeOpe
 
 type DalvikBytecodeOperationArrayElementGetChar = Awaited<ReturnType<typeof dalvikBytecodeOperationArrayElementGetCharParser>>;
 
-const dalvikBytecodeOperationArrayElementGetShortParser = createDalvikBytecodeOperationArrayElement('aget-short', 0x4a);
+const dalvikBytecodeOperationArrayElementGetShortParser = createDalvikBytecodeOperationArrayElement('aget-short', 0x4A);
 
 type DalvikBytecodeOperationArrayElementGetShort = Awaited<ReturnType<typeof dalvikBytecodeOperationArrayElementGetShortParser>>;
 
-const dalvikBytecodeOperationArrayElementPutParser = createDalvikBytecodeOperationArrayElement('aput', 0x4b);
+const dalvikBytecodeOperationArrayElementPutParser = createDalvikBytecodeOperationArrayElement('aput', 0x4B);
 
 type DalvikBytecodeOperationArrayElementPut = Awaited<ReturnType<typeof dalvikBytecodeOperationArrayElementPutParser>>;
 
-const dalvikBytecodeOperationArrayElementPutWideParser = createDalvikBytecodeOperationArrayElement('aput-wide', 0x4c);
+const dalvikBytecodeOperationArrayElementPutWideParser = createDalvikBytecodeOperationArrayElement('aput-wide', 0x4C);
 
 type DalvikBytecodeOperationArrayElementPutWide = Awaited<ReturnType<typeof dalvikBytecodeOperationArrayElementPutWideParser>>;
 
-const dalvikBytecodeOperationArrayElementPutObjectParser = createDalvikBytecodeOperationArrayElement('aput-object', 0x4d);
+const dalvikBytecodeOperationArrayElementPutObjectParser = createDalvikBytecodeOperationArrayElement('aput-object', 0x4D);
 
 type DalvikBytecodeOperationArrayElementPutObject = Awaited<ReturnType<typeof dalvikBytecodeOperationArrayElementPutObjectParser>>;
 
-const dalvikBytecodeOperationArrayElementPutBooleanParser = createDalvikBytecodeOperationArrayElement('aput-boolean', 0x4e);
+const dalvikBytecodeOperationArrayElementPutBooleanParser = createDalvikBytecodeOperationArrayElement('aput-boolean', 0x4E);
 
 type DalvikBytecodeOperationArrayElementPutBoolean = Awaited<ReturnType<typeof dalvikBytecodeOperationArrayElementPutBooleanParser>>;
 
-const dalvikBytecodeOperationArrayElementPutByteParser = createDalvikBytecodeOperationArrayElement('aput-byte', 0x4f);
+const dalvikBytecodeOperationArrayElementPutByteParser = createDalvikBytecodeOperationArrayElement('aput-byte', 0x4F);
 
 type DalvikBytecodeOperationArrayElementPutByte = Awaited<ReturnType<typeof dalvikBytecodeOperationArrayElementPutByteParser>>;
 
@@ -634,27 +636,27 @@ const dalvikBytecodeOperationInstanceFieldPutParser = createDalvikBytecodeOperat
 
 type DalvikBytecodeOperationInstanceFieldPut = Awaited<ReturnType<typeof dalvikBytecodeOperationInstanceFieldPutParser>>;
 
-const dalvikBytecodeOperationInstanceFieldPutWideParser = createDalvikBytecodeOperationInstanceField('iput-wide', 0x5a);
+const dalvikBytecodeOperationInstanceFieldPutWideParser = createDalvikBytecodeOperationInstanceField('iput-wide', 0x5A);
 
 type DalvikBytecodeOperationInstanceFieldPutWide = Awaited<ReturnType<typeof dalvikBytecodeOperationInstanceFieldPutWideParser>>;
 
-const dalvikBytecodeOperationInstanceFieldPutObjectParser = createDalvikBytecodeOperationInstanceField('iput-object', 0x5b);
+const dalvikBytecodeOperationInstanceFieldPutObjectParser = createDalvikBytecodeOperationInstanceField('iput-object', 0x5B);
 
 type DalvikBytecodeOperationInstanceFieldPutObject = Awaited<ReturnType<typeof dalvikBytecodeOperationInstanceFieldPutObjectParser>>;
 
-const dalvikBytecodeOperationInstanceFieldPutBooleanParser = createDalvikBytecodeOperationInstanceField('iput-boolean', 0x5c);
+const dalvikBytecodeOperationInstanceFieldPutBooleanParser = createDalvikBytecodeOperationInstanceField('iput-boolean', 0x5C);
 
 type DalvikBytecodeOperationInstanceFieldPutBoolean = Awaited<ReturnType<typeof dalvikBytecodeOperationInstanceFieldPutBooleanParser>>;
 
-const dalvikBytecodeOperationInstanceFieldPutByteParser = createDalvikBytecodeOperationInstanceField('iput-byte', 0x5d);
+const dalvikBytecodeOperationInstanceFieldPutByteParser = createDalvikBytecodeOperationInstanceField('iput-byte', 0x5D);
 
 type DalvikBytecodeOperationInstanceFieldPutByte = Awaited<ReturnType<typeof dalvikBytecodeOperationInstanceFieldPutByteParser>>;
 
-const dalvikBytecodeOperationInstanceFieldPutCharParser = createDalvikBytecodeOperationInstanceField('iput-char', 0x5e);
+const dalvikBytecodeOperationInstanceFieldPutCharParser = createDalvikBytecodeOperationInstanceField('iput-char', 0x5E);
 
 type DalvikBytecodeOperationInstanceFieldPutChar = Awaited<ReturnType<typeof dalvikBytecodeOperationInstanceFieldPutCharParser>>;
 
-const dalvikBytecodeOperationInstanceFieldPutShortParser = createDalvikBytecodeOperationInstanceField('iput-short', 0x5f);
+const dalvikBytecodeOperationInstanceFieldPutShortParser = createDalvikBytecodeOperationInstanceField('iput-short', 0x5F);
 
 type DalvikBytecodeOperationInstanceFieldPutShort = Awaited<ReturnType<typeof dalvikBytecodeOperationInstanceFieldPutShortParser>>;
 
@@ -752,19 +754,19 @@ const dalvikBytecodeOperationStaticFieldPutObjectParser = createDalvikBytecodeOp
 
 type DalvikBytecodeOperationStaticFieldPutObject = Awaited<ReturnType<typeof dalvikBytecodeOperationStaticFieldPutObjectParser>>;
 
-const dalvikBytecodeOperationStaticFieldPutBooleanParser = createDalvikBytecodeOperationStaticField('sput-boolean', 0x6a);
+const dalvikBytecodeOperationStaticFieldPutBooleanParser = createDalvikBytecodeOperationStaticField('sput-boolean', 0x6A);
 
 type DalvikBytecodeOperationStaticFieldPutBoolean = Awaited<ReturnType<typeof dalvikBytecodeOperationStaticFieldPutBooleanParser>>;
 
-const dalvikBytecodeOperationStaticFieldPutByteParser = createDalvikBytecodeOperationStaticField('sput-byte', 0x6b);
+const dalvikBytecodeOperationStaticFieldPutByteParser = createDalvikBytecodeOperationStaticField('sput-byte', 0x6B);
 
 type DalvikBytecodeOperationStaticFieldPutByte = Awaited<ReturnType<typeof dalvikBytecodeOperationStaticFieldPutByteParser>>;
 
-const dalvikBytecodeOperationStaticFieldPutCharParser = createDalvikBytecodeOperationStaticField('sput-char', 0x6c);
+const dalvikBytecodeOperationStaticFieldPutCharParser = createDalvikBytecodeOperationStaticField('sput-char', 0x6C);
 
 type DalvikBytecodeOperationStaticFieldPutChar = Awaited<ReturnType<typeof dalvikBytecodeOperationStaticFieldPutCharParser>>;
 
-const dalvikBytecodeOperationStaticFieldPutShortParser = createDalvikBytecodeOperationStaticField('sput-short', 0x6d);
+const dalvikBytecodeOperationStaticFieldPutShortParser = createDalvikBytecodeOperationStaticField('sput-short', 0x6D);
 
 type DalvikBytecodeOperationStaticFieldPutShort = Awaited<ReturnType<typeof dalvikBytecodeOperationStaticFieldPutShortParser>>;
 
@@ -820,47 +822,47 @@ const createDalvikBytecodeOperationBinaryOperationLiteral8 = <T extends string>(
 	}),
 );
 
-const dalvikBytecodeOperationAddIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('add-int/lit8', 0xd8);
+const dalvikBytecodeOperationAddIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('add-int/lit8', 0xD8);
 
 type DalvikBytecodeOperationAddIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationAddIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationReverseSubtractIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('rsub-int/lit8', 0xd9);
+const dalvikBytecodeOperationReverseSubtractIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('rsub-int/lit8', 0xD9);
 
 type DalvikBytecodeOperationReverseSubtractIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationReverseSubtractIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationMultiplyIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('mul-int/lit8', 0xda);
+const dalvikBytecodeOperationMultiplyIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('mul-int/lit8', 0xDA);
 
 type DalvikBytecodeOperationMultiplyIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationDivideIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('div-int/lit8', 0xdb);
+const dalvikBytecodeOperationDivideIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('div-int/lit8', 0xDB);
 
 type DalvikBytecodeOperationDivideIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationRemainderIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('rem-int/lit8', 0xdc);
+const dalvikBytecodeOperationRemainderIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('rem-int/lit8', 0xDC);
 
 type DalvikBytecodeOperationRemainderIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationAndIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('and-int/lit8', 0xdd);
+const dalvikBytecodeOperationAndIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('and-int/lit8', 0xDD);
 
 type DalvikBytecodeOperationAndIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationAndIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationOrIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('or-int/lit8', 0xde);
+const dalvikBytecodeOperationOrIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('or-int/lit8', 0xDE);
 
 type DalvikBytecodeOperationOrIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationOrIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationXorIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('xor-int/lit8', 0xdf);
+const dalvikBytecodeOperationXorIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('xor-int/lit8', 0xDF);
 
 type DalvikBytecodeOperationXorIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationXorIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationShiftLeftIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('shl-int/lit8', 0xe0);
+const dalvikBytecodeOperationShiftLeftIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('shl-int/lit8', 0xE0);
 
 type DalvikBytecodeOperationShiftLeftIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftLeftIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationShiftRightIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('shr-int/lit8', 0xe1);
+const dalvikBytecodeOperationShiftRightIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('shr-int/lit8', 0xE1);
 
 type DalvikBytecodeOperationShiftRightIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftRightIntLiteral8Parser>>;
 
-const dalvikBytecodeOperationUnsignedShiftRightIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('ushr-int/lit8', 0xe2);
+const dalvikBytecodeOperationUnsignedShiftRightIntLiteral8Parser = createDalvikBytecodeOperationBinaryOperationLiteral8('ushr-int/lit8', 0xE2);
 
 type DalvikBytecodeOperationUnsignedShiftRightIntLiteral8 = Awaited<ReturnType<typeof dalvikBytecodeOperationUnsignedShiftRightIntLiteral8Parser>>;
 
@@ -910,35 +912,35 @@ const createDalvikBytecodeOperationBinaryOperationLiteral16 = <T extends string>
 	}),
 );
 
-const dalvikBytecodeOperationAddIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('add-int/lit16', 0xd0);
+const dalvikBytecodeOperationAddIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('add-int/lit16', 0xD0);
 
 type DalvikBytecodeOperationAddIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationAddIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationReverseSubtractIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('rsub-int/lit16', 0xd1);
+const dalvikBytecodeOperationReverseSubtractIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('rsub-int/lit16', 0xD1);
 
 type DalvikBytecodeOperationReverseSubtractIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationReverseSubtractIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationMultiplyIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('mul-int/lit16', 0xd2);
+const dalvikBytecodeOperationMultiplyIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('mul-int/lit16', 0xD2);
 
 type DalvikBytecodeOperationMultiplyIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationDivideIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('div-int/lit16', 0xd3);
+const dalvikBytecodeOperationDivideIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('div-int/lit16', 0xD3);
 
 type DalvikBytecodeOperationDivideIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationRemainderIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('rem-int/lit16', 0xd4);
+const dalvikBytecodeOperationRemainderIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('rem-int/lit16', 0xD4);
 
 type DalvikBytecodeOperationRemainderIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationAndIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('and-int/lit16', 0xd5);
+const dalvikBytecodeOperationAndIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('and-int/lit16', 0xD5);
 
 type DalvikBytecodeOperationAndIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationAndIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationOrIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('or-int/lit16', 0xd6);
+const dalvikBytecodeOperationOrIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('or-int/lit16', 0xD6);
 
 type DalvikBytecodeOperationOrIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationOrIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationXorIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('xor-int/lit16', 0xd7);
+const dalvikBytecodeOperationXorIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('xor-int/lit16', 0xD7);
 
 type DalvikBytecodeOperationXorIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationXorIntLiteral16Parser>>;
 
@@ -980,127 +982,127 @@ const createDalvikBytecodeOperationBinaryOperationInPlace = <T extends string>(o
 	}),
 );
 
-const dalvikBytecodeOperationAddIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-int/2addr', 0xb0);
+const dalvikBytecodeOperationAddIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-int/2addr', 0xB0);
 
 type DalvikBytecodeOperationAddIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddIntInPlaceParser>>;
 
-const dalvikBytecodeOperationReverseSubtractIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-int/2addr', 0xb1);
+const dalvikBytecodeOperationReverseSubtractIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-int/2addr', 0xB1);
 
 type DalvikBytecodeOperationReverseSubtractIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationReverseSubtractIntInPlaceParser>>;
 
-const dalvikBytecodeOperationMultiplyIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-int/2addr', 0xb2);
+const dalvikBytecodeOperationMultiplyIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-int/2addr', 0xB2);
 
 type DalvikBytecodeOperationMultiplyIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyIntInPlaceParser>>;
 
-const dalvikBytecodeOperationDivideIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-int/2addr', 0xb3);
+const dalvikBytecodeOperationDivideIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-int/2addr', 0xB3);
 
 type DalvikBytecodeOperationDivideIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideIntInPlaceParser>>;
 
-const dalvikBytecodeOperationRemainderIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-int/2addr', 0xb4);
+const dalvikBytecodeOperationRemainderIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-int/2addr', 0xB4);
 
 type DalvikBytecodeOperationRemainderIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderIntInPlaceParser>>;
 
-const dalvikBytecodeOperationAndIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('and-int/2addr', 0xb5);
+const dalvikBytecodeOperationAndIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('and-int/2addr', 0xB5);
 
 type DalvikBytecodeOperationAndIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAndIntInPlaceParser>>;
 
-const dalvikBytecodeOperationOrIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('or-int/2addr', 0xb6);
+const dalvikBytecodeOperationOrIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('or-int/2addr', 0xB6);
 
 type DalvikBytecodeOperationOrIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationOrIntInPlaceParser>>;
 
-const dalvikBytecodeOperationXorIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('xor-int/2addr', 0xb7);
+const dalvikBytecodeOperationXorIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('xor-int/2addr', 0xB7);
 
 type DalvikBytecodeOperationXorIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationXorIntInPlaceParser>>;
 
-const dalvikBytecodeOperationShiftLeftIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shl-int/2addr', 0xb8);
+const dalvikBytecodeOperationShiftLeftIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shl-int/2addr', 0xB8);
 
 type DalvikBytecodeOperationShiftLeftIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftLeftIntInPlaceParser>>;
 
-const dalvikBytecodeOperationShiftRightIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shr-int/2addr', 0xb9);
+const dalvikBytecodeOperationShiftRightIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shr-int/2addr', 0xB9);
 
 type DalvikBytecodeOperationShiftRightIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftRightIntInPlaceParser>>;
 
-const dalvikBytecodeOperationUnsignedShiftRightIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('ushr-int/2addr', 0xba);
+const dalvikBytecodeOperationUnsignedShiftRightIntInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('ushr-int/2addr', 0xBA);
 
 type DalvikBytecodeOperationUnsignedShiftRightIntInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationUnsignedShiftRightIntInPlaceParser>>;
 
-const dalvikBytecodeOperationAddLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-long/2addr', 0xbb);
+const dalvikBytecodeOperationAddLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-long/2addr', 0xBB);
 
 type DalvikBytecodeOperationAddLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddLongInPlaceParser>>;
 
-const dalvikBytecodeOperationReverseSubtractLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rsub-long', 0xbc);
+const dalvikBytecodeOperationReverseSubtractLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rsub-long', 0xBC);
 
 type DalvikBytecodeOperationReverseSubtractLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationReverseSubtractLongInPlaceParser>>;
 
-const dalvikBytecodeOperationMultiplyLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-long/2addr', 0xbd);
+const dalvikBytecodeOperationMultiplyLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-long/2addr', 0xBD);
 
 type DalvikBytecodeOperationMultiplyLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyLongInPlaceParser>>;
 
-const dalvikBytecodeOperationDivideLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-long/2addr', 0xbe);
+const dalvikBytecodeOperationDivideLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-long/2addr', 0xBE);
 
 type DalvikBytecodeOperationDivideLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideLongInPlaceParser>>;
 
-const dalvikBytecodeOperationRemainderLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-long/2addr', 0xbf);
+const dalvikBytecodeOperationRemainderLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-long/2addr', 0xBF);
 
 type DalvikBytecodeOperationRemainderLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderLongInPlaceParser>>;
 
-const dalvikBytecodeOperationAndLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('and-long/2addr', 0xc0);
+const dalvikBytecodeOperationAndLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('and-long/2addr', 0xC0);
 
 type DalvikBytecodeOperationAndLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAndLongInPlaceParser>>;
 
-const dalvikBytecodeOperationOrLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('or-long/2addr', 0xc1);
+const dalvikBytecodeOperationOrLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('or-long/2addr', 0xC1);
 
 type DalvikBytecodeOperationOrLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationOrLongInPlaceParser>>;
 
-const dalvikBytecodeOperationXorLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('xor-long/2addr', 0xc2);
+const dalvikBytecodeOperationXorLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('xor-long/2addr', 0xC2);
 
 type DalvikBytecodeOperationXorLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationXorLongInPlaceParser>>;
 
-const dalvikBytecodeOperationShiftLeftLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shl-long/2addr', 0xc3);
+const dalvikBytecodeOperationShiftLeftLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shl-long/2addr', 0xC3);
 
 type DalvikBytecodeOperationShiftLeftLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftLeftLongInPlaceParser>>;
 
-const dalvikBytecodeOperationShiftRightLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shr-long/2addr', 0xc4);
+const dalvikBytecodeOperationShiftRightLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('shr-long/2addr', 0xC4);
 
 type DalvikBytecodeOperationShiftRightLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftRightLongInPlaceParser>>;
 
-const dalvikBytecodeOperationUnsignedShiftRightLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('ushr-long/2addr', 0xc5);
+const dalvikBytecodeOperationUnsignedShiftRightLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('ushr-long/2addr', 0xC5);
 
 type DalvikBytecodeOperationUnsignedShiftRightLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationUnsignedShiftRightLongInPlaceParser>>;
 
-const dalvikBytecodeOperationAddFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-float/2addr', 0xc6);
+const dalvikBytecodeOperationAddFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-float/2addr', 0xC6);
 
 type DalvikBytecodeOperationAddFloatInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddFloatInPlaceParser>>;
 
-const dalvikBytecodeOperationSubtractFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-float/2addr', 0xc7);
+const dalvikBytecodeOperationSubtractFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-float/2addr', 0xC7);
 
 type DalvikBytecodeOperationSubtractFloatInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractFloatInPlaceParser>>;
 
-const dalvikBytecodeOperationMultiplyFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-float/2addr', 0xc8);
+const dalvikBytecodeOperationMultiplyFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-float/2addr', 0xC8);
 
 type DalvikBytecodeOperationMultiplyFloatInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyFloatInPlaceParser>>;
 
-const dalvikBytecodeOperationDivideFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-float/2addr', 0xc9);
+const dalvikBytecodeOperationDivideFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-float/2addr', 0xC9);
 
 type DalvikBytecodeOperationDivideFloatInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideFloatInPlaceParser>>;
 
-const dalvikBytecodeOperationAddDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-double/2addr', 0xca);
+const dalvikBytecodeOperationAddDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-double/2addr', 0xCA);
 
 type DalvikBytecodeOperationAddDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationSubtractDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-double/2addr', 0xcb);
+const dalvikBytecodeOperationSubtractDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-double/2addr', 0xCB);
 
 type DalvikBytecodeOperationSubtractDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationMultiplyDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-double/2addr', 0xcc);
+const dalvikBytecodeOperationMultiplyDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-double/2addr', 0xCC);
 
 type DalvikBytecodeOperationMultiplyDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationDivideDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-double/2addr', 0xcd);
+const dalvikBytecodeOperationDivideDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-double/2addr', 0xCD);
 
 type DalvikBytecodeOperationDivideDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationRemainderDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-double/2addr', 0xce);
+const dalvikBytecodeOperationRemainderDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-double/2addr', 0xCE);
 
 type DalvikBytecodeOperationRemainderDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderDoubleInPlaceParser>>;
 
@@ -1228,87 +1230,87 @@ const dalvikBytecodeOperationShiftRightIntParser = createDalvikBytecodeOperation
 
 type DalvikBytecodeOperationShiftRightInt = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftRightIntParser>>;
 
-const dalvikBytecodeOperationUnsignedShiftRightIntParser = createDalvikBytecodeOperationBinaryOperation('ushr-int', 0x9a);
+const dalvikBytecodeOperationUnsignedShiftRightIntParser = createDalvikBytecodeOperationBinaryOperation('ushr-int', 0x9A);
 
 type DalvikBytecodeOperationUnsignedShiftRightInt = Awaited<ReturnType<typeof dalvikBytecodeOperationUnsignedShiftRightIntParser>>;
 
-const dalvikBytecodeOperationAddLongParser = createDalvikBytecodeOperationBinaryOperation('add-long', 0x9b);
+const dalvikBytecodeOperationAddLongParser = createDalvikBytecodeOperationBinaryOperation('add-long', 0x9B);
 
 type DalvikBytecodeOperationAddLong = Awaited<ReturnType<typeof dalvikBytecodeOperationAddLongParser>>;
 
-const dalvikBytecodeOperationSubtractLongParser = createDalvikBytecodeOperationBinaryOperation('sub-long', 0x9c);
+const dalvikBytecodeOperationSubtractLongParser = createDalvikBytecodeOperationBinaryOperation('sub-long', 0x9C);
 
 type DalvikBytecodeOperationSubtractLong = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractLongParser>>;
 
-const dalvikBytecodeOperationMultiplyLongParser = createDalvikBytecodeOperationBinaryOperation('mul-long', 0x9d);
+const dalvikBytecodeOperationMultiplyLongParser = createDalvikBytecodeOperationBinaryOperation('mul-long', 0x9D);
 
 type DalvikBytecodeOperationMultiplyLong = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyLongParser>>;
 
-const dalvikBytecodeOperationDivideLongParser = createDalvikBytecodeOperationBinaryOperation('div-long', 0x9e);
+const dalvikBytecodeOperationDivideLongParser = createDalvikBytecodeOperationBinaryOperation('div-long', 0x9E);
 
 type DalvikBytecodeOperationDivideLong = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideLongParser>>;
 
-const dalvikBytecodeOperationRemainderLongParser = createDalvikBytecodeOperationBinaryOperation('rem-long', 0x9f);
+const dalvikBytecodeOperationRemainderLongParser = createDalvikBytecodeOperationBinaryOperation('rem-long', 0x9F);
 
 type DalvikBytecodeOperationRemainderLong = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderLongParser>>;
 
-const dalvikBytecodeOperationAndLongParser = createDalvikBytecodeOperationBinaryOperation('and-long', 0xa0);
+const dalvikBytecodeOperationAndLongParser = createDalvikBytecodeOperationBinaryOperation('and-long', 0xA0);
 
 type DalvikBytecodeOperationAndLong = Awaited<ReturnType<typeof dalvikBytecodeOperationAndLongParser>>;
 
-const dalvikBytecodeOperationOrLongParser = createDalvikBytecodeOperationBinaryOperation('or-long', 0xa1);
+const dalvikBytecodeOperationOrLongParser = createDalvikBytecodeOperationBinaryOperation('or-long', 0xA1);
 
 type DalvikBytecodeOperationOrLong = Awaited<ReturnType<typeof dalvikBytecodeOperationOrLongParser>>;
 
-const dalvikBytecodeOperationXorLongParser = createDalvikBytecodeOperationBinaryOperation('xor-long', 0xa2);
+const dalvikBytecodeOperationXorLongParser = createDalvikBytecodeOperationBinaryOperation('xor-long', 0xA2);
 
 type DalvikBytecodeOperationXorLong = Awaited<ReturnType<typeof dalvikBytecodeOperationXorLongParser>>;
 
-const dalvikBytecodeOperationShiftLeftLongParser = createDalvikBytecodeOperationBinaryOperation('shl-long', 0xa3);
+const dalvikBytecodeOperationShiftLeftLongParser = createDalvikBytecodeOperationBinaryOperation('shl-long', 0xA3);
 
 type DalvikBytecodeOperationShiftLeftLong = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftLeftLongParser>>;
 
-const dalvikBytecodeOperationShiftRightLongParser = createDalvikBytecodeOperationBinaryOperation('shr-long', 0xa4);
+const dalvikBytecodeOperationShiftRightLongParser = createDalvikBytecodeOperationBinaryOperation('shr-long', 0xA4);
 
 type DalvikBytecodeOperationShiftRightLong = Awaited<ReturnType<typeof dalvikBytecodeOperationShiftRightLongParser>>;
 
-const dalvikBytecodeOperationUnsignedShiftRightLongParser = createDalvikBytecodeOperationBinaryOperation('ushr-long', 0xa5);
+const dalvikBytecodeOperationUnsignedShiftRightLongParser = createDalvikBytecodeOperationBinaryOperation('ushr-long', 0xA5);
 
 type DalvikBytecodeOperationUnsignedShiftRightLong = Awaited<ReturnType<typeof dalvikBytecodeOperationUnsignedShiftRightLongParser>>;
 
-const dalvikBytecodeOperationAddFloatParser = createDalvikBytecodeOperationBinaryOperation('add-float', 0xa6);
+const dalvikBytecodeOperationAddFloatParser = createDalvikBytecodeOperationBinaryOperation('add-float', 0xA6);
 
 type DalvikBytecodeOperationAddFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationAddFloatParser>>;
 
-const dalvikBytecodeOperationSubtractFloatParser = createDalvikBytecodeOperationBinaryOperation('sub-float', 0xa7);
+const dalvikBytecodeOperationSubtractFloatParser = createDalvikBytecodeOperationBinaryOperation('sub-float', 0xA7);
 
 type DalvikBytecodeOperationSubtractFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractFloatParser>>;
 
-const dalvikBytecodeOperationMultiplyFloatParser = createDalvikBytecodeOperationBinaryOperation('mul-float', 0xa8);
+const dalvikBytecodeOperationMultiplyFloatParser = createDalvikBytecodeOperationBinaryOperation('mul-float', 0xA8);
 
 type DalvikBytecodeOperationMultiplyFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyFloatParser>>;
 
-const dalvikBytecodeOperationDivideFloatParser = createDalvikBytecodeOperationBinaryOperation('div-float', 0xa9);
+const dalvikBytecodeOperationDivideFloatParser = createDalvikBytecodeOperationBinaryOperation('div-float', 0xA9);
 
 type DalvikBytecodeOperationDivideFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideFloatParser>>;
 
-const dalvikBytecodeOperationAddDoubleParser = createDalvikBytecodeOperationBinaryOperation('add-double', 0xaa);
+const dalvikBytecodeOperationAddDoubleParser = createDalvikBytecodeOperationBinaryOperation('add-double', 0xAA);
 
 type DalvikBytecodeOperationAddDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationAddDoubleParser>>;
 
-const dalvikBytecodeOperationSubtractDoubleParser = createDalvikBytecodeOperationBinaryOperation('sub-double', 0xab);
+const dalvikBytecodeOperationSubtractDoubleParser = createDalvikBytecodeOperationBinaryOperation('sub-double', 0xAB);
 
 type DalvikBytecodeOperationSubtractDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractDoubleParser>>;
 
-const dalvikBytecodeOperationMultiplyDoubleParser = createDalvikBytecodeOperationBinaryOperation('mul-double', 0xac);
+const dalvikBytecodeOperationMultiplyDoubleParser = createDalvikBytecodeOperationBinaryOperation('mul-double', 0xAC);
 
 type DalvikBytecodeOperationMultiplyDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyDoubleParser>>;
 
-const dalvikBytecodeOperationDivideDoubleParser = createDalvikBytecodeOperationBinaryOperation('div-double', 0xad);
+const dalvikBytecodeOperationDivideDoubleParser = createDalvikBytecodeOperationBinaryOperation('div-double', 0xAD);
 
 type DalvikBytecodeOperationDivideDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideDoubleParser>>;
 
-const dalvikBytecodeOperationRemainderDoubleParser = createDalvikBytecodeOperationBinaryOperation('rem-double', 0xae);
+const dalvikBytecodeOperationRemainderDoubleParser = createDalvikBytecodeOperationBinaryOperation('rem-double', 0xAE);
 
 type DalvikBytecodeOperationRemainderDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderDoubleParser>>;
 
@@ -1396,23 +1398,23 @@ const createDalvikBytecodeOperationUnaryOperation = <T extends string>(operation
 	}),
 );
 
-const dalvikBytecodeOperationNegateIntParser = createDalvikBytecodeOperationUnaryOperation('neg-int', 0x7b);
+const dalvikBytecodeOperationNegateIntParser = createDalvikBytecodeOperationUnaryOperation('neg-int', 0x7B);
 
 type DalvikBytecodeOperationNegateInt = Awaited<ReturnType<typeof dalvikBytecodeOperationNegateIntParser>>;
 
-const dalvikBytecodeOperationNotIntParser = createDalvikBytecodeOperationUnaryOperation('not-int', 0x7c);
+const dalvikBytecodeOperationNotIntParser = createDalvikBytecodeOperationUnaryOperation('not-int', 0x7C);
 
 type DalvikBytecodeOperationNotInt = Awaited<ReturnType<typeof dalvikBytecodeOperationNotIntParser>>;
 
-const dalvikBytecodeOperationNegateLongParser = createDalvikBytecodeOperationUnaryOperation('neg-long', 0x7d);
+const dalvikBytecodeOperationNegateLongParser = createDalvikBytecodeOperationUnaryOperation('neg-long', 0x7D);
 
 type DalvikBytecodeOperationNegateLong = Awaited<ReturnType<typeof dalvikBytecodeOperationNegateLongParser>>;
 
-const dalvikBytecodeOperationNotLongParser = createDalvikBytecodeOperationUnaryOperation('not-long', 0x7e);
+const dalvikBytecodeOperationNotLongParser = createDalvikBytecodeOperationUnaryOperation('not-long', 0x7E);
 
 type DalvikBytecodeOperationNotLong = Awaited<ReturnType<typeof dalvikBytecodeOperationNotLongParser>>;
 
-const dalvikBytecodeOperationNegateFloatParser = createDalvikBytecodeOperationUnaryOperation('neg-float', 0x7f);
+const dalvikBytecodeOperationNegateFloatParser = createDalvikBytecodeOperationUnaryOperation('neg-float', 0x7F);
 
 type DalvikBytecodeOperationNegateFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationNegateFloatParser>>;
 
@@ -1456,27 +1458,27 @@ const dalvikBytecodeOperationFloatToDoubleParser = createDalvikBytecodeOperation
 
 type DalvikBytecodeOperationFloatToDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationFloatToDoubleParser>>;
 
-const dalvikBytecodeOperationDoubleToIntParser = createDalvikBytecodeOperationUnaryOperation('double-to-int', 0x8a);
+const dalvikBytecodeOperationDoubleToIntParser = createDalvikBytecodeOperationUnaryOperation('double-to-int', 0x8A);
 
 type DalvikBytecodeOperationDoubleToInt = Awaited<ReturnType<typeof dalvikBytecodeOperationDoubleToIntParser>>;
 
-const dalvikBytecodeOperationDoubleToLongParser = createDalvikBytecodeOperationUnaryOperation('double-to-long', 0x8b);
+const dalvikBytecodeOperationDoubleToLongParser = createDalvikBytecodeOperationUnaryOperation('double-to-long', 0x8B);
 
 type DalvikBytecodeOperationDoubleToLong = Awaited<ReturnType<typeof dalvikBytecodeOperationDoubleToLongParser>>;
 
-const dalvikBytecodeOperationDoubleToFloatParser = createDalvikBytecodeOperationUnaryOperation('double-to-float', 0x8c);
+const dalvikBytecodeOperationDoubleToFloatParser = createDalvikBytecodeOperationUnaryOperation('double-to-float', 0x8C);
 
 type DalvikBytecodeOperationDoubleToFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationDoubleToFloatParser>>;
 
-const dalvikBytecodeOperationIntToByteParser = createDalvikBytecodeOperationUnaryOperation('int-to-byte', 0x8d);
+const dalvikBytecodeOperationIntToByteParser = createDalvikBytecodeOperationUnaryOperation('int-to-byte', 0x8D);
 
 type DalvikBytecodeOperationIntToByte = Awaited<ReturnType<typeof dalvikBytecodeOperationIntToByteParser>>;
 
-const dalvikBytecodeOperationIntToCharParser = createDalvikBytecodeOperationUnaryOperation('int-to-char', 0x8e);
+const dalvikBytecodeOperationIntToCharParser = createDalvikBytecodeOperationUnaryOperation('int-to-char', 0x8E);
 
 type DalvikBytecodeOperationIntToChar = Awaited<ReturnType<typeof dalvikBytecodeOperationIntToCharParser>>;
 
-const dalvikBytecodeOperationIntToShortParser = createDalvikBytecodeOperationUnaryOperation('int-to-short', 0x8f);
+const dalvikBytecodeOperationIntToShortParser = createDalvikBytecodeOperationUnaryOperation('int-to-short', 0x8F);
 
 type DalvikBytecodeOperationIntToShort = Awaited<ReturnType<typeof dalvikBytecodeOperationIntToShortParser>>;
 
@@ -1632,19 +1634,19 @@ const dalvikBytecodeIfNotEqualZeroParser = createDalvikBytecodeOperationIfTestZe
 
 type DalvikBytecodeOperationIfNotEqualZero = Awaited<ReturnType<typeof dalvikBytecodeIfNotEqualZeroParser>>;
 
-const dalvikBytecodeIfLessThanZeroParser = createDalvikBytecodeOperationIfTestZero('if-ltz', 0x3a);
+const dalvikBytecodeIfLessThanZeroParser = createDalvikBytecodeOperationIfTestZero('if-ltz', 0x3A);
 
 type DalvikBytecodeOperationIfLessThanZero = Awaited<ReturnType<typeof dalvikBytecodeIfLessThanZeroParser>>;
 
-const dalvikBytecodeIfGreaterThanOrEqualToZeroParser = createDalvikBytecodeOperationIfTestZero('if-gez', 0x3b);
+const dalvikBytecodeIfGreaterThanOrEqualToZeroParser = createDalvikBytecodeOperationIfTestZero('if-gez', 0x3B);
 
 type DalvikBytecodeOperationIfGreaterThanOrEqualToZero = Awaited<ReturnType<typeof dalvikBytecodeIfGreaterThanOrEqualToZeroParser>>;
 
-const dalvikBytecodeIfGreaterThanZeroParser = createDalvikBytecodeOperationIfTestZero('if-gtz', 0x3c);
+const dalvikBytecodeIfGreaterThanZeroParser = createDalvikBytecodeOperationIfTestZero('if-gtz', 0x3C);
 
 type DalvikBytecodeOperationIfGreaterThanZero = Awaited<ReturnType<typeof dalvikBytecodeIfGreaterThanZeroParser>>;
 
-const dalvikBytecodeIfLessThanOrEqualToZeroParser = createDalvikBytecodeOperationIfTestZero('if-lez', 0x3d);
+const dalvikBytecodeIfLessThanOrEqualToZeroParser = createDalvikBytecodeOperationIfTestZero('if-lez', 0x3D);
 
 type DalvikBytecodeOperationIfLessThanOrEqualToZero = Awaited<ReturnType<typeof dalvikBytecodeIfLessThanOrEqualToZeroParser>>;
 
@@ -1676,7 +1678,7 @@ type DalvikBytecodeOperationConstString = {
 
 const dalvikBytecodeOperationConstStringParser: Parser<DalvikBytecodeOperationConstString, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x1a),
+		createExactElementParser(0x1A),
 		createDalvikBytecodeFormat21cParser({
 			isoIndex: isoIndexIntoStringIds,
 		}),
@@ -1698,7 +1700,7 @@ type DalvikBytecodeOperationConstStringJumbo = {
 
 const dalvikBytecodeOperationConstStringJumboParser: Parser<DalvikBytecodeOperationConstStringJumbo, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x1b),
+		createExactElementParser(0x1B),
 		createDalvikBytecodeFormat31cParser({
 			isoIndex: isoIndexIntoStringIds,
 		}),
@@ -1720,7 +1722,7 @@ type DalvikBytecodeOperationConstMethodHandle = {
 
 const dalvikBytecodeOperationConstMethodHandleParser: Parser<DalvikBytecodeOperationConstMethodHandle, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0xfe),
+		createExactElementParser(0xFE),
 		createDalvikBytecodeFormat21cParser({
 			isoIndex: isoIndexIntoMethodIds,
 		}),
@@ -1806,7 +1808,7 @@ type DalvikBytecodeOperationCheckCast = {
 
 const dalvikBytecodeOperationCheckCastParser: Parser<DalvikBytecodeOperationCheckCast, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x1f),
+		createExactElementParser(0x1F),
 		createDalvikBytecodeFormat21cParser({
 			isoIndex: isoIndexIntoTypeIds,
 		}),
@@ -1828,7 +1830,7 @@ type DalvikBytecodeOperationConstClass = {
 
 const dalvikBytecodeOperationConstClassParser: Parser<DalvikBytecodeOperationConstClass, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x1c),
+		createExactElementParser(0x1C),
 		createDalvikBytecodeFormat21cParser({
 			isoIndex: isoIndexIntoTypeIds,
 		}),
@@ -1848,7 +1850,7 @@ type DalvikBytecodeOperationReturnVoid = {
 
 const dalvikBytecodeOperationReturnVoidParser: Parser<DalvikBytecodeOperationReturnVoid, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createExactElementParser(0x0e),
+		createExactElementParser(0x0E),
 		dalvikBytecodeFormat10xParser,
 	]),
 	() => ({
@@ -1872,19 +1874,19 @@ const createDalvikBytecodeMoveResult1Parser = <T extends string>(operation: T, o
 	}),
 );
 
-const dalvikBytecodeMoveResultParser = createDalvikBytecodeMoveResult1Parser('move-result', 0x0a);
+const dalvikBytecodeMoveResultParser = createDalvikBytecodeMoveResult1Parser('move-result', 0x0A);
 
 type DalvikBytecodeOperationMoveResult = Awaited<ReturnType<typeof dalvikBytecodeMoveResultParser>>;
 
-const dalvikBytecodeMoveResultWideParser = createDalvikBytecodeMoveResult1Parser('move-result-wide', 0x0b);
+const dalvikBytecodeMoveResultWideParser = createDalvikBytecodeMoveResult1Parser('move-result-wide', 0x0B);
 
 type DalvikBytecodeOperationMoveResultWide = Awaited<ReturnType<typeof dalvikBytecodeMoveResultWideParser>>;
 
-const dalvikBytecodeMoveResultObjectParser = createDalvikBytecodeMoveResult1Parser('move-result-object', 0x0c);
+const dalvikBytecodeMoveResultObjectParser = createDalvikBytecodeMoveResult1Parser('move-result-object', 0x0C);
 
 type DalvikBytecodeOperationMoveResultObject = Awaited<ReturnType<typeof dalvikBytecodeMoveResultObjectParser>>;
 
-const dalvikBytecodeMoveExceptionParser = createDalvikBytecodeMoveResult1Parser('move-exception', 0x0d);
+const dalvikBytecodeMoveExceptionParser = createDalvikBytecodeMoveResult1Parser('move-exception', 0x0D);
 
 type DalvikBytecodeOperationMoveException = Awaited<ReturnType<typeof dalvikBytecodeMoveExceptionParser>>;
 
@@ -2026,7 +2028,7 @@ setParserName(dalvikBytecodeOperationMoveWide16Parser, 'dalvikBytecodeOperationM
 
 const createDalvikBytecodeOperationReturn1Parser = createDalvikBytecodeMoveResult1Parser;
 
-const dalvikBytecodeOperationReturnParser = createDalvikBytecodeOperationReturn1Parser('return', 0x0f);
+const dalvikBytecodeOperationReturnParser = createDalvikBytecodeOperationReturn1Parser('return', 0x0F);
 
 type DalvikBytecodeOperationReturn = Awaited<ReturnType<typeof dalvikBytecodeOperationReturnParser>>;
 
@@ -2207,15 +2209,15 @@ const createDalvikBytecodeOperationCompare = <T extends string>(operation: T, op
 	}),
 );
 
-const dalvikBytecodeOperationCompareFloatWithLessThanBiasParser = createDalvikBytecodeOperationCompare('cmpl-float', 0x2d);
+const dalvikBytecodeOperationCompareFloatWithLessThanBiasParser = createDalvikBytecodeOperationCompare('cmpl-float', 0x2D);
 
 type DalvikBytecodeOperationCompareFloatWithLessThanBias = Awaited<ReturnType<typeof dalvikBytecodeOperationCompareFloatWithLessThanBiasParser>>;
 
-const dalvikBytecodeOperationCompareFloatWithGreaterThanBiasParser = createDalvikBytecodeOperationCompare('cmpg-float', 0x2e);
+const dalvikBytecodeOperationCompareFloatWithGreaterThanBiasParser = createDalvikBytecodeOperationCompare('cmpg-float', 0x2E);
 
 type DalvikBytecodeOperationCompareFloatWithGreaterThanBias = Awaited<ReturnType<typeof dalvikBytecodeOperationCompareFloatWithGreaterThanBiasParser>>;
 
-const dalvikBytecodeOperationCompareDoubleWithLessThanBiasParser = createDalvikBytecodeOperationCompare('cmpl-double', 0x2f);
+const dalvikBytecodeOperationCompareDoubleWithLessThanBiasParser = createDalvikBytecodeOperationCompare('cmpl-double', 0x2F);
 
 type DalvikBytecodeOperationCompareDoubleWithLessThanBias = Awaited<ReturnType<typeof dalvikBytecodeOperationCompareDoubleWithLessThanBiasParser>>;
 
@@ -2283,7 +2285,7 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationInvokePolymorphicRange
 
 	| DalvikBytecodeOperationNewInstance
-	| DalvikBytecodeOperationNewArray
+
 	| DalvikBytecodeOperationFillArrayData
 	| DalvikBytecodeOperationCheckCast
 	| DalvikBytecodeOperationInstanceOf
@@ -2309,11 +2311,7 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationCompare
 
 	| DalvikBytecodeOperationReturnVoid
-	| DalvikBytecodeOperationReturn1
-
-	| DalvikBytecodeOperationMoveResult1
-;
-
+	| DalvikBytecodeOperationReturn1;
 export const dalvikBytecodeOperationCompanion = {
 	getRegisters(operation: DalvikBytecodeOperation): number[] {
 		if (operation && typeof operation === 'object' && 'registers' in operation) {
@@ -2327,7 +2325,7 @@ export const dalvikBytecodeOperationCompanion = {
 const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined, Uint8Array> = promiseCompose(
 	createTupleParser([
 		() => {},
-		//createDebugLogInputParser(),
+		// CreateDebugLogInputParser(),
 		createUnionParser<DalvikBytecodeOperation, Uint8Array>([
 			dalvikBytecodeOperationUnusedParser,
 
@@ -2398,10 +2396,9 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 	([
 		_debug,
 		operation,
-	]) => {
-		//console.log(operation);
-		return operation;
-	},
+	]) =>
+		// Console.log(operation);
+		operation,
 );
 
 setParserName(dalvikBytecodeOperationParser, 'dalvikBytecodeOperationParser');
@@ -2409,9 +2406,7 @@ setParserName(dalvikBytecodeOperationParser, 'dalvikBytecodeOperationParser');
 export type DalvikBytecode = DalvikBytecodeOperation[];
 
 const dalvikBytecodeParser: Parser<DalvikBytecode, Uint8Array> = promiseCompose(
-	createArrayParser(
-		dalvikBytecodeOperationParser,
-	),
+	createArrayParser(dalvikBytecodeOperationParser),
 	operations => operations.filter((operation): operation is DalvikBytecodeOperation => operation !== undefined),
 );
 
@@ -2420,12 +2415,12 @@ export const createDalvikBytecodeParser = (size: number): Parser<DalvikBytecode,
 type ResolvedDalvikBytecodeOperation<T extends DalvikBytecodeOperation> = T extends { stringIndex: IndexIntoFieldIds }
 	? Omit<T, 'stringIndex'> & { string: string }
 	: T extends { typeIndex: IndexIntoTypeIds }
-	? Omit<T, 'typeIndex'> & { type: string }
-	: T extends { methodIndex: IndexIntoMethodIds }
-	? Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod }
-	: T extends { fieldIndex: IndexIntoFieldIds }
-	? Omit<T, 'fieldIndex'> & { field: DalvikExecutableField }
-	: T;
+		? Omit<T, 'typeIndex'> & { type: string }
+		: T extends { methodIndex: IndexIntoMethodIds }
+			? Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod }
+			: T extends { fieldIndex: IndexIntoFieldIds }
+				? Omit<T, 'fieldIndex'> & { field: DalvikExecutableField }
+				: T;
 
 export type DalvikBytecodeOperationResolvers = {
 	resolveIndexIntoStringIds: (index: IndexIntoStringIds) => string;
@@ -2445,7 +2440,7 @@ export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation
 
 		return {
 			...rest,
-			string: resolveIndexIntoStringIds(stringIndex as IndexIntoStringIds),
+			string: resolveIndexIntoStringIds(stringIndex),
 		} as ResolvedDalvikBytecodeOperation<T>;
 	}
 
@@ -2454,7 +2449,7 @@ export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation
 
 		return {
 			...rest,
-			type: resolveIndexIntoTypeIds(typeIndex as IndexIntoTypeIds),
+			type: resolveIndexIntoTypeIds(typeIndex),
 		} as ResolvedDalvikBytecodeOperation<T>;
 	}
 
@@ -2463,7 +2458,7 @@ export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation
 
 		return {
 			...rest,
-			method: resolveIndexIntoMethodIds(methodIndex as IndexIntoMethodIds),
+			method: resolveIndexIntoMethodIds(methodIndex),
 		} as ResolvedDalvikBytecodeOperation<T>;
 	}
 
@@ -2472,7 +2467,7 @@ export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation
 
 		return {
 			...rest,
-			field: resolveIndexIntoFieldIds(fieldIndex as IndexIntoFieldIds),
+			field: resolveIndexIntoFieldIds(fieldIndex),
 		} as ResolvedDalvikBytecodeOperation<T>;
 	}
 

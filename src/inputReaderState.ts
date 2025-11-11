@@ -12,7 +12,7 @@ export const inputReaderStateCompanion = {
 	}: InputReaderState<Sequence>): boolean {
 		return (
 			unconsumedBufferedSequences.length === 0
-				&& unbufferedSequences === undefined
+			&& unbufferedSequences === undefined
 		);
 	},
 

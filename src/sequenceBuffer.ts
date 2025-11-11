@@ -88,7 +88,7 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 					sequence,
 					Math.max(0, startIndex),
 					Math.min(sequenceLength, endIndex),
-				)
+				);
 				sequences.push(subsequence);
 			}
 
@@ -120,7 +120,7 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 		if (this._indexInFirstSequence === 0) {
 			return {
 				consumedBufferedSequences: [],
-				unconsumedBufferedSequences: this._sequences.slice(),
+				unconsumedBufferedSequences: [ ...this._sequences ],
 			};
 		}
 
@@ -133,11 +133,11 @@ export class SequenceBufferImplementation<Sequence, Element> implements Sequence
 		const unconsumedFirstSequenceLength = this._parserInputCompanion.length(unconsumedFirstSequence);
 
 		return {
-			consumedBufferedSequences: [consumedFirstSequence],
+			consumedBufferedSequences: [ consumedFirstSequence ],
 			unconsumedBufferedSequences: (
 				unconsumedFirstSequenceLength === 0
 					? this._sequences.slice(1)
-					: [unconsumedFirstSequence, ...this._sequences.slice(1)]
+					: [ unconsumedFirstSequence, ...this._sequences.slice(1) ]
 			),
 		};
 	}

@@ -1,9 +1,7 @@
 import { type Arbitrary } from 'fast-check';
 import { arbitrarilySlicedAsyncIterable } from './arbitrarilySlicedAsyncInterable.js';
 
-export function arbitrarilySlicedAsyncIterator<Sliceable extends string | Uint8Array>(
-	arbitrarySliceable: Arbitrary<Sliceable>,
-): Arbitrary<[ Sliceable, AsyncIterator<Sliceable> ]> {
+export function arbitrarilySlicedAsyncIterator<Sliceable extends string | Uint8Array>(arbitrarySliceable: Arbitrary<Sliceable>): Arbitrary<[ Sliceable, AsyncIterator<Sliceable> ]> {
 	return (
 		arbitrarilySlicedAsyncIterable(arbitrarySliceable)
 			.map(([ sliceable, asyncIterable ]) => {

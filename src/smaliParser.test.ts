@@ -1,8 +1,10 @@
 import test from 'ava';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
-import { getParserName, Parser, runParser } from './parser.js';
+import { getParserName, type Parser, runParser } from './parser.js';
 import { fetchCid } from './fetchCid.js';
-import { smaliAnnotationParser, smaliCodeOperationParser, smaliCodeParameterParser, smaliCommentParser, smaliFieldParser, smaliMethodParser, smaliParser } from './smaliParser.js';
+import {
+	smaliAnnotationParser, smaliCodeOperationParser, smaliCodeParameterParser, smaliCommentParser, smaliFieldParser, smaliMethodParser, smaliParser,
+} from './smaliParser.js';
 import { hasExecutable } from './hasExecutable.js';
 import { baksmaliClass } from './backsmali.js';
 
@@ -13,12 +15,12 @@ const stringParserTestIgnore = Symbol('stringParserTestIgnore');
 
 function stringParserTest<Output>(
 	parser: Parser<Output, string>,
-	examples: [
+	examples: Array<[
 		string,
 		Output
-			| typeof stringParserTestSnapshot
-			| typeof stringParserTestIgnore
-	][],
+		| typeof stringParserTestSnapshot
+		| typeof stringParserTestIgnore,
+	]>,
 ) {
 	const parserName = getParserName(parser);
 
@@ -30,8 +32,6 @@ function stringParserTest<Output>(
 
 			if (expected === stringParserTestIgnore) {
 				t.pass('skipping test because expected is stringParserTestIgnore');
-
-				return;
 			} else if (expected === stringParserTestSnapshot) {
 				t.snapshot(actual);
 			} else {
@@ -381,12 +381,12 @@ const smaliFromDexMacro = test.macro({
 			errorJoinMode: 'all',
 		});
 
-		// console.dir(actual, { depth: null });
+		// Console.dir(actual, { depth: null });
 
 		if (shouldSnapshot) {
 			t.snapshot(actual);
 		} else {
-			//console.dir(actual, { depth: null });
+			// Console.dir(actual, { depth: null });
 			t.pass();
 		}
 	},

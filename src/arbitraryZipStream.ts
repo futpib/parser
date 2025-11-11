@@ -6,7 +6,7 @@ function addZipEntryToZip(zip: JSZip, zipEntry: ZipEntry) {
 	const options = {
 		comment: zipEntry.comment,
 		date: zipEntry.date,
-		// unixPermissions: zipEntry.permissions.type === 'unix' ? zipEntry.permissions.unixPermissions : undefined,
+		// UnixPermissions: zipEntry.permissions.type === 'unix' ? zipEntry.permissions.unixPermissions : undefined,
 		// dosPermissions: zipEntry.permissions.type === 'dos' ? zipEntry.permissions.dosPermissions : undefined,
 	};
 

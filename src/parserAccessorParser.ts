@@ -10,4 +10,4 @@ export const createParserAccessorParser = <Output, Sequence>(parserAccessor: () 
 	};
 
 	return parserAccessorParser;
-}
+};

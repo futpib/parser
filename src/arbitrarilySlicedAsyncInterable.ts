@@ -26,7 +26,7 @@ export function arbitrarilySlicedAsyncIterable<Sliceable extends string | Uint8A
 	{
 		minSlices = 1,
 	}: {
-		minSlices?: number,
+		minSlices?: number;
 	} = {},
 ): Arbitrary<[ Sliceable, AsyncIterable<Sliceable> ]> {
 	return (

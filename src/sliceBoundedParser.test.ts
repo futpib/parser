@@ -36,7 +36,7 @@ test('sliceBoundedParser mustConsumeAll: true fail to cosume all', async t => {
 		createElementParser(),
 	]);
 
-	await t.throwsAsync(() => runParser(parser, 'abcd', stringParserInputCompanion), {
+	await t.throwsAsync(async () => runParser(parser, 'abcd', stringParserInputCompanion), {
 		message: /child parser must consume all input in the slice/,
 	});
 });
@@ -57,5 +57,5 @@ test('sliceBoundedParser mustConsumeAll: false', async t => {
 		],
 		'c',
 	]);
-	t.deepEqual(await stringFromAsyncIterable(remainingInput!), 'd');
+	t.is(await stringFromAsyncIterable(remainingInput!), 'd');
 });

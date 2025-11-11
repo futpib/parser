@@ -1,5 +1,4 @@
 import test from 'ava';
-
 import { fetchCid } from './fetchCid.js';
 
 const cid = 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda';

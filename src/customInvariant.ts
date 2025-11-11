@@ -8,7 +8,7 @@ export function customInvariant<T>(
 	ErrorConstructor: Constructor<Error, [message: string]> | ((message: string) => Error),
 	value: T,
 	formatOrFormatLines: ValueOrAccessor<string | string[]>,
-	...formatArguments: (unknown | (() => unknown))[]
+	...formatArguments: Array<unknown | (() => unknown)>
 ): Exclude<T, Falsy> {
 	if (value) {
 		return value as any;
@@ -17,10 +17,8 @@ export function customInvariant<T>(
 	let format = typeof formatOrFormatLines === 'function' ? formatOrFormatLines() : formatOrFormatLines;
 	format = Array.isArray(format) ? format.join('\n') : format;
 
-	throw new (ErrorConstructor as Constructor<Error>)(
-		format.replaceAll('%s', () => {
-			const argumentOrAccessor = formatArguments.shift();
-			return typeof argumentOrAccessor === 'function' ? argumentOrAccessor() : argumentOrAccessor;
-		}),
-	);
+	throw new (ErrorConstructor as Constructor<Error>)(format.replaceAll('%s', () => {
+		const argumentOrAccessor = formatArguments.shift();
+		return typeof argumentOrAccessor === 'function' ? argumentOrAccessor() : argumentOrAccessor;
+	}));
 }
