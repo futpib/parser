@@ -2782,6 +2782,34 @@ const createDalvikExecutableParser = <Instructions>({
 				}
 
 				if (
+					annotation.type === 'Landroid/annotation/SuppressLint;'
+				) {
+					const elements = annotation.elements.map(element => {
+						if (
+							element.name !== 'value'
+							|| !Array.isArray(element.value)
+						) {
+							return element;
+						}
+
+						const value = element.value.map(encodedValue => {
+							if (typeof encodedValue !== 'number') {
+								return encodedValue;
+							}
+
+							const string = strings.at(isoIndexIntoStringIds.wrap(encodedValue));
+							invariant(string, 'String must be there. String id: %s', encodedValue);
+
+							return string;
+						});
+
+						return { ...element, value };
+					});
+
+					return { ...annotation, elements };
+				}
+
+				if (
 					annotation.type === 'Ldalvik/annotation/EnclosingClass;'
 				) {
 					const elements = annotation.elements.map(element => {
