@@ -21,6 +21,9 @@ import { createSeparatedNonEmptyArrayParser } from "./separatedNonEmptyArrayPars
 import { parserCreatorCompose } from "./parserCreatorCompose.js";
 import { Simplify } from "type-fest";
 import { IndexIntoMethodIds } from "./dalvikExecutableParser/typedNumbers.js";
+import { createDebugLogInputParser } from "./debugLogInputParser.js";
+import { createDebugLogParser } from "./debugLogParser.js";
+import { createElementParser } from "./elementParser.js";
 
 function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	if (operation.operation === 'packed-switch-payload') {
@@ -161,6 +164,58 @@ const smaliIdentifierParser: Parser<string, string> = async (parserContext: Pars
 
 setParserName(smaliIdentifierParser, 'smaliIdentifierParser');
 
+const elementParser = createElementParser<string>();
+
+const smaliHexNumberParser: Parser<number, string> = promiseCompose(
+	createTupleParser([
+		createOptionalParser(createExactSequenceParser('-')),
+		createExactSequenceParser('0x'),
+		createArrayParser(
+			parserCreatorCompose(
+				() => elementParser,
+				character => async parserContext => {
+					parserContext.invariant(
+						(
+							(character >= '0' && character <= '9')
+								|| (character >= 'a' && character <= 'f')
+								|| (character >= 'A' && character <= 'F')
+						),
+						'Expected "0" to "9", "a" to "f", "A" to "F", got "%s"',
+						character,
+					);
+
+					return character;
+				},
+			)(),
+		),
+	]),
+	([
+		optionalMinus,
+		_0x,
+		valueCharacters,
+	]) => {
+		const sign = optionalMinus ? -1 : 1;
+
+		return sign * Number.parseInt(valueCharacters.join(''), 16);
+	},
+);
+
+const smaliNumberParser = createUnionParser<number, string>([
+	promiseCompose(
+		createTupleParser([
+			createNegativeLookaheadParser(createExactSequenceParser('0x')),
+			jsonNumberParser,
+		]),
+		([
+			_not0x,
+			number,
+		]) => number,
+	),
+	smaliHexNumberParser,
+]);
+
+setParserName(smaliNumberParser, 'smaliNumberParser');
+
 const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	jsonStringParser,
 	(string) => string.replaceAll(/\\'/g, "'"),
@@ -285,10 +340,13 @@ type SmaliAnnotationElement = {
 
 const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
 	createTupleParser([
+		smaliIndentationParser,
 		smaliIdentifierParser,
 		createExactSequenceParser(' = '),
 		createUnionParser([
+			smaliQuotedStringParser,
 			smaliTypeDescriptorParser,
+			smaliNumberParser,
 			promiseCompose(
 				createTupleParser([
 					createExactSequenceParser('{\n'),
@@ -345,6 +403,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		smaliLineEndPraser,
 	]),
 	([
+		_indentation,
 		name,
 		_equalsSign,
 		value,
@@ -375,7 +434,6 @@ export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCom
 		smaliSingleWhitespaceParser,
 		smaliTypeDescriptorParser,
 		smaliLineEndPraser,
-		smaliIndentationParser,
 		createArrayParser(
 			smaliAnnotationElementParser,
 		),
@@ -389,8 +447,8 @@ export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCom
 		_space,
 		type,
 		_newline,
-		_indentation1,
 		elements,
+		_indentation1,
 		_endAnnotation,
 	]) => ({
 		type,
@@ -588,7 +646,7 @@ setParserName(smaliMethodPrototypeParser, 'smaliMethodPrototypeParser');
 const smaliCodeRegistersParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .registers '),
-		jsonNumberParser,
+		smaliNumberParser,
 		smaliLineEndPraser,
 	]),
 	([
@@ -603,7 +661,7 @@ setParserName(smaliCodeRegistersParser, 'smaliCodeRegistersParser');
 const smaliCodeLineParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .line '),
-		jsonNumberParser,
+		smaliNumberParser,
 		smaliLineEndPraser,
 	]),
 	([
@@ -635,11 +693,11 @@ const smaliParametersRegisterParser: Parser<SmaliRegister, string> = promiseComp
 	createUnionParser<['v' | 'p', number], string>([
 		createTupleParser([
 			createExactSequenceParser('v'),
-			jsonNumberParser,
+			smaliNumberParser,
 		]),
 		createTupleParser([
 			createExactSequenceParser('p'),
-			jsonNumberParser,
+			smaliNumberParser,
 		]),
 	]),
 	([
@@ -774,12 +832,12 @@ const smaliParametersRegisterRangeParser: Parser<SmaliRegister[], string> = prom
 			startRegister.prefix === endRegister.prefix,
 			'Register range must use the same prefix',
 		);
-		
+
 		invariant(
 			startRegister.index <= endRegister.index,
 			'Register range start must be less than or equal to end',
 		);
-		
+
 		const registers: SmaliRegister[] = [];
 		for (let i = startRegister.index; i <= endRegister.index; i++) {
 			registers.push({
@@ -787,7 +845,7 @@ const smaliParametersRegisterRangeParser: Parser<SmaliRegister[], string> = prom
 				index: i,
 			});
 		}
-		
+
 		return registers;
 	},
 );
@@ -963,7 +1021,7 @@ const smaliCodeOperationParametersParser: Parser<SmaliCodeOperationParameter[], 
 				promiseCompose(
 					createTupleParser([
 						createNegativeLookaheadParser(smaliParametersIntegerParser),
-						jsonNumberParser,
+						smaliNumberParser,
 					]),
 					([ _notInteger, number ]) => number,
 				),
@@ -1247,22 +1305,22 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				// Get elementWidth from parameters (first parameter)
 				const elementWidth = operation.parameters[0];
 				invariant(typeof elementWidth === 'number', 'Expected elementWidth to be a number');
-				
+
 				operation_.elementWidth = elementWidth;
-				
+
 				// Convert integer values to bytes (little-endian)
 				const values = operation.body as SmaliCodeOperationIntegersBody;
 				const data: number[] = [];
-				
+
 				for (const value of values) {
 					const numValue = typeof value === 'bigint' ? Number(value) : value;
-					
+
 					// Convert to bytes based on elementWidth (little-endian)
 					for (let i = 0; i < elementWidth; i++) {
 						data.push((numValue >> (i * 8)) & 0xFF);
 					}
 				}
-				
+
 				operation_.data = data;
 			} else {
 				operation_.branchLabels = operation.body;
@@ -1320,7 +1378,7 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				if (operation_.operation === 'fill-array-data-payload') {
 					continue;
 				}
-				
+
 				// Const-wide operations always use bigint values
 				if (operationsWithBigintValue.has(operation_.operation)) {
 					operation_.value = typeof parameter === 'number' ? BigInt(parameter) : parameter;
@@ -1965,7 +2023,10 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			promiseCompose(
 				createTupleParser([
 					smaliCommentsOrNewlinesParser,
-					createNonEmptyArrayParser(smaliAnnotationParser),
+					createSeparatedNonEmptyArrayParser<SmaliAnnotation, string>(
+						smaliAnnotationParser,
+						smaliCommentsOrNewlinesParser,
+					),
 				]),
 				([
 					_commentsOrNewlines,
