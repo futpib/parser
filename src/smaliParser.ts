@@ -345,6 +345,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 			smaliQuotedStringParser,
 			smaliTypeDescriptorParser,
 			smaliNumberParser,
+			createExactSequenceParser('null'),
 			promiseCompose(
 				createTupleParser([
 					createExactSequenceParser('{\n'),
