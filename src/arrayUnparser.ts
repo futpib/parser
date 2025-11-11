@@ -1,4 +1,4 @@
-import { Unparser } from "./unparser.js";
+import { type Unparser } from './unparser.js';
 
 export const createArrayUnparser = <ElementInput, Sequence>(
 	elementUnparser: Unparser<ElementInput, Sequence>,
@@ -10,4 +10,4 @@ export const createArrayUnparser = <ElementInput, Sequence>(
 	};
 
 	return arrayUnparser;
-}
+};

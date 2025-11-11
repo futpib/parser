@@ -2,7 +2,7 @@ import test from 'ava';
 import * as fc from 'fast-check';
 import { testProp } from '@fast-check/ava';
 import { createFixedLengthSequenceParser, createFixedLengthSequenceParserNaive } from './fixedLengthSequenceParser.js';
-import { Parser, runParserWithRemainingInput } from './parser.js';
+import { type Parser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { HighResolutionTotalTimer } from './highResolutionTimer.js';
 import { arbitrarilySlicedAsyncIterable } from './arbitrarilySlicedAsyncInterable.js';
@@ -19,12 +19,10 @@ testProp.serial(
 				max: 2n ** 14n,
 			})
 			.chain(length => fc.tuple(
-				arbitrarilySlicedAsyncIterable(
-					fc.string({
-						minLength: Number(length),
-						maxLength: Number(length) * 2,
-					}),
-				),
+				arbitrarilySlicedAsyncIterable(fc.string({
+					minLength: Number(length),
+					maxLength: Number(length) * 2,
+				})),
 				fc.constant(length),
 			)),
 	],
@@ -33,8 +31,8 @@ testProp.serial(
 		const fixedLengthSequenceParser = createFixedLengthSequenceParser<string>(length);
 
 		const createTestWrapperParser = (innerParser: typeof fixedLengthSequenceParser): Parser<{
-			result: string,
-			position: number,
+			result: string;
+			position: number;
 		}, string> => async parserContext => {
 			const result = await innerParser(parserContext);
 
@@ -45,7 +43,7 @@ testProp.serial(
 			};
 		};
 
-		const { output: actualNaive } = await naiveTotalTimer.measureAsync(() => runParserWithRemainingInput(
+		const { output: actualNaive } = await naiveTotalTimer.measureAsync(async () => runParserWithRemainingInput(
 			createTestWrapperParser(fixedLengthSequenceParserNaive),
 			sequence,
 			stringParserInputCompanion,
@@ -53,7 +51,7 @@ testProp.serial(
 
 		t.true(actualNaive.result.length === Number(length));
 
-		const { output: actual } = await totalTimer.measureAsync(() => runParserWithRemainingInput(
+		const { output: actual } = await totalTimer.measureAsync(async () => runParserWithRemainingInput(
 			createTestWrapperParser(fixedLengthSequenceParser),
 			sequence,
 			stringParserInputCompanion,
@@ -71,7 +69,7 @@ test.serial(
 	t => {
 		t.true(
 			totalTimer.time * 10n < naiveTotalTimer.time,
-			`Naive: ${naiveTotalTimer.time / 1000000n}ms, Optimized: ${totalTimer.time / 1000000n}ms`,
+			`Naive: ${naiveTotalTimer.time / 1_000_000n}ms, Optimized: ${totalTimer.time / 1_000_000n}ms`,
 		);
 	},
 );

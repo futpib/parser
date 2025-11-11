@@ -1,5 +1,5 @@
-import { createFixedLengthSequenceParser } from "./fixedLengthSequenceParser.js";
-import { getParserName, Parser, setParserName } from "./parser.js";
+import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
+import { getParserName, type Parser, setParserName } from './parser.js';
 
 export const createParserConsumedSequenceParser = <Output, Sequence>(
 	childParser: Parser<Output, Sequence>,
@@ -20,7 +20,7 @@ export const createParserConsumedSequenceParser = <Output, Sequence>(
 		const consumedSequenceParser = createFixedLengthSequenceParser<Sequence>(consumedLength);
 		const consumedSequence = await consumedSequenceParser(parserContext);
 
-		return [value, consumedSequence];
+		return [ value, consumedSequence ];
 	};
 
 	setParserName(parserConsumedSequenceParser, `parserConsumedSequenceParser(${getParserName(childParser, 'anonymousParserConsumedSequenceParserChild')})`);

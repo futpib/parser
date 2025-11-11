@@ -5,9 +5,7 @@ import { promiseCompose } from './promiseCompose.js';
 import { createUnionParser } from './unionParser.js';
 
 class Terminated<T> {
-	constructor(
-		public readonly value: T,
-	) {}
+	constructor(public readonly value: T) {}
 }
 
 export const createTerminatedArrayParserNaive = <ElementOutput, TerminatorOutput, Sequence>(

@@ -1,6 +1,6 @@
 import * as fc from 'fast-check';
 import { testProp } from '@fast-check/ava';
-import { Parser, runParser } from './parser.js';
+import { type Parser, runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { createElementTerminatedSequenceParser } from './elementTerminatedSequenceParser.js';
 
@@ -13,14 +13,12 @@ testProp.serial(
 			})
 			.map(string => ({
 				string,
-				terminator: string.slice(-1)
+				terminator: string.slice(-1),
 			}))
-			.filter(({ string, terminator }) => string.split(terminator).length === 2)
+			.filter(({ string, terminator }) => string.split(terminator).length === 2),
 	],
 	async (t, { string, terminator }) => {
-		const elementTerminatedSequenceParser = createElementTerminatedSequenceParser<string>(
-			terminator,
-		);
+		const elementTerminatedSequenceParser = createElementTerminatedSequenceParser<string>(terminator);
 
 		const createTestWrapperParser = (innerParser: typeof elementTerminatedSequenceParser): Parser<{
 			string: string;

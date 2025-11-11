@@ -1,6 +1,6 @@
-import { inspect } from "./inspect.js";
-import { Parser, setParserName } from "./parser.js";
-import { DeriveSequenceElement } from "./sequence.js";
+import { inspect } from './inspect.js';
+import { type Parser, setParserName } from './parser.js';
+import { type DeriveSequenceElement } from './sequence.js';
 
 function clamp(x: number, min: number, max: number) {
 	return Math.max(min, Math.min(x, max));
@@ -41,7 +41,7 @@ export const createSequenceTerminatedSequenceParser = <Sequence, Element = Deriv
 			const terminatorIndex = parserContext.indexOfSubsequence(sequence, terminatorSequence);
 
 			if (terminatorIndex === -1) {
-				window = window * 2;
+				window *= 2;
 
 				continue;
 			}

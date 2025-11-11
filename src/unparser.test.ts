@@ -1,8 +1,8 @@
 import test from 'ava';
 import * as fc from 'fast-check';
-import { runUnparser, Unparser } from './unparser.js';
-import { stringUnparserOutputCompanion } from './unparserOutputCompanion.js';
 import { testProp } from '@fast-check/ava';
+import { runUnparser, type Unparser } from './unparser.js';
+import { stringUnparserOutputCompanion } from './unparserOutputCompanion.js';
 
 test('writeLater', async t => {
 	const stringToBeWrittenBefore = 'before writeLater\n';
@@ -16,7 +16,7 @@ test('writeLater', async t => {
 	let actualPositionBFromWithinWriteLater: number | undefined;
 
 	const unparser: Unparser<void, string> = async function * (_input, unparserContext) {
-		yield stringToBeWrittenBefore
+		yield stringToBeWrittenBefore;
 
 		expectedPositionA = unparserContext.position;
 
@@ -127,19 +127,13 @@ test('writeLater deep', async t => {
 testProp(
 	'writeLater positions and lengths',
 	[
-		fc.array(
-			fc.oneof(
-				fc.array(
-					fc.oneof(
-						fc.array(
-							fc.string(),
-						),
-						fc.string(),
-					),
-				),
+		fc.array(fc.oneof(
+			fc.array(fc.oneof(
+				fc.array(fc.string()),
 				fc.string(),
-			),
-		),
+			)),
+			fc.string(),
+		)),
 	],
 	async (t, stringArray3) => {
 		const numberUnparser: Unparser<number, string> = async function * (input, unparserContext) {
@@ -148,12 +142,10 @@ testProp(
 
 		const createLengthPrefixedUnparser = <T>(
 			unparser: Unparser<T, string>,
-		): Unparser<T, string> => {
-			return async function * (input, unparserContext) {
-				const length = yield * unparserContext.writeLater(8);
-				yield * unparser(input, unparserContext);
-				yield * unparserContext.writeEarlier(length, numberUnparser, unparserContext.position - length.positionEnd);
-			};
+		): Unparser<T, string> => async function * (input, unparserContext) {
+			const length = yield * unparserContext.writeLater(8);
+			yield * unparser(input, unparserContext);
+			yield * unparserContext.writeEarlier(length, numberUnparser, unparserContext.position - length.positionEnd);
 		};
 
 		const unparser0: Unparser<string, string> = createLengthPrefixedUnparser(async function * (input, unparserContext) {
@@ -166,23 +158,15 @@ testProp(
 			}
 		});
 
-		const unparser2: Unparser<(string | string[])[], string> = createLengthPrefixedUnparser(async function * (input, unparserContext) {
+		const unparser2: Unparser<Array<string | string[]>, string> = createLengthPrefixedUnparser(async function * (input, unparserContext) {
 			for (const stringArray2 of input) {
-				if (typeof stringArray2 === 'string') {
-					yield * unparser0(stringArray2, unparserContext);
-				} else {
-					yield * unparser1(stringArray2, unparserContext);
-				}
+				yield * (typeof stringArray2 === 'string' ? unparser0(stringArray2, unparserContext) : unparser1(stringArray2, unparserContext));
 			}
 		});
 
-		const unparser3: Unparser<(string | (string | string[])[])[], string> = createLengthPrefixedUnparser(async function * (input, unparserContext) {
+		const unparser3: Unparser<Array<string | Array<string | string[]>>, string> = createLengthPrefixedUnparser(async function * (input, unparserContext) {
 			for (const stringArray3 of input) {
-				if (typeof stringArray3 === 'string') {
-					yield * unparser0(stringArray3, unparserContext);
-				} else {
-					yield * unparser2(stringArray3, unparserContext);
-				}
+				yield * (typeof stringArray3 === 'string' ? unparser0(stringArray3, unparserContext) : unparser2(stringArray3, unparserContext));
 			}
 		});
 
@@ -196,7 +180,7 @@ testProp(
 
 		const actualString = strings.join('');
 
-		type DeepArray<T> = T | DeepArray<T>[];
+		type DeepArray<T> = T | Array<DeepArray<T>>;
 
 		function getExpectedString(stringArray: DeepArray<string>): string {
 			let expectedString = stringArray;

@@ -1,29 +1,31 @@
-import invariant from "invariant";
-import { DalvikBytecode, DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from "./dalvikBytecodeParser.js";
-import { DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, DalvikExecutableClassAnnotations, DalvikExecutableClassData, DalvikExecutableClassDefinition, DalvikExecutableClassMethodAnnotation, DalvikExecutableClassParameterAnnotation, DalvikExecutableCode, DalvikExecutableField, dalvikExecutableFieldEquals, DalvikExecutableFieldWithAccess, DalvikExecutableMethod, dalvikExecutableMethodEquals, DalvikExecutableMethodWithAccess, DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod } from "./dalvikExecutable.js";
-import { createExactSequenceParser } from "./exactSequenceParser.js";
-import { cloneParser, Parser, setParserName } from "./parser.js";
-import { ParserContext } from "./parserContext.js";
-import { promiseCompose } from "./promiseCompose.js";
-import { createTupleParser } from "./tupleParser.js";
-import { createUnionParser } from "./unionParser.js";
-import { createArrayParser } from "./arrayParser.js";
-import { jsonNumberParser, jsonStringParser } from "./jsonParser.js";
-import { createNonEmptyArrayParser } from "./nonEmptyArrayParser.js";
-import { createOptionalParser } from "./optionalParser.js";
-import { createNegativeLookaheadParser } from "./negativeLookaheadParser.js";
-import { createSeparatedArrayParser } from "./separatedArrayParser.js";
-import { smaliMemberNameParser, smaliTypeDescriptorParser } from "./dalvikExecutableParser/stringSyntaxParser.js";
-import { createDisjunctionParser } from "./disjunctionParser.js";
-import { formatSizes } from "./dalvikBytecodeParser/formatSizes.js";
-import { operationFormats } from "./dalvikBytecodeParser/operationFormats.js";
-import { createSeparatedNonEmptyArrayParser } from "./separatedNonEmptyArrayParser.js";
-import { parserCreatorCompose } from "./parserCreatorCompose.js";
-import { Simplify } from "type-fest";
-import { IndexIntoMethodIds } from "./dalvikExecutableParser/typedNumbers.js";
-import { createDebugLogInputParser } from "./debugLogInputParser.js";
-import { createDebugLogParser } from "./debugLogParser.js";
-import { createElementParser } from "./elementParser.js";
+import invariant from 'invariant';
+import { type Simplify } from 'type-fest';
+import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
+import {
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+} from './dalvikExecutable.js';
+import { createExactSequenceParser } from './exactSequenceParser.js';
+import { cloneParser, type Parser, setParserName } from './parser.js';
+import { type ParserContext } from './parserContext.js';
+import { promiseCompose } from './promiseCompose.js';
+import { createTupleParser } from './tupleParser.js';
+import { createUnionParser } from './unionParser.js';
+import { createArrayParser } from './arrayParser.js';
+import { jsonNumberParser, jsonStringParser } from './jsonParser.js';
+import { createNonEmptyArrayParser } from './nonEmptyArrayParser.js';
+import { createOptionalParser } from './optionalParser.js';
+import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
+import { createSeparatedArrayParser } from './separatedArrayParser.js';
+import { smaliMemberNameParser, smaliTypeDescriptorParser } from './dalvikExecutableParser/stringSyntaxParser.js';
+import { createDisjunctionParser } from './disjunctionParser.js';
+import { formatSizes } from './dalvikBytecodeParser/formatSizes.js';
+import { operationFormats } from './dalvikBytecodeParser/operationFormats.js';
+import { createSeparatedNonEmptyArrayParser } from './separatedNonEmptyArrayParser.js';
+import { parserCreatorCompose } from './parserCreatorCompose.js';
+import { type IndexIntoMethodIds } from './dalvikExecutableParser/typedNumbers.js';
+import { createDebugLogInputParser } from './debugLogInputParser.js';
+import { createDebugLogParser } from './debugLogParser.js';
+import { createElementParser } from './elementParser.js';
 
 function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	if (operation.operation === 'packed-switch-payload') {
@@ -44,28 +46,28 @@ function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	invariant(operationFormat, 'Unknown operation format for "%s" (operation: %o)', operation.operation, operation);
 
 	const operationSize = formatSizes[operationFormat];
-	invariant(operationSize, `Unknown operation size for format %s of operation %s`, operationFormat, operation.operation);
+	invariant(operationSize, 'Unknown operation size for format %s of operation %s', operationFormat, operation.operation);
 
 	return operationSize;
 }
 
 const smaliNewlinesParser: Parser<void, string> = promiseCompose(
 	createNonEmptyArrayParser(createExactSequenceParser('\n')),
-	(_newlines) => undefined,
+	_newlines => undefined,
 );
 
 const smaliSingleWhitespaceParser = createExactSequenceParser(' ');
 
 const smaliWhitespaceParser: Parser<void, string> = promiseCompose(
 	createArrayParser(smaliSingleWhitespaceParser),
-	(_indentation) => undefined,
+	_indentation => undefined,
 );
 
 const smaliSingleIndentationParser = createExactSequenceParser('    ');
 
 const smaliIndentationParser: Parser<void, string> = promiseCompose(
 	createArrayParser(smaliSingleIndentationParser),
-	(_indentation) => undefined,
+	_indentation => undefined,
 );
 
 export const smaliCommentParser: Parser<string, string> = promiseCompose(
@@ -108,7 +110,7 @@ const smaliCommentsOrNewlinesParser: Parser<string[], string> = promiseCompose(
 		smaliNewlinesParser,
 		smaliCommentParser,
 	])),
-	(newlinesOrComments) => newlinesOrComments.filter((newlineOrComment): newlineOrComment is string => typeof newlineOrComment === 'string'),
+	newlinesOrComments => newlinesOrComments.filter((newlineOrComment): newlineOrComment is string => typeof newlineOrComment === 'string'),
 );
 
 const smaliLineEndPraser: Parser<undefined | string, string> = promiseCompose(
@@ -137,15 +139,15 @@ const smaliIdentifierParser: Parser<string, string> = async (parserContext: Pars
 
 		if (
 			character === '_'
-				|| (
-					character >= 'a' && character <= 'z'
-				)
-				|| (
-					character >= 'A' && character <= 'Z'
-				)
-				|| (
-					character >= '0' && character <= '9'
-				)
+			|| (
+				character >= 'a' && character <= 'z'
+			)
+			|| (
+				character >= 'A' && character <= 'Z'
+			)
+			|| (
+				character >= '0' && character <= '9'
+			)
 		) {
 			parserContext.skip(1);
 
@@ -170,24 +172,22 @@ const smaliHexNumberParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createOptionalParser(createExactSequenceParser('-')),
 		createExactSequenceParser('0x'),
-		createArrayParser(
-			parserCreatorCompose(
-				() => elementParser,
-				character => async parserContext => {
-					parserContext.invariant(
-						(
-							(character >= '0' && character <= '9')
-								|| (character >= 'a' && character <= 'f')
-								|| (character >= 'A' && character <= 'F')
-						),
-						'Expected "0" to "9", "a" to "f", "A" to "F", got "%s"',
-						character,
-					);
+		createArrayParser(parserCreatorCompose(
+			() => elementParser,
+			character => async parserContext => {
+				parserContext.invariant(
+					(
+						(character >= '0' && character <= '9')
+						|| (character >= 'a' && character <= 'f')
+						|| (character >= 'A' && character <= 'F')
+					),
+					'Expected "0" to "9", "a" to "f", "A" to "F", got "%s"',
+					character,
+				);
 
-					return character;
-				},
-			)(),
-		),
+				return character;
+			},
+		)()),
 	]),
 	([
 		optionalMinus,
@@ -218,7 +218,7 @@ setParserName(smaliNumberParser, 'smaliNumberParser');
 
 const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	jsonStringParser,
-	(string) => string.replaceAll(/\\'/g, "'"),
+	string => string.replaceAll(String.raw`\'`, '\''),
 );
 
 const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = promiseCompose(
@@ -244,7 +244,7 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 		]),
 		smaliSingleWhitespaceParser,
 	),
-	(accessFlagNames) => {
+	accessFlagNames => {
 		const accessFlags = dalvikExecutableAccessFlagsDefault();
 
 		for (const accessFlagName of accessFlagNames) {
@@ -259,17 +259,15 @@ const smaliClassDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<u
 	createTupleParser([
 		smaliCommentsOrNewlinesParser,
 		createExactSequenceParser('.class '),
-		createOptionalParser(
-			promiseCompose(
-				createTupleParser([
-					smaliAccessFlagsParser,
-					smaliSingleWhitespaceParser,
-				]),
-				([
-					accessFlags,
-				]) => accessFlags,
-			),
-		),
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliAccessFlagsParser,
+				smaliSingleWhitespaceParser,
+			]),
+			([
+				accessFlags,
+			]) => accessFlags,
+		)),
 		smaliTypeDescriptorParser,
 		smaliLineEndPraser,
 	]),
@@ -434,9 +432,7 @@ export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCom
 		smaliSingleWhitespaceParser,
 		smaliTypeDescriptorParser,
 		smaliLineEndPraser,
-		createArrayParser(
-			smaliAnnotationElementParser,
-		),
+		createArrayParser(smaliAnnotationElementParser),
 		smaliIndentationParser,
 		createExactSequenceParser('.end annotation\n'),
 	]),
@@ -473,18 +469,16 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		createExactSequenceParser(':'),
 		smaliTypeDescriptorParser,
 		smaliLineEndPraser,
-		createOptionalParser(
-			promiseCompose(
-				createTupleParser([
-					smaliAnnotationParser,
-					createExactSequenceParser('.end field\n'),
-				]),
-				([
-					annotation,
-					_endField,
-				]) => annotation,
-			),
-		),
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliAnnotationParser,
+				createExactSequenceParser('.end field\n'),
+			]),
+			([
+				annotation,
+				_endField,
+			]) => annotation,
+		)),
 	]),
 	([
 		_field,
@@ -495,19 +489,17 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		type,
 		_newline,
 		annotation,
-	]) => {
-		return {
+	]) => ({
+		field: {
+			accessFlags,
 			field: {
-				accessFlags,
-				field: {
-					class: 'FILLED_LATER',
-					type,
-					name,
-				},
+				class: 'FILLED_LATER',
+				type,
+				name,
 			},
-			annotation,
-		};
-	},
+		},
+		annotation,
+	}),
 );
 
 setParserName(smaliFieldParser, 'smaliFieldParser');
@@ -522,7 +514,7 @@ const smaliFieldsParser: Parser<SmaliFields, string> = promiseCompose(
 		smaliFieldParser,
 		smaliCommentsOrNewlinesParser,
 	),
-	(fieldsAndComments) => {
+	fieldsAndComments => {
 		let type: 'staticField' | 'instanceField' = 'instanceField';
 
 		const staticFields: SmaliField[] = [];
@@ -545,7 +537,7 @@ const smaliFieldsParser: Parser<SmaliFields, string> = promiseCompose(
 
 			invariant(typeof fieldOrComment === 'object', 'Expected field or comment');
 
-			const field = fieldOrComment as SmaliField;
+			const field = fieldOrComment;
 
 			if (
 				type === 'staticField'
@@ -569,7 +561,7 @@ const smaliFieldsParser: Parser<SmaliFields, string> = promiseCompose(
 			staticFields,
 			instanceFields,
 		};
-	}
+	},
 );
 
 setParserName(smaliFieldsParser, 'smaliFieldsParser');
@@ -631,7 +623,7 @@ const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = pr
 	]) => ({
 		parameters,
 		returnType,
-		shorty: shortyFromLongy(returnType) + parameters.map((parameter) => {
+		shorty: shortyFromLongy(returnType) + parameters.map(parameter => {
 			if (parameter === 'V') {
 				return '';
 			}
@@ -681,11 +673,11 @@ type SmaliRegister = {
 function isSmaliRegister(value: unknown): value is SmaliRegister {
 	return (
 		value !== null
-			&& typeof value === 'object'
-			&& 'prefix' in value
-			&& 'index' in value
-			&& typeof (value as SmaliRegister).prefix === 'string'
-			&& typeof (value as SmaliRegister).index === 'number'
+		&& typeof value === 'object'
+		&& 'prefix' in value
+		&& 'index' in value
+		&& typeof (value as SmaliRegister).prefix === 'string'
+		&& typeof (value as SmaliRegister).index === 'number'
 	);
 }
 
@@ -715,15 +707,13 @@ const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .local '),
 		smaliParametersRegisterParser,
-		createOptionalParser(
-			createTupleParser([
-				createExactSequenceParser(','),
-				smaliWhitespaceParser,
-				smaliQuotedStringParser,
-				createExactSequenceParser(':'),
-				smaliTypeDescriptorParser,
-			]),
-		),
+		createOptionalParser(createTupleParser([
+			createExactSequenceParser(','),
+			smaliWhitespaceParser,
+			smaliQuotedStringParser,
+			createExactSequenceParser(':'),
+			smaliTypeDescriptorParser,
+		])),
 		smaliLineEndPraser,
 	]),
 	([
@@ -744,26 +734,22 @@ export const smaliCodeParameterParser: Parser<SmaliCodeParameter, string> = prom
 	createTupleParser([
 		createExactSequenceParser('    .param '),
 		smaliParametersRegisterParser,
-		createOptionalParser(
-			createTupleParser([
-				createExactSequenceParser(','),
-				smaliWhitespaceParser,
-				smaliQuotedStringParser,
-				smaliWhitespaceParser,
-			]),
-		),
+		createOptionalParser(createTupleParser([
+			createExactSequenceParser(','),
+			smaliWhitespaceParser,
+			smaliQuotedStringParser,
+			smaliWhitespaceParser,
+		])),
 		createOptionalParser(smaliWhitespaceParser),
 		smaliCommentsOrNewlinesParser,
-		createOptionalParser(
-			createTupleParser([
-				smaliAnnotationParser,
-				smaliIndentationParser,
-				createExactSequenceParser('.end param\n'),
-			]),
-		),
+		createOptionalParser(createTupleParser([
+			smaliAnnotationParser,
+			smaliIndentationParser,
+			createExactSequenceParser('.end param\n'),
+		])),
 	]),
 	([
-		_param,
+		_parameter,
 		register,
 		_optionalCommaAndString,
 		_whitespace,
@@ -855,18 +841,16 @@ setParserName(smaliParametersRegisterRangeParser, 'smaliParametersRegisterRangeP
 const smaliParametersRegisterListParser: Parser<SmaliRegister[], string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('{'),
-		createArrayParser(
-			promiseCompose(
-				createTupleParser([
-					smaliParametersRegisterParser,
-					createOptionalParser(createExactSequenceParser(', ')),
-				]),
-				([
-					parameter,
-					_comma,
-				]) => parameter,
-			),
-		),
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				smaliParametersRegisterParser,
+				createOptionalParser(createExactSequenceParser(', ')),
+			]),
+			([
+				parameter,
+				_comma,
+			]) => parameter,
+		)),
 		createExactSequenceParser('}'),
 	]),
 	([
@@ -905,8 +889,8 @@ const smaliParametersIntegerParser: Parser<number | bigint, string> = promiseCom
 
 				if (
 					(character >= '0' && character <= '9')
-						|| (character >= 'a' && character <= 'f')
-						|| (character >= 'A' && character <= 'F')
+					|| (character >= 'a' && character <= 'f')
+					|| (character >= 'A' && character <= 'F')
 				) {
 					characters.push(character);
 
@@ -975,7 +959,7 @@ const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = prom
 		class: classPath,
 		prototype,
 		name: methodName,
-	})
+	}),
 );
 
 setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
@@ -998,7 +982,7 @@ const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = promis
 		class: classPath,
 		name: fieldName,
 		type,
-	})
+	}),
 );
 
 setParserName(smaliParametersFieldParser, 'smaliParametersFieldParser');
@@ -1010,45 +994,43 @@ type SmaliCodeOperationParameter =
 	| DalvikExecutableMethod
 ;
 
-const smaliCodeOperationParametersParser: Parser<SmaliCodeOperationParameter[], string> = createArrayParser(
-	promiseCompose(
-		createTupleParser([
-			createUnionParser<SmaliCodeOperationParameter, string>([
-				smaliParametersRegisterParser,
-				smaliParametersRegistersParser,
-				smaliParametersStringParser,
-				smaliParametersIntegerParser,
-				promiseCompose(
-					createTupleParser([
-						createNegativeLookaheadParser(smaliParametersIntegerParser),
-						smaliNumberParser,
-					]),
-					([ _notInteger, number ]) => number,
-				),
-				smaliParametersLabelParser,
-				promiseCompose(
-					createTupleParser([
-						createNegativeLookaheadParser(smaliParametersMethodParser),
-						createNegativeLookaheadParser(smaliParametersFieldParser),
-						smaliParametersTypeParser,
-					]),
-					([
-						_notMethod,
-						_notField,
-						type,
-					]) => type,
-				),
-				smaliParametersMethodParser,
-				smaliParametersFieldParser,
-			]),
-			createOptionalParser(createExactSequenceParser(', ')),
+const smaliCodeOperationParametersParser: Parser<SmaliCodeOperationParameter[], string> = createArrayParser(promiseCompose(
+	createTupleParser([
+		createUnionParser<SmaliCodeOperationParameter, string>([
+			smaliParametersRegisterParser,
+			smaliParametersRegistersParser,
+			smaliParametersStringParser,
+			smaliParametersIntegerParser,
+			promiseCompose(
+				createTupleParser([
+					createNegativeLookaheadParser(smaliParametersIntegerParser),
+					smaliNumberParser,
+				]),
+				([ _notInteger, number ]) => number,
+			),
+			smaliParametersLabelParser,
+			promiseCompose(
+				createTupleParser([
+					createNegativeLookaheadParser(smaliParametersMethodParser),
+					createNegativeLookaheadParser(smaliParametersFieldParser),
+					smaliParametersTypeParser,
+				]),
+				([
+					_notMethod,
+					_notField,
+					type,
+				]) => type,
+			),
+			smaliParametersMethodParser,
+			smaliParametersFieldParser,
 		]),
-		([
-			parameter,
-			_comma,
-		]) => parameter,
-	),
-);
+		createOptionalParser(createExactSequenceParser(', ')),
+	]),
+	([
+		parameter,
+		_comma,
+	]) => parameter,
+));
 
 setParserName(smaliCodeOperationParametersParser, 'smaliCodeOperationParametersParser');
 
@@ -1059,17 +1041,15 @@ const smaliCodeOperationNameParser: Parser<string, string> = promiseCompose(
 				smaliIdentifierParser,
 				createExactSequenceParser('-'),
 			),
-			(parts) => parts.join('-'),
+			parts => parts.join('-'),
 		),
-		createOptionalParser(
-			promiseCompose(
-				createTupleParser([
-					createExactSequenceParser('/'),
-					smaliIdentifierParser,
-				]),
-				([ slash, name ]) => slash + name,
-			),
-		),
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				createExactSequenceParser('/'),
+				smaliIdentifierParser,
+			]),
+			([ slash, name ]) => slash + name,
+		)),
 	]),
 	([
 		name,
@@ -1082,7 +1062,7 @@ setParserName(smaliCodeOperationNameParser, 'smaliCodeOperationNameParser');
 type SmaliOneLineCodeOperation = {
 	operation: string;
 	parameters: SmaliCodeOperationParameter[];
-}
+};
 
 const smaliOneLineCodeOperationParser: Parser<SmaliOneLineCodeOperation, string> = promiseCompose(
 	createTupleParser([
@@ -1093,7 +1073,7 @@ const smaliOneLineCodeOperationParser: Parser<SmaliOneLineCodeOperation, string>
 				smaliSingleWhitespaceParser,
 				smaliCodeOperationParametersParser,
 			])),
-			(undefinedOrParameters) => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
+			undefinedOrParameters => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
 		),
 		smaliLineEndPraser,
 	]),
@@ -1114,20 +1094,18 @@ type SmaliCodeOperationLabelsBody = string[];
 
 const createMultilineSmaliCodeOperationLabelsBodyParser: (operationName: string) => Parser<SmaliCodeOperationLabelsBody, string> = operationName => promiseCompose(
 	createTupleParser([
-		createArrayParser(
-			promiseCompose(
-				createTupleParser([
-					smaliIndentationParser,
-					smaliCodeLabelParser,
-					smaliLineEndPraser,
-				]),
-				([
-					_indentation,
-					label,
-					_newline,
-				]) => label,
-			),
-		),
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				smaliIndentationParser,
+				smaliCodeLabelParser,
+				smaliLineEndPraser,
+			]),
+			([
+				_indentation,
+				label,
+				_newline,
+			]) => label,
+		)),
 		smaliIndentationParser,
 		createExactSequenceParser('.end '),
 		createExactSequenceParser(operationName),
@@ -1138,31 +1116,29 @@ const createMultilineSmaliCodeOperationLabelsBodyParser: (operationName: string)
 	]) => labels,
 );
 
-type SmaliCodeOperationLabelMapBody = (readonly [number | bigint, string])[];
+type SmaliCodeOperationLabelMapBody = Array<readonly [number | bigint, string]>;
 
 const createMultilineSmaliCodeOperationLabelMapBodyParser: (operationName: string) => Parser<SmaliCodeOperationLabelMapBody, string> = operationName => promiseCompose(
 	createTupleParser([
-		createArrayParser(
-			promiseCompose(
-				createTupleParser([
-					smaliIndentationParser,
-					smaliParametersIntegerParser,
-					createExactSequenceParser(' -> '),
-					smaliCodeLabelParser,
-					smaliLineEndPraser,
-				]),
-				([
-					_indentation,
-					key,
-					_arrow,
-					label,
-					_newline,
-				]) => [
-					key,
-					label,
-				] as const,
-			),
-		),
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				smaliIndentationParser,
+				smaliParametersIntegerParser,
+				createExactSequenceParser(' -> '),
+				smaliCodeLabelParser,
+				smaliLineEndPraser,
+			]),
+			([
+				_indentation,
+				key,
+				_arrow,
+				label,
+				_newline,
+			]) => [
+				key,
+				label,
+			] as const,
+		)),
 		smaliIndentationParser,
 		createExactSequenceParser('.end '),
 		createExactSequenceParser(operationName),
@@ -1173,23 +1149,21 @@ const createMultilineSmaliCodeOperationLabelMapBodyParser: (operationName: strin
 	]) => labels,
 );
 
-type SmaliCodeOperationIntegersBody = (number | bigint)[];
+type SmaliCodeOperationIntegersBody = Array<number | bigint>;
 
 const createMultilineSmaliCodeOperationIntegersBodyParser: (operationName: string) => Parser<SmaliCodeOperationIntegersBody, string> = operationName => promiseCompose(
 	createTupleParser([
-		createArrayParser(
-			promiseCompose(
-				createTupleParser([
-					smaliIndentationParser,
-					smaliParametersIntegerParser,
-					smaliLineEndPraser,
-				]),
-				([
-					_indentation,
-					key,
-				]) => key,
-			),
-		),
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				smaliIndentationParser,
+				smaliParametersIntegerParser,
+				smaliLineEndPraser,
+			]),
+			([
+				_indentation,
+				key,
+			]) => key,
+		)),
 		smaliIndentationParser,
 		createExactSequenceParser('.end '),
 		createExactSequenceParser(operationName),
@@ -1229,7 +1203,7 @@ const smaliMultilineCodeOperationParser: Parser<SmaliMultilineCodeOperation, str
 					smaliSingleWhitespaceParser,
 					smaliCodeOperationParametersParser,
 				])),
-				(undefinedOrParameters) => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
+				undefinedOrParameters => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
 			),
 			smaliLineEndPraser,
 		]),
@@ -1269,13 +1243,13 @@ const smaliLooseCodeOperationParser: Parser<SmaliLooseCodeOperation, string> = c
 setParserName(smaliLooseCodeOperationParser, 'smaliLooseCodeOperationParser');
 
 type SmaliCodeOperationFromDalvikBytecodeOperation<T extends DalvikBytecodeOperation> =
-	T extends { branchOffsets: number[]; }
-	? Simplify<Omit<T, 'branchOffsets'> & { branchOffsetIndices: number[]; }>
-	: T extends { branchOffset: number; }
-	? Simplify<Omit<T, 'branchOffset'> & { branchOffsetIndex: number; }>
-	: T extends { methodIndex: IndexIntoMethodIds; }
-	? Simplify<Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod; }>
-	: T
+	T extends { branchOffsets: number[] }
+		? Simplify<Omit<T, 'branchOffsets'> & { branchOffsetIndices: number[] }>
+		: T extends { branchOffset: number }
+			? Simplify<Omit<T, 'branchOffset'> & { branchOffsetIndex: number }>
+			: T extends { methodIndex: IndexIntoMethodIds }
+				? Simplify<Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod }>
+				: T
 ;
 
 type SmaliCodeOperation = SmaliCodeOperationFromDalvikBytecodeOperation<DalvikBytecodeOperation>;
@@ -1285,7 +1259,7 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 	operation => {
 		const operation_ = {
 			operation: operation.operation,
-			// line,
+			// Line,
 			// local,
 			// parameters: (operation as any).parameters,
 		} as any; // TODO
@@ -1313,11 +1287,11 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				const data: number[] = [];
 
 				for (const value of values) {
-					const numValue = typeof value === 'bigint' ? Number(value) : value;
+					const numberValue = typeof value === 'bigint' ? Number(value) : value;
 
 					// Convert to bytes based on elementWidth (little-endian)
 					for (let i = 0; i < elementWidth; i++) {
-						data.push((numValue >> (i * 8)) & 0xFF);
+						data.push((numberValue >> (i * 8)) & 0xFF);
 					}
 				}
 
@@ -1332,7 +1306,7 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 			operation_.registers = [];
 		}
 
-		for (const parameter of (operation as unknown as { parameters: unknown[]; }).parameters.flat() ?? []) {
+		for (const parameter of (operation as unknown as { parameters: unknown[] }).parameters.flat() ?? []) {
 			if (isDalvikExecutableMethod(parameter)) {
 				operation_.method = parameter;
 
@@ -1346,9 +1320,7 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 			}
 
 			if (isSmaliRegister(parameter)) {
-				if (!operation_.registers) {
-					operation_.registers = [];
-				}
+				operation_.registers ||= [];
 
 				operation_.registers.push(parameter);
 
@@ -1442,9 +1414,9 @@ function isOperationWithLabels(value: unknown): value is DalvikBytecodeOperation
 } {
 	return (
 		typeof value === 'object'
-			&& value !== null
-			&& 'labels' in value
-			&& value.labels instanceof Set
+		&& value !== null
+		&& 'labels' in value
+		&& value.labels instanceof Set
 	);
 }
 
@@ -1461,7 +1433,7 @@ const smaliAnnotatedCodeOperationParser: Parser<SmaliCodeOperation, string> = pr
 		labels,
 		operation,
 	]) => {
-		if (labels.length) {
+		if (labels.length > 0) {
 			(operation as any).labels = new Set(labels);
 		}
 
@@ -1479,31 +1451,23 @@ type SmaliExecutableCode<DalvikBytecode> = {
 
 const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, string> = promiseCompose(
 	createTupleParser([
-		createOptionalParser(
-			smaliCodeRegistersParser,
-		),
-		createArrayParser(
-			smaliAnnotationParser,
-		),
-		createArrayParser(
-			smaliCodeParameterParser,
-		),
+		createOptionalParser(smaliCodeRegistersParser),
+		createArrayParser(smaliAnnotationParser),
+		createArrayParser(smaliCodeParameterParser),
 		createSeparatedArrayParser(
 			smaliAnnotationParser,
 			smaliCommentsOrNewlinesParser,
 		),
-		createArrayParser(
-			promiseCompose(
-				createTupleParser([
-					createOptionalParser(smaliCommentsOrNewlinesParser),
-					smaliAnnotatedCodeOperationParser,
-				]),
-				([
-					_commentsOrNewlines,
-					operation,
-				]) => operation,
-			),
-		),
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				createOptionalParser(smaliCommentsOrNewlinesParser),
+				smaliAnnotatedCodeOperationParser,
+			]),
+			([
+				_commentsOrNewlines,
+				operation,
+			]) => operation,
+		)),
 	]),
 	([
 		registersSize,
@@ -1516,7 +1480,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 
 		if (
 			registersSize === undefined
-				&& parameters !== undefined
+			&& parameters !== undefined
 		) {
 			registersSize = parameters.length;
 		}
@@ -1529,7 +1493,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (
 				'branchLabel' in operation
-					&& typeof operation.branchLabel === 'string'
+				&& typeof operation.branchLabel === 'string'
 			) {
 				for (const [ targetOperationIndex, targetOperation ] of instructions.entries()) {
 					if (!isOperationWithLabels(targetOperation)) {
@@ -1549,13 +1513,13 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 
 			if (
 				'branchLabels' in operation
-					&& typeof operation.branchLabels === 'object'
-					&& Array.isArray(operation.branchLabels)
+				&& typeof operation.branchLabels === 'object'
+				&& Array.isArray(operation.branchLabels)
 			) {
 				const sourceOperations = instructions.filter((sourceOperation, sourceOperationIndex) => (
 					'branchOffsetIndex' in sourceOperation
-						&& typeof sourceOperation.branchOffsetIndex === 'number'
-						&& sourceOperation.branchOffsetIndex + sourceOperationIndex === operationIndex
+					&& typeof sourceOperation.branchOffsetIndex === 'number'
+					&& sourceOperation.branchOffsetIndex + sourceOperationIndex === operationIndex
 				));
 
 				invariant(
@@ -1605,7 +1569,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (
 				'branchOffsetIndex' in operation
-					&& typeof operation.branchOffsetIndex === 'number'
+				&& typeof operation.branchOffsetIndex === 'number'
 			) {
 				const operationOffset = branchOffsetByBranchOffsetIndex.get(operationIndex + operation.branchOffsetIndex);
 				invariant(
@@ -1626,13 +1590,13 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 
 			if (
 				'branchOffsetIndices' in operation
-					&& typeof operation.branchOffsetIndices === 'object'
-					&& Array.isArray(operation.branchOffsetIndices)
+				&& typeof operation.branchOffsetIndices === 'object'
+				&& Array.isArray(operation.branchOffsetIndices)
 			) {
 				const sourceOperations = instructions.filter((sourceOperation, sourceOperationIndex) => (
 					'branchOffsetIndex' in sourceOperation
-						&& typeof sourceOperation.branchOffsetIndex === 'number'
-						&& sourceOperation.branchOffsetIndex + sourceOperationIndex === operationIndex
+					&& typeof sourceOperation.branchOffsetIndex === 'number'
+					&& sourceOperation.branchOffsetIndex + sourceOperationIndex === operationIndex
 				));
 
 				invariant(
@@ -1680,7 +1644,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				tries: [], // TODO
 				// _annotations,
 			},
-			parameterAnnotations: parameters.filter((param) => param.annotation !== undefined),
+			parameterAnnotations: parameters.filter(parameter => parameter.annotation !== undefined),
 			methodAnnotations: annotations,
 		};
 	},
@@ -1772,14 +1736,14 @@ const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>
 function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeOperation {
 	if (
 		sortRegistersOperations.has(operation.operation)
-			&& 'registers' in operation
+		&& 'registers' in operation
 	) {
 		operation.registers.sort();
 	}
 
 	if (
 		reverseRegistersOperations.has(operation.operation)
-			&& 'registers' in operation
+		&& 'registers' in operation
 	) {
 		operation.registers.reverse();
 	}
@@ -1822,7 +1786,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 	]) => {
 		let code: DalvikExecutableCode<DalvikBytecode> | undefined = dalvikExecutableCode;
 
-		if (accessFlags.native && !code.instructions.length) {
+		if (accessFlags.native && code.instructions.length === 0) {
 			code = undefined;
 		}
 
@@ -1834,7 +1798,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 			for (const operation of code.instructions) {
 				const smaliRegisters = dalvikBytecodeOperationCompanion.getRegisters(operation) as unknown[] as SmaliRegister[]; // TODO
 
-				if (!smaliRegisters.length) {
+				if (smaliRegisters.length === 0) {
 					continue;
 				}
 
@@ -1876,10 +1840,12 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 					prototype,
 					name,
 				},
-				code: code?.instructions.length ? {
-					...code,
-					instructions: code.instructions.map(normalizeOperation),
-				} : undefined,
+				code: code?.instructions.length
+					? {
+						...code,
+						instructions: code.instructions.map(normalizeOperation),
+					}
+					: undefined,
 			},
 			parameterAnnotations,
 			methodAnnotations,
@@ -1895,17 +1861,15 @@ type SmaliMethods = Pick<DalvikExecutableClassData<DalvikBytecode>, 'directMetho
 };
 
 const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
-	createArrayParser<string[] | SmaliMethod<DalvikBytecode>, string>(
-		createDisjunctionParser<string[] | SmaliMethod<DalvikBytecode>, string, string>([
-			smaliMethodParser,
-			smaliCommentsOrNewlinesParser,
-		]),
-	),
-	(methodsAndComments) => {
+	createArrayParser<string[] | SmaliMethod<DalvikBytecode>, string>(createDisjunctionParser<string[] | SmaliMethod<DalvikBytecode>, string, string>([
+		smaliMethodParser,
+		smaliCommentsOrNewlinesParser,
+	])),
+	methodsAndComments => {
 		let type: 'directMethod' | 'virtualMethod' = 'directMethod';
 
-		const directMethods: DalvikExecutableMethodWithAccess<DalvikBytecode>[] = [];
-		const virtualMethods: DalvikExecutableMethodWithAccess<DalvikBytecode>[] = [];
+		const directMethods: Array<DalvikExecutableMethodWithAccess<DalvikBytecode>> = [];
+		const virtualMethods: Array<DalvikExecutableMethodWithAccess<DalvikBytecode>> = [];
 
 		const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = [];
 		const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = [];
@@ -1915,19 +1879,19 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 				return;
 			}
 
-			const existingMethod = parameterAnnotations.find((parameterAnnotation) => dalvikExecutableMethodEquals(
+			const existingMethod = parameterAnnotations.find(parameterAnnotation => dalvikExecutableMethodEquals(
 				parameterAnnotation.method,
 				annotation.method,
 			));
 
 			if (existingMethod) {
-				for (const [ index, paramAnnotations ] of annotation.annotations.entries()) {
-					const existingParamAnnotations = existingMethod.annotations.at(index);
+				for (const [ index, parameterAnnotations_ ] of annotation.annotations.entries()) {
+					const existingParameterAnnotations = existingMethod.annotations.at(index);
 
-					if (existingParamAnnotations) {
-						existingParamAnnotations.push(...paramAnnotations);
+					if (existingParameterAnnotations) {
+						existingParameterAnnotations.push(...parameterAnnotations_);
 					} else {
-						existingMethod.annotations[index] = paramAnnotations;
+						existingMethod.annotations[index] = parameterAnnotations_;
 					}
 				}
 
@@ -1956,10 +1920,10 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 
 			const method = methodOrComment;
 
-			if (method.methodAnnotations.length) {
+			if (method.methodAnnotations.length > 0) {
 				methodAnnotations.push({
 					method: method.dalvikExecutableMethodWithAccess.method,
-					annotations: method.methodAnnotations.map((annotation) => ({
+					annotations: method.methodAnnotations.map(annotation => ({
 						type: annotation.type,
 						visibility: annotation.visibility,
 						elements: annotation.elements as any ?? [], // TODO
@@ -1969,11 +1933,11 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 
 			pushParameterAnnotation({
 				method: method.dalvikExecutableMethodWithAccess.method,
-				annotations: method.parameterAnnotations.map((parameterAnnotation) => [{
+				annotations: method.parameterAnnotations.map(parameterAnnotation => [ {
 					type: parameterAnnotation.annotation!.type, // TODO
 					visibility: parameterAnnotation.annotation!.visibility, // TODO
 					elements: parameterAnnotation.annotation?.elements as any ?? [], // TODO
-				}]),
+				} ]),
 			});
 
 			if (type === 'directMethod') {
@@ -1997,7 +1961,7 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 			parameterAnnotations,
 			methodAnnotations,
 		};
-	}
+	},
 );
 
 setParserName(smaliMethodsParser, 'smaliMethodsParser');
@@ -2007,45 +1971,39 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		smaliClassDeclarationParser,
 		smaliSuperDeclarationParser,
 		smaliSourceDeclarationParser,
-		createOptionalParser(
-			promiseCompose(
-				createTupleParser([
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliCommentsOrNewlinesParser,
+				createNonEmptyArrayParser(smaliInterfaceDeclarationParser),
+			]),
+			([
+				_commentsOrNewlines,
+				interfaces,
+			]) => interfaces,
+		)),
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliCommentsOrNewlinesParser,
+				createSeparatedNonEmptyArrayParser<SmaliAnnotation, string>(
+					smaliAnnotationParser,
 					smaliCommentsOrNewlinesParser,
-					createNonEmptyArrayParser(smaliInterfaceDeclarationParser),
-				]),
-				([
-					_commentsOrNewlines,
-					interfaces,
-				]) => interfaces,
-			),
-		),
-		createOptionalParser(
-			promiseCompose(
-				createTupleParser([
-					smaliCommentsOrNewlinesParser,
-					createSeparatedNonEmptyArrayParser<SmaliAnnotation, string>(
-						smaliAnnotationParser,
-						smaliCommentsOrNewlinesParser,
-					),
-				]),
-				([
-					_commentsOrNewlines,
-					classAnnotations,
-				]) => classAnnotations,
-			),
-		),
-		createOptionalParser(
-			promiseCompose(
-				createTupleParser([
-					smaliCommentsOrNewlinesParser,
-					smaliFieldsParser,
-				]),
-				([
-					_commentsOrNewlines,
-					fields,
-				]) => fields,
-			),
-		),
+				),
+			]),
+			([
+				_commentsOrNewlines,
+				classAnnotations,
+			]) => classAnnotations,
+		)),
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliCommentsOrNewlinesParser,
+				smaliFieldsParser,
+			]),
+			([
+				_commentsOrNewlines,
+				fields,
+			]) => fields,
+		)),
 		smaliMethodsParser,
 	]),
 	([
@@ -2081,7 +2039,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 				continue;
 			}
 
-			const existingFieldAnnotations = annotations.fieldAnnotations.find((fieldAnnotation) => dalvikExecutableFieldEquals(
+			const existingFieldAnnotations = annotations.fieldAnnotations.find(fieldAnnotation => dalvikExecutableFieldEquals(
 				fieldAnnotation.field,
 				smaliField.field.field,
 			));
@@ -2094,7 +2052,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 
 			annotations.fieldAnnotations.push({
 				field: smaliField.field.field,
-				annotations: [smaliField.annotation as any], // TODO
+				annotations: [ smaliField.annotation as any ], // TODO
 			});
 		}
 
@@ -2106,27 +2064,27 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			annotations: (
 				(
 					annotations.classAnnotations?.length
-						|| annotations.fieldAnnotations?.length
-						|| annotations.methodAnnotations?.length
-						|| annotations.parameterAnnotations?.length
+					|| annotations.fieldAnnotations?.length
+					|| annotations.methodAnnotations?.length
+					|| annotations.parameterAnnotations?.length
 				)
 					? ({
 						classAnnotations: annotations.classAnnotations,
-						fieldAnnotations: annotations.fieldAnnotations.map((fieldAnnotation) => ({
+						fieldAnnotations: annotations.fieldAnnotations.map(fieldAnnotation => ({
 							...fieldAnnotation,
 							field: {
 								...fieldAnnotation.field,
 								class: class_,
 							},
 						})),
-						methodAnnotations: annotations.methodAnnotations.map((methodAnnotation) => ({
+						methodAnnotations: annotations.methodAnnotations.map(methodAnnotation => ({
 							...methodAnnotation,
 							method: {
 								...methodAnnotation.method,
 								class: class_,
 							},
 						})),
-						parameterAnnotations: annotations.parameterAnnotations.map((parameterAnnotation) => ({
+						parameterAnnotations: annotations.parameterAnnotations.map(parameterAnnotation => ({
 							...parameterAnnotation,
 							method: {
 								...parameterAnnotation.method,
@@ -2138,34 +2096,34 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			),
 			classData: (
 				(
-					methods.directMethods.length
-						|| methods.virtualMethods.length
-						|| (fields?.staticFields.length ?? 0)
-						|| (fields?.instanceFields.length ?? 0)
+					methods.directMethods.length > 0
+					|| methods.virtualMethods.length > 0
+					|| (fields?.staticFields.length ?? 0)
+					|| (fields?.instanceFields.length ?? 0)
 				)
 					? ({
-						directMethods: methods.directMethods.map((method) => ({
+						directMethods: methods.directMethods.map(method => ({
 							...method,
 							method: {
 								...method.method,
 								class: class_,
 							},
 						})),
-						virtualMethods: methods.virtualMethods.map((method) => ({
+						virtualMethods: methods.virtualMethods.map(method => ({
 							...method,
 							method: {
 								...method.method,
 								class: class_,
 							},
 						})),
-						staticFields: (fields?.staticFields ?? []).map((field) => ({
+						staticFields: (fields?.staticFields ?? []).map(field => ({
 							...field,
 							field: {
 								...field.field,
 								class: class_,
 							},
 						})),
-						instanceFields: (fields?.instanceFields ?? []).map((field) => ({
+						instanceFields: (fields?.instanceFields ?? []).map(field => ({
 							...field,
 							field: {
 								...field.field,

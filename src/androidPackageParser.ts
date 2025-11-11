@@ -9,15 +9,17 @@ import {
 	zip64EndOfCentralDirectoryRecordParser,
 	zipArchiveDecryptionHeaderParser,
 	zipArchiveExtraDataRecordParser,
-	ZipCentralDirectoryHeader,
+	type ZipCentralDirectoryHeader,
 	zipCentralDirectoryHeaderParser,
-	ZipEndOfCentralDirectoryRecord,
+	type ZipEndOfCentralDirectoryRecord,
 	zipEndOfCentralDirectoryRecordParser,
 	zipFromZipSegments,
-	ZipLocalFile,
+	type ZipLocalFile,
 	zipLocalFileParser,
 } from './zipParser.js';
-import { AndroidPackageSignatureV2AdditionalAttribute, AndroidPackageSignatureV2Digest, AndroidPackageSignatureV2Signature, AndroidPackageSignatureV2SignedData, AndroidPackageSignatureV2Signer, type AndroidPackage, type AndroidPackageSigningBlock, type AndroidPackageSigningBlockPair } from './androidPackage.js';
+import {
+	type AndroidPackageSignatureV2AdditionalAttribute, type AndroidPackageSignatureV2Digest, type AndroidPackageSignatureV2Signature, type AndroidPackageSignatureV2SignedData, type AndroidPackageSignatureV2Signer, type AndroidPackage, type AndroidPackageSigningBlock, type AndroidPackageSigningBlockPair,
+} from './androidPackage.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
@@ -55,9 +57,7 @@ const createUint64LengthPrefixedParser = <T>(createInnerParser: (length: bigint)
 	length => createInnerParser(length),
 )();
 
-const createUint32LengthPrefixedSliceBoundedParser = <T>(innerParser: Parser<T, Uint8Array>): Parser<T, Uint8Array> => createUint32LengthPrefixedParser(
-	length => createSliceBoundedParser(innerParser, length),
-);
+const createUint32LengthPrefixedSliceBoundedParser = <T>(innerParser: Parser<T, Uint8Array>): Parser<T, Uint8Array> => createUint32LengthPrefixedParser(length => createSliceBoundedParser(innerParser, length));
 
 const createUint32LengthPrefixedSliceBoundedArrayParser = <T>(innerParser: Parser<T, Uint8Array>): Parser<T[], Uint8Array> => createUint32LengthPrefixedSliceBoundedParser(createArrayParser(innerParser));
 
@@ -143,180 +143,150 @@ const createAndroidPackageSigningBlockPairInnerParser = (length: number): Parser
 	return androidPackageSigningBlockPairInnerParser;
 };
 
-const androidPackageSigningBlockPairParser: Parser<AndroidPackageSigningBlockPairType, Uint8Array> = createUint64LengthPrefixedParser(
-	length => createAndroidPackageSigningBlockPairInnerParser(Number(length)),
-);
+const androidPackageSigningBlockPairParser: Parser<AndroidPackageSigningBlockPairType, Uint8Array> = createUint64LengthPrefixedParser(length => createAndroidPackageSigningBlockPairInnerParser(Number(length)));
 
 setParserName(androidPackageSigningBlockPairParser, 'androidPackageSigningBlockPairParser');
 
 const androidPackageSigningBlockPairsParser: Parser<AndroidPackageSigningBlockPairType[], Uint8Array> = createArrayParser(androidPackageSigningBlockPairParser);
 
-export const androidPackageSigningBlockParser: Parser<AndroidPackageSigningBlock, Uint8Array> = createUint64LengthPrefixedParser(
-	sizeOfBlock => promiseCompose(
-		createTupleParser([
-			androidPackageSigningBlockPairsParser,
-			uint64LEParser,
-			createExactSequenceParser<Uint8Array>(Buffer.from('APK Sig Block 42', 'utf8')),
-		]),
-		async ([
-			pairs,
-			sizeOfBlockRepeated,
-			_magic,
-		]): Promise<AndroidPackageSigningBlock> => {
-			invariant(sizeOfBlock === sizeOfBlockRepeated, 'Size of block mismatch: %s !== %s.', sizeOfBlock, sizeOfBlockRepeated);
+export const androidPackageSigningBlockParser: Parser<AndroidPackageSigningBlock, Uint8Array> = createUint64LengthPrefixedParser(sizeOfBlock => promiseCompose(
+	createTupleParser([
+		androidPackageSigningBlockPairsParser,
+		uint64LEParser,
+		createExactSequenceParser<Uint8Array>(Buffer.from('APK Sig Block 42', 'utf8')),
+	]),
+	async ([
+		pairs,
+		sizeOfBlockRepeated,
+		_magic,
+	]): Promise<AndroidPackageSigningBlock> => {
+		invariant(sizeOfBlock === sizeOfBlockRepeated, 'Size of block mismatch: %s !== %s.', sizeOfBlock, sizeOfBlockRepeated);
 
-			const zeroPaddingPair = pairs.find(pair => pair.type === 'zeroPadding');
-			const signatureV2Pair = pairs.find(pair => pair.type === 'signatureV2');
+		const zeroPaddingPair = pairs.find(pair => pair.type === 'zeroPadding');
+		const signatureV2Pair = pairs.find(pair => pair.type === 'signatureV2');
 
-			const genericPairs = (
-				pairs
-					.filter(pair => (
-						pair !== zeroPaddingPair
-							&& pair !== signatureV2Pair
-					))
-					.map(pair => {
-						invariant(pair.type === 'generic', 'Expected generic pair, got %s.', pair.type);
-						return pair.pair;
-					})
-			);
+		const genericPairs = (
+			pairs
+				.filter(pair => (
+					pair !== zeroPaddingPair
+					&& pair !== signatureV2Pair
+				))
+				.map(pair => {
+					invariant(pair.type === 'generic', 'Expected generic pair, got %s.', pair.type);
+					return pair.pair;
+				})
+		);
 
-			return {
-				zeroPaddingLength: zeroPaddingPair?.length,
-				signatureV2: signatureV2Pair ? {
+		return {
+			zeroPaddingLength: zeroPaddingPair?.length,
+			signatureV2: signatureV2Pair
+				? {
 					signers: signatureV2Pair?.signers,
-				} : undefined,
-				pairs: genericPairs,
-			};
-		},
-	),
-);
+				}
+				: undefined,
+			pairs: genericPairs,
+		};
+	},
+));
 
-const androidPackageSignatureV2DigestParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2Digest>(
-	pairLength => promiseCompose(
-		createTupleParser([
-			uint32LEParser,
-			createUint32LengthPrefixedParser(
-				digestLength => createFixedLengthSequenceParser(digestLength),
-			),
-		]),
-		([ signatureAlgorithmId, digest ]) => ({ signatureAlgorithmId, digest }),
-	),
-);
+const androidPackageSignatureV2DigestParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2Digest>(pairLength => promiseCompose(
+	createTupleParser([
+		uint32LEParser,
+		createUint32LengthPrefixedParser(digestLength => createFixedLengthSequenceParser(digestLength)),
+	]),
+	([ signatureAlgorithmId, digest ]) => ({ signatureAlgorithmId, digest }),
+));
 
-const androidPackageSignatureV2DigestsParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	androidPackageSignatureV2DigestParser,
-);
+const androidPackageSignatureV2DigestsParser = createUint32LengthPrefixedSliceBoundedArrayParser(androidPackageSignatureV2DigestParser);
 
 setParserName(androidPackageSignatureV2DigestsParser, 'androidPackageSignatureV2DigestsParser');
 
-const androidPackageSignatureV2CertificateParser = createUint32LengthPrefixedParser(
-	certificateLength => createFixedLengthSequenceParser(certificateLength),
-);
+const androidPackageSignatureV2CertificateParser = createUint32LengthPrefixedParser(certificateLength => createFixedLengthSequenceParser(certificateLength));
 
 setParserName(androidPackageSignatureV2CertificateParser, 'androidPackageSignatureV2CertificateParser');
 
-const androidPackageSignatureV2CertificatesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	androidPackageSignatureV2CertificateParser,
-);
+const androidPackageSignatureV2CertificatesParser = createUint32LengthPrefixedSliceBoundedArrayParser(androidPackageSignatureV2CertificateParser);
 
 setParserName(androidPackageSignatureV2CertificatesParser, 'androidPackageSignatureV2CertificatesParser');
 
-const androidPackageSignatureV2AdditionalAttributeParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2AdditionalAttribute>(
-	pairLength => promiseCompose(
-		createTupleParser([
-			uint32LEParser,
-			createFixedLengthSequenceParser(pairLength - 4),
-		]),
-		([ id, value ]) => ({ id, value }),
-	),
-);
+const androidPackageSignatureV2AdditionalAttributeParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2AdditionalAttribute>(pairLength => promiseCompose(
+	createTupleParser([
+		uint32LEParser,
+		createFixedLengthSequenceParser(pairLength - 4),
+	]),
+	([ id, value ]) => ({ id, value }),
+));
 
 setParserName(androidPackageSignatureV2AdditionalAttributeParser, 'androidPackageSignatureV2AdditionalAttributeParser');
 
-const androidPackageSignatureV2AdditionalAttributesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	androidPackageSignatureV2AdditionalAttributeParser,
-);
+const androidPackageSignatureV2AdditionalAttributesParser = createUint32LengthPrefixedSliceBoundedArrayParser(androidPackageSignatureV2AdditionalAttributeParser);
 
 setParserName(androidPackageSignatureV2AdditionalAttributesParser, 'androidPackageSignatureV2AdditionalAttributesParser');
 
-const androidPackageSignatureV2SignedDataParser = createUint32LengthPrefixedSliceBoundedParser(
-	promiseCompose(
-		createTupleParser([
-			androidPackageSignatureV2DigestsParser,
-			androidPackageSignatureV2CertificatesParser,
-			androidPackageSignatureV2AdditionalAttributesParser,
-			createArrayParser(createExactElementParser(0)),
-		]),
-		([
-			digests,
-			certificates,
-			additionalAttributes,
-			zeroPadding,
-		]): AndroidPackageSignatureV2SignedData => ({
-			digests,
-			certificates,
-			additionalAttributes,
-			zeroPaddingLength: zeroPadding.length,
-		}),
-	),
-);
+const androidPackageSignatureV2SignedDataParser = createUint32LengthPrefixedSliceBoundedParser(promiseCompose(
+	createTupleParser([
+		androidPackageSignatureV2DigestsParser,
+		androidPackageSignatureV2CertificatesParser,
+		androidPackageSignatureV2AdditionalAttributesParser,
+		createArrayParser(createExactElementParser(0)),
+	]),
+	([
+		digests,
+		certificates,
+		additionalAttributes,
+		zeroPadding,
+	]): AndroidPackageSignatureV2SignedData => ({
+		digests,
+		certificates,
+		additionalAttributes,
+		zeroPaddingLength: zeroPadding.length,
+	}),
+));
 
 setParserName(androidPackageSignatureV2SignedDataParser, 'androidPackageSignatureV2SignedDataParser');
 
-const androidPackageSignatureV2SignatureParser = createUint32LengthPrefixedParser(
-	signatureLength => promiseCompose(
-		createTupleParser([
-			uint32LEParser,
-			createUint32LengthPrefixedParser(
-				signatureLength => createFixedLengthSequenceParser(signatureLength),
-			),
-		]),
-		([
-			signatureAlgorithmId,
-			signature,
-		]): AndroidPackageSignatureV2Signature => ({
-			signatureAlgorithmId,
-			signature,
-		}),
-	),
-);
+const androidPackageSignatureV2SignatureParser = createUint32LengthPrefixedParser(signatureLength => promiseCompose(
+	createTupleParser([
+		uint32LEParser,
+		createUint32LengthPrefixedParser(signatureLength => createFixedLengthSequenceParser(signatureLength)),
+	]),
+	([
+		signatureAlgorithmId,
+		signature,
+	]): AndroidPackageSignatureV2Signature => ({
+		signatureAlgorithmId,
+		signature,
+	}),
+));
 
-const androidPackageSignatureV2SignaturesParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	androidPackageSignatureV2SignatureParser,
-);
+const androidPackageSignatureV2SignaturesParser = createUint32LengthPrefixedSliceBoundedArrayParser(androidPackageSignatureV2SignatureParser);
 
 setParserName(androidPackageSignatureV2SignaturesParser, 'androidPackageSignatureV2SignaturesParser');
 
-const androidPackageSignatureV2PublicKeyParser = createUint32LengthPrefixedParser(
-	publicKeyLength => createFixedLengthSequenceParser(publicKeyLength),
-);
+const androidPackageSignatureV2PublicKeyParser = createUint32LengthPrefixedParser(publicKeyLength => createFixedLengthSequenceParser(publicKeyLength));
 
 setParserName(androidPackageSignatureV2PublicKeyParser, 'androidPackageSignatureV2PublicKeyParser');
 
-const androidPackageSignatureV2SignerParser = createUint32LengthPrefixedSliceBoundedParser(
-	promiseCompose(
-		createTupleParser([
-			androidPackageSignatureV2SignedDataParser,
-			androidPackageSignatureV2SignaturesParser,
-			androidPackageSignatureV2PublicKeyParser,
-		]),
-		([
-			signedData,
-			signatures = [],
-			publicKey,
-		]): AndroidPackageSignatureV2Signer => ({
-			signedData,
-			signatures,
-			publicKey,
-		}),
-	),
-);
+const androidPackageSignatureV2SignerParser = createUint32LengthPrefixedSliceBoundedParser(promiseCompose(
+	createTupleParser([
+		androidPackageSignatureV2SignedDataParser,
+		androidPackageSignatureV2SignaturesParser,
+		androidPackageSignatureV2PublicKeyParser,
+	]),
+	([
+		signedData,
+		signatures = [],
+		publicKey,
+	]): AndroidPackageSignatureV2Signer => ({
+		signedData,
+		signatures,
+		publicKey,
+	}),
+));
 
 setParserName(androidPackageSignatureV2SignerParser, 'androidPackageSignatureV2SignerParser');
 
-const androidPackageSignatureV2SignersParser = createUint32LengthPrefixedSliceBoundedArrayParser(
-	androidPackageSignatureV2SignerParser,
-);
+const androidPackageSignatureV2SignersParser = createUint32LengthPrefixedSliceBoundedArrayParser(androidPackageSignatureV2SignerParser);
 
 setParserName(androidPackageSignatureV2SignersParser, 'androidPackageSignatureV2SignersParser');
 
@@ -371,35 +341,23 @@ export type AndroidPackageSignableSections = {
 	androidPackageSigningBlockUint8Array?: Uint8Array;
 	zipCentralDirectoryUint8Array: Uint8Array;
 	zipEndOfCentralDirectoryUint8Array: Uint8Array;
-}
+};
 
 export const androidPackageSignableSectionsParser: Parser<AndroidPackageSignableSections, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createParserConsumedSequenceParser(
-			createTupleParser([
-				createArrayParser(zipLocalFileParser),
-				createOptionalParser(zipArchiveDecryptionHeaderParser),
-				createOptionalParser(zipArchiveExtraDataRecordParser),
-			]),
-		),
-		createArrayParser(
-			createExactElementParser(0),
-		),
-		createOptionalParser(
-			createParserConsumedSequenceParser(
-				androidPackageSigningBlockParser
-			),
-		),
-		createParserConsumedSequenceParser(
-			createTupleParser([
-				createArrayParser(zipCentralDirectoryHeaderParser),
-				createOptionalParser(zip64EndOfCentralDirectoryRecordParser),
-				createOptionalParser(zip64EndOfCentralDirectoryLocatorParser),
-			]),
-		),
-		createParserConsumedSequenceParser(
-			zipEndOfCentralDirectoryRecordParser,
-		),
+		createParserConsumedSequenceParser(createTupleParser([
+			createArrayParser(zipLocalFileParser),
+			createOptionalParser(zipArchiveDecryptionHeaderParser),
+			createOptionalParser(zipArchiveExtraDataRecordParser),
+		])),
+		createArrayParser(createExactElementParser(0)),
+		createOptionalParser(createParserConsumedSequenceParser(androidPackageSigningBlockParser)),
+		createParserConsumedSequenceParser(createTupleParser([
+			createArrayParser(zipCentralDirectoryHeaderParser),
+			createOptionalParser(zip64EndOfCentralDirectoryRecordParser),
+			createOptionalParser(zip64EndOfCentralDirectoryLocatorParser),
+		])),
+		createParserConsumedSequenceParser(zipEndOfCentralDirectoryRecordParser),
 	]),
 	async ([
 		[

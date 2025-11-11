@@ -65,8 +65,8 @@ test('allSettledStream reader cancel', async t => {
 		0,
 		40,
 		30,
-	].map((delay) => ({
-		promise: new Promise<number>((resolve) => {
+	].map(delay => ({
+		promise: new Promise<number>(resolve => {
 			setTimeout(() => {
 				resolve(delay);
 			}, delay);

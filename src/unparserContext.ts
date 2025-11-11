@@ -1,9 +1,8 @@
-/* eslint-disable prefer-arrow-callback */
 
-import { Unparser, UnparserResult } from "./unparser.js";
-import { UnparserOutputCompanion } from "./unparserOutputCompanion.js";
-import { unparserImplementationInvariant } from "./unparserImplementationInvariant.js";
-import { parserImplementationInvariant } from "./parserImplementationInvariant.js";
+import { type Unparser, type UnparserResult } from './unparser.js';
+import { type UnparserOutputCompanion } from './unparserOutputCompanion.js';
+import { unparserImplementationInvariant } from './unparserImplementationInvariant.js';
+import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 
 export type UnparserContext<Sequence, Element> = {
 	get position(): number;
@@ -19,7 +18,7 @@ export type UnparserContext<Sequence, Element> = {
 export class WriteLater<Sequence, Element> extends Error {
 	name = 'WriteLater';
 
-	constructor (
+	constructor(
 		private readonly _position: number,
 		private readonly _length: number,
 	) {
@@ -105,13 +104,10 @@ export class UnparserContextImplementation<Sequence, Element> implements Unparse
 		);
 	}
 
-	handleYield(
-		value:
-			| Sequence
-			| WriteLater<Sequence, Element>
-			| WriteEarlier<Sequence, Element>
-		,
-	) {
+	handleYield(value:
+		| Sequence
+		| WriteLater<Sequence, Element>
+		| WriteEarlier<Sequence, Element>) {
 		if (value instanceof WriteEarlier) {
 			return;
 		}

@@ -1,4 +1,4 @@
-import { InputReaderState } from "./inputReaderState.js";
+import { type InputReaderState } from './inputReaderState.js';
 
 export class ParserError extends Error {
 	name = 'ParserError';

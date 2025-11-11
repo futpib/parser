@@ -1,4 +1,4 @@
-import { Class } from 'type-fest';
+import { type Class } from 'type-fest';
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
@@ -35,14 +35,10 @@ export function cloneParser<
 	Output,
 	Sequence,
 	Element = DeriveSequenceElement<Sequence>,
->(
-	parser: Parser<Output, Sequence, Element>,
-): Parser<Output, Sequence, Element> {
+>(parser: Parser<Output, Sequence, Element>): Parser<Output, Sequence, Element> {
 	const originalParser = originalParserByClone.get(parser) ?? parser;
 
-	const clone: Parser<Output, Sequence, Element> = (parserContext) => {
-		return originalParser(parserContext);
-	};
+	const clone: Parser<Output, Sequence, Element> = parserContext => originalParser(parserContext);
 
 	setParserName(clone, getParserName(parser));
 
@@ -158,7 +154,7 @@ export async function runParserWithRemainingInput<
 		inputReader,
 	} = runParserInternal(parser, input, parserInputCompanion, options);
 
-	return await withEnrichedParserError(parserContext, inputReader, async () => {
+	return withEnrichedParserError(parserContext, inputReader, async () => {
 		const output = await outputPromise;
 
 		const inputReaderState = inputReader.toInputReaderState();
@@ -193,7 +189,7 @@ export async function runParser<
 		inputReader,
 	} = runParserInternal(parser, input, parserInputCompanion, options);
 
-	return await withEnrichedParserError(parserContext, inputReader, async () => {
+	return withEnrichedParserError(parserContext, inputReader, async () => {
 		const output = await outputPromise;
 
 		const inputReaderState = inputReader.toInputReaderState();

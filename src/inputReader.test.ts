@@ -3,7 +3,7 @@ import { InputReaderImplementation } from './inputReader.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { ParserImplementationError } from './parserError.js';
 import { toAsyncIterable } from './toAsyncIterable.js';
-import { InputReaderState } from './inputReaderState.js';
+import { type InputReaderState } from './inputReaderState.js';
 
 test('inputReader', async t => {
 	const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
@@ -122,7 +122,7 @@ test('inputReader.peekSequence concurrent', async t => {
 		yield * 'abcdefgh';
 	})());
 
-	const peeks = await Promise.all([1, 2, 3].flatMap(length => [
+	const peeks = await Promise.all([ 1, 2, 3 ].flatMap(length => [
 		inputReader.peekSequence(0, 0 + length),
 		inputReader.peekSequence(0, 0 + length),
 		inputReader.peekSequence(0, 0 + length),
@@ -376,9 +376,9 @@ async function inputReaderStateToArray<Sequence>({
 	unconsumedBufferedSequences,
 	consumedBufferedSequences,
 	unbufferedSequences,
-}: InputReaderState<Sequence>): Promise<(Sequence | typeof END_OF_CONSUMED_SEQUENCES | typeof END_OF_BUFFERED_SEQUENCES)[]> {
-	const unconsumedBufferedSequencesArray = unconsumedBufferedSequences.slice();
-	const consumedBufferedSequencesArray = consumedBufferedSequences.slice();
+}: InputReaderState<Sequence>): Promise<Array<Sequence | typeof END_OF_CONSUMED_SEQUENCES | typeof END_OF_BUFFERED_SEQUENCES>> {
+	const unconsumedBufferedSequencesArray = [ ...unconsumedBufferedSequences ];
+	const consumedBufferedSequencesArray = [ ...consumedBufferedSequences ];
 
 	const unbufferedSequencesArray = [];
 	if (unbufferedSequences) {
@@ -399,7 +399,7 @@ async function inputReaderStateToArray<Sequence>({
 const inputReaderStateMacro = test.macro({
 	title: (providedTitle, input: readonly string[], position: number) =>
 		providedTitle ?? `inputReader.toInputReaderState ${JSON.stringify({ input, position })}`,
-	async exec(t, input: readonly string[], position: number, expected: readonly (string | symbol)[]) {
+	async exec(t, input: readonly string[], position: number, expected: ReadonlyArray<string | symbol>) {
 		const inputReader = new InputReaderImplementation(stringParserInputCompanion, (async function * () {
 			yield * input;
 		})());

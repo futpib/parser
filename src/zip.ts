@@ -1,9 +1,7 @@
 
 export type ZipCompression =
 	| 'store'
-	| 'deflate'
-;
-
+	| 'deflate';
 export type ZipEntryAttributes = {
 };
 
@@ -27,9 +25,7 @@ export type ZipDirectoryEntry = ZipEntryCommon & {
 
 export type ZipEntry =
 	| ZipFileEntry
-	| ZipDirectoryEntry
-;
-
+	| ZipDirectoryEntry;
 export type Zip = {
 	comment: string;
 	entries: ZipEntry[];

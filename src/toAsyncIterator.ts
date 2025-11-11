@@ -1,4 +1,4 @@
-import invariant from "invariant";
+import invariant from 'invariant';
 
 function isAsyncIterable<T>(value: any): value is AsyncIterable<T> {
 	return value && typeof value[Symbol.asyncIterator] === 'function';

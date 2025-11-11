@@ -1,7 +1,9 @@
-import { AndroidPackageSignatureV2AdditionalAttribute, AndroidPackageSignatureV2Digest, AndroidPackageSignatureV2Signature, AndroidPackageSignatureV2SignedData, AndroidPackageSignatureV2Signer, AndroidPackageSigningBlock } from "./androidPackage.js";
-import { createArrayUnparser } from "./arrayUnparser.js";
-import { createSequenceUnparser } from "./sequenceUnparser.js";
-import { Unparser } from "./unparser.js";
+import {
+	type AndroidPackageSignatureV2AdditionalAttribute, type AndroidPackageSignatureV2Digest, type AndroidPackageSignatureV2Signature, type AndroidPackageSignatureV2SignedData, type AndroidPackageSignatureV2Signer, type AndroidPackageSigningBlock,
+} from './androidPackage.js';
+import { createArrayUnparser } from './arrayUnparser.js';
+import { createSequenceUnparser } from './sequenceUnparser.js';
+import { type Unparser } from './unparser.js';
 
 const uint8ArrayUnparser = createSequenceUnparser<Uint8Array>();
 
@@ -9,7 +11,7 @@ const uint32LEUnparser: Unparser<number, Uint8Array> = async function * (input) 
 	const buffer = Buffer.alloc(4);
 	buffer.writeUInt32LE(input);
 	yield buffer;
-}
+};
 
 const uint64LEUnparser: Unparser<number | bigint, Uint8Array> = async function * (input) {
 	const buffer = Buffer.alloc(8);
@@ -97,18 +99,22 @@ export const androidPackageSigningBlockUnparser: Unparser<AndroidPackageSigningB
 ) {
 	const pairs = [
 		...input.pairs,
-		...(input.signatureV2 ? [
-			{
-				id: 0x7109871a,
-				value: input.signatureV2!.signers,
-			},
-		] : []),
-		...(input.zeroPaddingLength ? [
-			{
-				id: 0x42726577,
-				value: Buffer.alloc(input.zeroPaddingLength),
-			},
-		] : []),
+		...(input.signatureV2
+			? [
+				{
+					id: 0x71_09_87_1A,
+					value: input.signatureV2.signers,
+				},
+			]
+			: []),
+		...(input.zeroPaddingLength
+			? [
+				{
+					id: 0x42_72_65_77,
+					value: Buffer.alloc(input.zeroPaddingLength),
+				},
+			]
+			: []),
 	];
 
 	const sizeOfBlockWriteLater = yield * unparserContext.writeLater(8);

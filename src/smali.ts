@@ -2,9 +2,7 @@ import fs from 'node:fs/promises';
 import { execa } from 'execa';
 import { temporaryFile } from 'tempy';
 
-export async function smaliClass(
-	smaliStream: string | AsyncIterable<string>,
-): Promise<Uint8Array> {
+export async function smaliClass(smaliStream: string | AsyncIterable<string>): Promise<Uint8Array> {
 	const inputFilePath = temporaryFile();
 	const outputFilePath = temporaryFile();
 
@@ -12,7 +10,8 @@ export async function smaliClass(
 
 	const smaliResult = await execa('smali', [
 		'assemble',
-		'--output', outputFilePath,
+		'--output',
+		outputFilePath,
 		inputFilePath,
 	]);
 

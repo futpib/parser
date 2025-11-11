@@ -12,7 +12,7 @@ test('empty input throws error', async t => {
 		createExactSequenceParser(','),
 	);
 
-	await t.throwsAsync(() => runParser(parser, '', stringParserInputCompanion), {
+	await t.throwsAsync(async () => runParser(parser, '', stringParserInputCompanion), {
 		message: /Expected .* to match at least once/,
 	});
 });
@@ -24,7 +24,7 @@ test('single element without separator matches', async t => {
 	);
 
 	const result = await runParser(parser, 'element', stringParserInputCompanion);
-	t.deepEqual(result, ['element']);
+	t.deepEqual(result, [ 'element' ]);
 });
 
 test('two elements with separator matches', async t => {
@@ -34,7 +34,7 @@ test('two elements with separator matches', async t => {
 	);
 
 	const result = await runParser(parser, 'element,element', stringParserInputCompanion);
-	t.deepEqual(result, ['element', 'element']);
+	t.deepEqual(result, [ 'element', 'element' ]);
 });
 
 test('multiple elements with separator matches', async t => {
@@ -44,7 +44,7 @@ test('multiple elements with separator matches', async t => {
 	);
 
 	const result = await runParser(parser, 'a,a,a,a', stringParserInputCompanion);
-	t.deepEqual(result, ['a', 'a', 'a', 'a']);
+	t.deepEqual(result, [ 'a', 'a', 'a', 'a' ]);
 });
 
 test('does not consume trailing separator', async t => {
@@ -54,7 +54,7 @@ test('does not consume trailing separator', async t => {
 	);
 
 	const { output, remainingInput } = await runParserWithRemainingInput(parser, 'element,element,', stringParserInputCompanion);
-	t.deepEqual(output, ['element', 'element']);
+	t.deepEqual(output, [ 'element', 'element' ]);
 	t.is(await stringFromAsyncIterable(remainingInput!), ',');
 });
 
@@ -64,7 +64,7 @@ test('does not loop forever with a child parser that does not consume anything',
 		() => undefined,
 	);
 
-	await t.throwsAsync(() => runParser(parser, 'foo', stringParserInputCompanion), {
+	await t.throwsAsync(async () => runParser(parser, 'foo', stringParserInputCompanion), {
 		message: /Expected .* to match at least once/,
 	});
 });
@@ -75,7 +75,7 @@ test('partial match throws error', async t => {
 		createExactSequenceParser(','),
 	);
 
-	await t.throwsAsync(() => runParser(parser, 'elem', stringParserInputCompanion), {
+	await t.throwsAsync(async () => runParser(parser, 'elem', stringParserInputCompanion), {
 		message: /Expected .* to match at least once/,
 	});
 });
@@ -107,7 +107,7 @@ test('separatedNonEmptyArray throws on empty array', async t => {
 		createExactSequenceParser('separator'),
 	);
 
-	await t.throwsAsync(() => runParser(separatedNonEmptyArrayParser, '', stringParserInputCompanion), {
+	await t.throwsAsync(async () => runParser(separatedNonEmptyArrayParser, '', stringParserInputCompanion), {
 		message: /Expected .* to match at least once/,
 	});
 });

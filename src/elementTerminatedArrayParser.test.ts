@@ -2,7 +2,7 @@ import test from 'ava';
 import * as fc from 'fast-check';
 import { testProp } from '@fast-check/ava';
 import { createTerminatedArrayParserNaive } from './terminatedArrayParser.js';
-import { Parser, runParser } from './parser.js';
+import { type Parser, runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { HighResolutionTotalTimer } from './highResolutionTimer.js';
 import { createElementParser } from './elementParser.js';
@@ -24,9 +24,9 @@ testProp.serial(
 			})
 			.map(string => ({
 				string,
-				terminator: string.slice(-1)
+				terminator: string.slice(-1),
 			}))
-			.filter(({ string, terminator }) => string.split(terminator).length === 2)
+			.filter(({ string, terminator }) => string.split(terminator).length === 2),
 	],
 	async (t, { string, terminator }) => {
 		const terminatedArrayParserNaive = promiseCompose(
@@ -67,15 +67,15 @@ testProp.serial(
 			};
 		};
 
-		const actualNaive = await naiveTotalTimer.measureAsync(() => runParser(
+		const actualNaive = await naiveTotalTimer.measureAsync(async () => runParser(
 			createTestWrapperParser(terminatedArrayParserNaive),
 			string,
 			stringParserInputCompanion,
 		));
 
-		t.is(actualNaive.string.length, string.split(terminator)[0].length)
+		t.is(actualNaive.string.length, string.split(terminator)[0].length);
 
-		const actual = await elementTotalTimer.measureAsync(() => runParser(
+		const actual = await elementTotalTimer.measureAsync(async () => runParser(
 			createTestWrapperParser(elementTerminatedArrayParserUnsafe),
 			string,
 			stringParserInputCompanion,
@@ -93,7 +93,7 @@ test.serial(
 	t => {
 		t.true(
 			elementTotalTimer.time * 2n < naiveTotalTimer.time,
-			`Naive: ${naiveTotalTimer.time / 1000000n}ms, Unsafe: ${elementTotalTimer.time / 1000000n}ms`,
+			`Naive: ${naiveTotalTimer.time / 1_000_000n}ms, Unsafe: ${elementTotalTimer.time / 1_000_000n}ms`,
 		);
 	},
 );

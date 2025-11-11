@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { execa } from 'execa';
 import { temporaryDirectory, temporaryFile } from 'tempy';
-import path from 'node:path';
 import { smaliClass } from './smali.js';
 
 export async function baksmaliClass(
@@ -15,8 +15,10 @@ export async function baksmaliClass(
 
 	await execa('baksmali', [
 		'disassemble',
-		'--classes', 'L' + smaliFilePath + ';',
-		'--output', outputDirectoryPath,
+		'--classes',
+		'L' + smaliFilePath + ';',
+		'--output',
+		outputDirectoryPath,
 		inputFilePath,
 	]);
 
@@ -41,9 +43,7 @@ export async function backsmaliSmaliIsolateClass(
 	return smaliClass(smali);
 }
 
-export async function baksmaliListClasses(
-	dexStream: Uint8Array | AsyncIterable<Uint8Array>,
-): Promise<string[]> {
+export async function baksmaliListClasses(dexStream: Uint8Array | AsyncIterable<Uint8Array>): Promise<string[]> {
 	const inputFilePath = temporaryFile();
 
 	await fs.writeFile(inputFilePath, dexStream);

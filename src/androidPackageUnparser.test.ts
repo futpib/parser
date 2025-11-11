@@ -1,11 +1,11 @@
 import test from 'ava';
+import invariant from 'invariant';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
 import { androidPackageParser, androidPackageSigningBlockParser } from './androidPackageParser.js';
 import { runUnparser } from './unparser.js';
 import { androidPackageSigningBlockUnparser } from './androidPackageUnparser.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
-import invariant from 'invariant';
 import { fetchCid } from './fetchCid.js';
 
 const androidPackageUnparserMacro = test.macro({

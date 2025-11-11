@@ -89,8 +89,8 @@ export class Uint8ArrayParserInputCompanion implements ParserInputCompanion<Uint
 			return false;
 		}
 
-		for (let index = 0; index < sequenceA.length; index++) {
-			if (sequenceA[index] !== sequenceB[index]) {
+		for (const [ index, element ] of sequenceA.entries()) {
+			if (element !== sequenceB[index]) {
 				return false;
 			}
 		}

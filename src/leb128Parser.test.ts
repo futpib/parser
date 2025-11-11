@@ -4,17 +4,19 @@ import test from 'ava';
 import leb128 from 'leb128';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { runParser } from './parser.js';
-import { uleb128Parser, sleb128Parser, uleb128NumberParser, sleb128NumberParser } from './leb128Parser.js';
+import {
+	uleb128Parser, sleb128Parser, uleb128NumberParser, sleb128NumberParser,
+} from './leb128Parser.js';
 
 test('sleb128, uleb128, uleb128p1', async t => {
 	for (const [
 		input, expectedSleb128, expectedUleb128,
 	] of [
-		[ Buffer.from('00', 'hex'), 0n, 0n ],
-		[ Buffer.from('01', 'hex'), 1n, 1n ],
-		[ Buffer.from('7f', 'hex'), -1n, 127n ],
-		[ Buffer.from('807f', 'hex'), -128n, 16256n ],
-	] as const) {
+			[ Buffer.from('00', 'hex'), 0n, 0n ],
+			[ Buffer.from('01', 'hex'), 1n, 1n ],
+			[ Buffer.from('7f', 'hex'), -1n, 127n ],
+			[ Buffer.from('807f', 'hex'), -128n, 16_256n ],
+		] as const) {
 		const actualSleb128 = await runParser(sleb128Parser, input, uint8ArrayParserInputCompanion);
 		const actualUleb128 = await runParser(uleb128Parser, input, uint8ArrayParserInputCompanion);
 
@@ -25,12 +27,12 @@ test('sleb128, uleb128, uleb128p1', async t => {
 	for (const [
 		input, expectedUleb128,
 	] of [
-		[ new Uint8Array([ 2 ]), 2n ],
-		[ new Uint8Array([ 127 ]), 127n ],
-		[ new Uint8Array([ 0 + 0x80, 1 ]), 128n ],
-		[ new Uint8Array([ 1 + 0x80, 1 ]), 129n ],
-		[ new Uint8Array([ 57 + 0x80, 100 ]), 12857n ],
-	] as const) {
+			[ new Uint8Array([ 2 ]), 2n ],
+			[ new Uint8Array([ 127 ]), 127n ],
+			[ new Uint8Array([ 0 + 0x80, 1 ]), 128n ],
+			[ new Uint8Array([ 1 + 0x80, 1 ]), 129n ],
+			[ new Uint8Array([ 57 + 0x80, 100 ]), 12_857n ],
+		] as const) {
 		const actualUleb128 = await runParser(uleb128Parser, input, uint8ArrayParserInputCompanion);
 
 		t.is(actualUleb128, expectedUleb128, 'uleb128');
@@ -39,15 +41,15 @@ test('sleb128, uleb128, uleb128p1', async t => {
 	for (const [
 		input, expectedSleb128,
 	] of [
-		[ new Uint8Array([ 2 ]), 2n ],
-		[ new Uint8Array([ 0x7e ]), -2n ],
-		[ new Uint8Array([ 127 + 0x80, 0 ]), 127n ],
-		[ new Uint8Array([ 1 + 0x80, 0x7f ]), -127n ],
-		[ new Uint8Array([ 0 + 0x80, 1 ]), 128n ],
-		[ new Uint8Array([ 0 + 0x80, 0x7f ]), -128n ],
-		[ new Uint8Array([ 1 + 0x80, 1 ]), 129n ],
-		[ new Uint8Array([ 0x7f + 0x80, 0x7e ]), -129n ],
-	] as const) {
+			[ new Uint8Array([ 2 ]), 2n ],
+			[ new Uint8Array([ 0x7E ]), -2n ],
+			[ new Uint8Array([ 127 + 0x80, 0 ]), 127n ],
+			[ new Uint8Array([ 1 + 0x80, 0x7F ]), -127n ],
+			[ new Uint8Array([ 0 + 0x80, 1 ]), 128n ],
+			[ new Uint8Array([ 0 + 0x80, 0x7F ]), -128n ],
+			[ new Uint8Array([ 1 + 0x80, 1 ]), 129n ],
+			[ new Uint8Array([ 0x7F + 0x80, 0x7E ]), -129n ],
+		] as const) {
 		const actualSleb128 = await runParser(sleb128Parser, input, uint8ArrayParserInputCompanion);
 
 		t.is(actualSleb128, expectedSleb128, 'sleb128');
@@ -98,7 +100,7 @@ testProp.skip(
 		const uleb128 = leb128.unsigned.encode(natural);
 
 		if (natural > (2 ** 32) - 1) {
-			await t.throwsAsync(() => runParser(uleb128NumberParser, uleb128, uint8ArrayParserInputCompanion));
+			await t.throwsAsync(async () => runParser(uleb128NumberParser, uleb128, uint8ArrayParserInputCompanion));
 
 			return;
 		}
@@ -122,7 +124,7 @@ testProp.skip(
 		const sleb128 = leb128.signed.encode(integer);
 
 		if (integer > (2 ** 32) - 1 || integer < -(2 ** 32)) {
-			await t.throwsAsync(() => runParser(sleb128NumberParser, sleb128, uint8ArrayParserInputCompanion));
+			await t.throwsAsync(async () => runParser(sleb128NumberParser, sleb128, uint8ArrayParserInputCompanion));
 
 			return;
 		}

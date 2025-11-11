@@ -11,7 +11,7 @@ export const createDebugLogInputParser = <Sequence>({
 		const sequence = await parserContext.peekSequence(0, lookahead);
 
 		if (!sequence) {
-			lookahead = lookahead - 1;
+			lookahead -= 1;
 			continue;
 		}
 

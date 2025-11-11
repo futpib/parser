@@ -16,7 +16,7 @@ const dexWithRawInstructionsMacro = test.macro({
 		if (shouldSnapshot) {
 			t.snapshot(actual);
 		} else {
-			//console.dir(actual, { depth: null });
+			// Console.dir(actual, { depth: null });
 			t.pass();
 		}
 	},
@@ -27,14 +27,14 @@ test.serial(dexWithRawInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivx
 test.serial(dexWithRawInstructionsMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false);
 test.serial(dexWithRawInstructionsMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false);
 
-type ObjectPath = (string | symbol | number)[];
+type ObjectPath = Array<string | symbol | number>;
 
 function objectWalk(object: unknown, f: (path: ObjectPath, value: unknown) => void, initialPath: ObjectPath = []) {
 	f(initialPath, object);
 
 	if (
 		!object
-			|| typeof object !== 'object'
+		|| typeof object !== 'object'
 	) {
 		return;
 	}
@@ -59,7 +59,7 @@ const dexWithParsedInstructionsMacro = test.macro({
 			errorJoinMode: 'all',
 		});
 
-		objectWalk(actual, (path) => {
+		objectWalk(actual, path => {
 			const key = path.at(-1);
 
 			if (typeof key !== 'string') {
@@ -73,7 +73,7 @@ const dexWithParsedInstructionsMacro = test.macro({
 		if (shouldSnapshot) {
 			t.snapshot(actual);
 		} else {
-			//console.dir(actual, { depth: null });
+			// Console.dir(actual, { depth: null });
 			t.pass();
 		}
 	},

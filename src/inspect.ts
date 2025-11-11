@@ -6,4 +6,4 @@ export const inspect = (value: unknown) => {
 	}
 
 	return nodeInspect(value);
-}
+};

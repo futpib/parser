@@ -144,17 +144,13 @@ type ZipDataDescriptor = {
 };
 
 const zipDataDescriptorSignature: Uint8Array = Buffer.from('504b0708', 'hex');
-const zipDataDescriptorSignatureParser = createExactSequenceParser<Uint8Array>(
-	zipDataDescriptorSignature
-);
+const zipDataDescriptorSignatureParser = createExactSequenceParser<Uint8Array>(zipDataDescriptorSignature);
 
 const zipDataDescriptorParser: Parser<ZipDataDescriptor, Uint8Array> = promiseCompose(
 	createTupleParser([
-		createNegativeLookaheadParser(
-			zipLocalFileHeaderSignatureParser,
-		),
+		createNegativeLookaheadParser(zipLocalFileHeaderSignatureParser),
 		// FIXME: optional in spec
-		//createOptionalParser(zipDataDescriptorSignatureParser),
+		// createOptionalParser(zipDataDescriptorSignatureParser),
 		zipDataDescriptorSignatureParser,
 		uint32LEParser,
 		uint32LEParser,
@@ -186,12 +182,10 @@ export const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompo
 	parserCreatorCompose(
 		() => zipLocalFileHeaderParser,
 		zipLocalFileHeader => {
-			const sizeInDataDescriptor = Boolean(
-				zipLocalFileHeader.generalPurposeBitFlag & 0b0000_0000_0000_1000
-					&& zipLocalFileHeader.crc32 === 0
-					&& zipLocalFileHeader.compressedSize === 0
-					&& zipLocalFileHeader.uncompressedSize === 0
-			);
+			const sizeInDataDescriptor = Boolean(zipLocalFileHeader.generalPurposeBitFlag & 0b0000_0000_0000_1000
+				&& zipLocalFileHeader.crc32 === 0
+				&& zipLocalFileHeader.compressedSize === 0
+				&& zipLocalFileHeader.uncompressedSize === 0);
 
 			return createTupleParser([
 				async () => zipLocalFileHeader,
@@ -210,9 +204,7 @@ export const zipLocalFileParser: Parser<ZipLocalFile, Uint8Array> = promiseCompo
 					sizeInDataDescriptor
 						? (<T>(parser: T): T => parser)
 						: createOptionalParser
-				)(
-					zipDataDescriptorParser
-				),
+				)(zipDataDescriptorParser),
 			]);
 		},
 	)(),
@@ -257,7 +249,7 @@ const zipVersionMadeByParser: Parser<ZipVersionMadeBy, Uint8Array> = promiseComp
 
 type ZipExternalFileAttributes = {
 	directory: boolean;
-}
+};
 
 const dosExternalFileAttributesParser: Parser<ZipExternalFileAttributes, Uint8Array> = promiseCompose(
 	uint32LEParser,
@@ -499,7 +491,7 @@ export async function zipEntriesFromZipSegments({
 
 		const isDirectory = (
 			centralDirectoryHeader.externalFileAttributes.directory
-				|| commonFields.path.endsWith('/')
+			|| commonFields.path.endsWith('/')
 		);
 
 		if (isDirectory) {

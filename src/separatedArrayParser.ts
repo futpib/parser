@@ -43,7 +43,7 @@ export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 				elementParserContext.dispose();
 			}
 
-			parser = separatorThenElementParser
+			parser = separatorThenElementParser;
 		}
 
 		return elements;
