@@ -181,6 +181,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a/b', isolate: true },
 		{ smaliFilePath: 'android/app/AppComponentFactory', isolate: true },
 		{ smaliFilePath: 'android/app/job/JobInfo$TriggerContentUri', isolate: true },
+		{ smaliFilePath: 'android/graphics/BlendModeColorFilter', isolate: true },
 		{ smaliFilePath: 'android/graphics/fonts/Font$Builder', isolate: true },
 		{ smaliFilePath: 'a0/i', isolate: true },
 		{ smaliFilePath: 'a0/l', isolate: true },

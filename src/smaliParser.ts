@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
 import {
-	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
