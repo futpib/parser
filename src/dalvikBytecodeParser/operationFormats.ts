@@ -1,6 +1,6 @@
 
 export const operationFormats = {
-	'no-operation': '10x',
+	'nop': '10x',
 	move: '12x',
 	'move/from16': '22x',
 	'move/16': '32x',

@@ -205,6 +205,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 	'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq': [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
 		{ smaliFilePath: 'androidx/lifecycle/b0', isolate: true },
+		{ smaliFilePath: 'androidx/activity/b', isolate: true },
 		{ smaliFilePath: 'androidx/activity/result/a$a', isolate: true },
 		{ smaliFilePath: 'l4/a', isolate: true },
 		{ smaliFilePath: 'a', isolate: true },

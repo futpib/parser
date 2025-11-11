@@ -66,7 +66,7 @@ const dalvikBytecodeOperationUnusedParser: Parser<void, Uint8Array> = async pars
 setParserName(dalvikBytecodeOperationUnusedParser, 'dalvikBytecodeOperationUnusedParser');
 
 type DalvikBytecodeOperationNoOperation = {
-	operation: 'no-operation';
+	operation: 'nop';
 };
 
 const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNoOperation, Uint8Array> = promiseCompose(
@@ -79,7 +79,7 @@ const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNo
 		createExactElementParser(0x00),
 	]),
 	() => ({
-		operation: 'no-operation',
+		operation: 'nop',
 	}),
 );
 
