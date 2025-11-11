@@ -104,14 +104,6 @@ const parseDexAgainstSmaliMacro = test.macro({
 			) {
 				value.debugInfo = undefined;
 			}
-
-			if (
-				value
-				&& typeof value === 'object'
-				&& 'tries' in value
-			) {
-				value.tries = [];
-			}
 		});
 
 		// Console.dir({
@@ -289,14 +281,6 @@ test.serial(
 				&& 'debugInfo' in value
 			) {
 				value.debugInfo = undefined;
-			}
-
-			if (
-				value
-				&& typeof value === 'object'
-				&& 'tries' in value
-			) {
-				value.tries = [];
 			}
 		});
 
