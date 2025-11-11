@@ -2735,14 +2735,14 @@ const createDalvikExecutableParser = <Instructions>({
 					return (value as any).value;
 				}
 
-				// For long values, convert bigint to number
+				// For long values, return as bigint
 				if (type === 'long') {
-					return Number(value);
+					return value;
 				}
 
-				// For boolean values, convert to number
+				// For boolean values, return as boolean
 				if (type === 'boolean') {
-					return value ? 1 : 0;
+					return value;
 				}
 
 				// For null values, return undefined
@@ -2793,14 +2793,14 @@ const createDalvikExecutableParser = <Instructions>({
 					return (value as any).value;
 				}
 
-				// For long values, convert bigint to number
+				// For long values, return as bigint
 				if (type === 'long') {
-					return Number(value);
+					return value;
 				}
 
-				// For boolean values, convert to number
+				// For boolean values, return as boolean
 				if (type === 'boolean') {
-					return value ? 1 : 0;
+					return value;
 				}
 
 				// For null values, return undefined

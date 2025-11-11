@@ -45,7 +45,7 @@ export function dalvikExecutableAccessFlagsDefault(): DalvikExecutableAccessFlag
 	};
 }
 
-export type DalvikExecutableEncodedValue = number | DalvikExecutableEncodedValue[] | undefined;
+export type DalvikExecutableEncodedValue = number | bigint | boolean | DalvikExecutableEncodedValue[] | undefined;
 
 type DalvikExecutableTry = {
 	startAddress: number;
