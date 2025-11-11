@@ -346,15 +346,15 @@ const createSkipToThenMethodIdItemsParser = ({ size, offset }: SizeOffset): Pars
 		)
 );
 
-const parseAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
+const parseAccessFlagsCommon = (flags: number): DalvikExecutableAccessFlags => ({
 	public: Boolean(flags & 0b0000_0001),
 	private: Boolean(flags & 0b0000_0010),
 	protected: Boolean(flags & 0b0000_0100),
 	static: Boolean(flags & 0b0000_1000),
 	final: Boolean(flags & 0b0001_0000),
 	synchronized: Boolean(flags & 0b0010_0000),
-	volatile: Boolean(flags & 0b0100_0000),
-	bridge: false, // TODO // Boolean(flags & 0b01000000),
+	volatile: false,
+	bridge: false,
 	transient: Boolean(flags & 0b1000_0000),
 	varargs: Boolean(flags & 0b1000_0000),
 	native: Boolean(flags & 0b0000_0001_0000_0000),
@@ -368,6 +368,20 @@ const parseAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
 	declaredSynchronized: Boolean(flags & 0b0000_0010_0000_0000_0000_0000),
 });
 
+const parseAccessFlags = (flags: number): DalvikExecutableAccessFlags => parseAccessFlagsCommon(flags);
+
+const parseFieldAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
+	...parseAccessFlagsCommon(flags),
+	volatile: Boolean(flags & 0b0100_0000),
+	bridge: false,
+});
+
+const parseMethodAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
+	...parseAccessFlagsCommon(flags),
+	volatile: false,
+	bridge: Boolean(flags & 0b0100_0000),
+});
+
 const uintAccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
 	uintParser,
 	parseAccessFlags,
@@ -376,6 +390,16 @@ const uintAccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = p
 const uleb128AccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
 	uleb128NumberParser,
 	parseAccessFlags,
+);
+
+const uleb128FieldAccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
+	uleb128NumberParser,
+	parseFieldAccessFlags,
+);
+
+const uleb128MethodAccessFlagsParser: Parser<DalvikExecutableAccessFlags, Uint8Array> = promiseCompose(
+	uleb128NumberParser,
+	parseMethodAccessFlags,
 );
 
 type DalvikExecutableClassDefinitionItem = {
@@ -657,7 +681,7 @@ type DalvikExecutableEncodedFieldDiff = {
 const encodedFieldParser: Parser<DalvikExecutableEncodedFieldDiff, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
-		uleb128AccessFlagsParser,
+		uleb128FieldAccessFlagsParser,
 	]),
 	([ fieldIndexDiff, accessFlags ]) => ({ fieldIndexDiff, accessFlags }),
 );
@@ -693,7 +717,7 @@ type DalvikExecutableEncodedMethodDiff = {
 const encodedMethodParser: Parser<DalvikExecutableEncodedMethodDiff, Uint8Array> = promiseCompose(
 	createTupleParser([
 		uleb128NumberParser,
-		uleb128AccessFlagsParser,
+		uleb128MethodAccessFlagsParser,
 		uleb128NumberParser,
 	]),
 	([
