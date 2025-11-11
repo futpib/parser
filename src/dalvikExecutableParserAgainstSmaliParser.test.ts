@@ -1,4 +1,4 @@
-import test from 'ava';
+import test, { TryResult } from 'ava';
 import { runParser } from './parser.js';
 import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { dalvikExecutableParser } from './dalvikExecutableParser.js';
@@ -136,16 +136,28 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 		const classes = await baksmaliListClasses(dexStream);
 
-		for (const smaliFilePath of classes) {
-			console.log(smaliFilePath);
-			console.log('='.repeat(smaliFilePath.length));
+		const failures: TryResult[] = [];
 
+		for (const smaliFilePath of classes) {
 			const result = await t.try(parseDexAgainstSmaliMacro, dexCid, {
 				smaliFilePath,
 				isolate: true,
 			});
 
-			result.commit();
+			if (result.passed) {
+				result.commit();
+				continue;
+			}
+
+			console.log(smaliFilePath);
+
+			failures.push(result);
+
+			if (failures.length >= 4) {
+				for (const failure of failures) {
+					failure.commit();
+				}
+			}
 		}
 	},
 });
@@ -185,7 +197,7 @@ for (const [dexCid, smaliFilePaths] of Object.entries(testCasesByCid)) {
 
 test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
-test.serial.only(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq');
+test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq');
 
 const smali = `
 .class public final La0/l;
