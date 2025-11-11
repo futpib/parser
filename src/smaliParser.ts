@@ -279,65 +279,6 @@ const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<
 	}),
 );
 
-const elementParser: Parser<string, string> = createElementParser();
-
-// Extend jsonNumberParser pattern to support smali-specific number formats (hex and type suffixes)
-const smaliNumberLiteralParser: Parser<number, string> = parserCreatorCompose(
-	() => createArrayParser(
-		parserCreatorCompose(
-			() => elementParser,
-			character => async parserContext => {
-				parserContext.invariant(
-					(
-						character === '-'
-							|| (character >= '0' && character <= '9')
-							|| character === '.'
-							|| character === 'x'
-							|| character === 'X'
-							|| (character >= 'a' && character <= 'f')
-							|| (character >= 'A' && character <= 'F')
-							|| character === 'f'
-							|| character === 'F'
-							|| character === 'd'
-							|| character === 'D'
-							|| character === 'l'
-							|| character === 'L'
-					),
-					'Expected number literal character, got "%s"',
-					character,
-				);
-
-				return character;
-			},
-		)(),
-	),
-	characters => async parserContext => {
-		parserContext.invariant(characters.length > 0, 'Expected at least one character');
-
-		const numberString = characters.join('');
-		
-		let result: number;
-
-		// Convert string to number (like Number() in jsonNumberParser but with hex support)
-		if (numberString.startsWith('0x') || numberString.startsWith('0X')) {
-			result = Number.parseInt(numberString, 16);
-		} else if (numberString.includes('.') || numberString.toLowerCase().includes('f') || numberString.toLowerCase().includes('d')) {
-			result = Number.parseFloat(numberString);
-		} else {
-			result = Number.parseInt(numberString, 10);
-		}
-
-		// Ensure the result is a valid number (not NaN)
-		parserContext.invariant(
-			!Number.isNaN(result),
-			'Invalid number format: "%s"',
-			numberString,
-		);
-
-		return result;
-	},
-)();
-
 type SmaliAnnotationElement = {
 	name: string;
 	value: unknown; // TODO
@@ -351,7 +292,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		createUnionParser([
 			smaliQuotedStringParser,
 			smaliTypeDescriptorParser,
-			smaliNumberLiteralParser,
+			jsonNumberParser,
 			promiseCompose(
 				createTupleParser([
 					createExactSequenceParser('{\n'),
@@ -837,12 +778,12 @@ const smaliParametersRegisterRangeParser: Parser<SmaliRegister[], string> = prom
 			startRegister.prefix === endRegister.prefix,
 			'Register range must use the same prefix',
 		);
-		
+
 		invariant(
 			startRegister.index <= endRegister.index,
 			'Register range start must be less than or equal to end',
 		);
-		
+
 		const registers: SmaliRegister[] = [];
 		for (let i = startRegister.index; i <= endRegister.index; i++) {
 			registers.push({
@@ -850,7 +791,7 @@ const smaliParametersRegisterRangeParser: Parser<SmaliRegister[], string> = prom
 				index: i,
 			});
 		}
-		
+
 		return registers;
 	},
 );
@@ -1310,22 +1251,22 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				// Get elementWidth from parameters (first parameter)
 				const elementWidth = operation.parameters[0];
 				invariant(typeof elementWidth === 'number', 'Expected elementWidth to be a number');
-				
+
 				operation_.elementWidth = elementWidth;
-				
+
 				// Convert integer values to bytes (little-endian)
 				const values = operation.body as SmaliCodeOperationIntegersBody;
 				const data: number[] = [];
-				
+
 				for (const value of values) {
 					const numValue = typeof value === 'bigint' ? Number(value) : value;
-					
+
 					// Convert to bytes based on elementWidth (little-endian)
 					for (let i = 0; i < elementWidth; i++) {
 						data.push((numValue >> (i * 8)) & 0xFF);
 					}
 				}
-				
+
 				operation_.data = data;
 			} else {
 				operation_.branchLabels = operation.body;
@@ -1383,7 +1324,7 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				if (operation_.operation === 'fill-array-data-payload') {
 					continue;
 				}
-				
+
 				// Const-wide operations always use bigint values
 				if (operationsWithBigintValue.has(operation_.operation)) {
 					operation_.value = typeof parameter === 'number' ? BigInt(parameter) : parameter;
