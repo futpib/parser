@@ -2831,27 +2831,23 @@ const createDalvikExecutableParser = <Instructions>({
 				}
 
 				// For string type, resolve the string index to actual string
-				// Note: string index 0 might be used as "null" in some contexts
 				if (type === 'string') {
-					if (isoIndexIntoStringIds.unwrap(value) === 0) {
-						// String index 0 might not exist, treat as undefined/null
+					const string = strings.at(value);
+					// Handle cases where string index might not exist (e.g., index 0 in some DEX files)
+					if (string === undefined) {
 						return undefined;
 					}
-					const string = strings.at(value);
-					invariant(string, 'String must be there. String id: %s', isoIndexIntoStringIds.unwrap(value));
 					// Return string directly for use in annotation arrays
 					return string as any;
 				}
 
 				// For type, resolve the type index to actual type string
-				// Note: type index 0 might be used as "null" in some contexts
 				if (type === 'type') {
-					if (isoIndexIntoTypeIds.unwrap(value) === 0) {
-						// Type index 0 might not exist, treat as undefined/null
+					const typeString = types.at(value);
+					// Handle cases where type index might not exist (e.g., index 0 in some DEX files)
+					if (typeString === undefined) {
 						return undefined;
 					}
-					const typeString = types.at(value);
-					invariant(typeString, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(value));
 					// Return type string directly for use in annotation arrays
 					return typeString as any;
 				}
