@@ -2627,8 +2627,10 @@ const createDalvikExecutableParser = <Instructions>({
 					return annotation;
 				}
 
+				// Annotations with 'value' element containing array of type indices
 				if (
 					annotation.type === 'Ldalvik/annotation/Throws;'
+						|| annotation.type === 'Ldalvik/annotation/MemberClasses;'
 				) {
 					const elements = annotation.elements.map((element) => {
 						if (
@@ -2698,34 +2700,6 @@ const createDalvikExecutableParser = <Instructions>({
 						invariant(type, 'Type must be there. Type id: %s', element.value);
 
 						return { ...element, value: type as any };
-					});
-
-					return { ...annotation, elements };
-				}
-
-				if (
-					annotation.type === 'Ldalvik/annotation/MemberClasses;'
-				) {
-					const elements = annotation.elements.map((element) => {
-						if (
-							element.name !== 'value'
-								|| !Array.isArray(element.value)
-						) {
-							return element;
-						}
-
-						const value = element.value.map((encodedValue) => {
-							if (typeof encodedValue !== 'number') {
-								return encodedValue;
-							}
-
-							const type = types.at(isoIndexIntoTypeIds.wrap(encodedValue));
-							invariant(type, 'Type must be there. Type id: %s', encodedValue);
-
-							return type;
-						});
-
-						return { ...element, value };
 					});
 
 					return { ...annotation, elements };
