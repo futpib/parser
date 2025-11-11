@@ -2704,6 +2704,34 @@ const createDalvikExecutableParser = <Instructions>({
 				}
 
 				if (
+					annotation.type === 'Ldalvik/annotation/MemberClasses;'
+				) {
+					const elements = annotation.elements.map((element) => {
+						if (
+							element.name !== 'value'
+								|| !Array.isArray(element.value)
+						) {
+							return element;
+						}
+
+						const value = element.value.map((encodedValue) => {
+							if (typeof encodedValue !== 'number') {
+								return encodedValue;
+							}
+
+							const type = types.at(isoIndexIntoTypeIds.wrap(encodedValue));
+							invariant(type, 'Type must be there. Type id: %s', encodedValue);
+
+							return type;
+						});
+
+						return { ...element, value };
+					});
+
+					return { ...annotation, elements };
+				}
+
+				if (
 					annotation.type === 'Ldalvik/annotation/InnerClass;'
 				) {
 					const elements = annotation.elements.map((element) => {
