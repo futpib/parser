@@ -1536,6 +1536,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		createOptionalParser(smaliCodeRegistersParser),
 		createArrayParser(smaliAnnotationParser),
 		createArrayParser(smaliCodeParameterParser),
+		createOptionalParser(smaliCommentsOrNewlinesParser),
 		createSeparatedArrayParser(
 			smaliAnnotationParser,
 			smaliCommentsOrNewlinesParser,
@@ -1558,6 +1559,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		registersSize,
 		annotations1,
 		parameters,
+		_leadingCommentsOrNewlines,
 		annotations2,
 		instructionsAndCatchDirectives,
 	]) => {
