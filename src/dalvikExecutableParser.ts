@@ -2727,7 +2727,6 @@ const createDalvikExecutableParser = <Instructions>({
 					return value;
 				}
 
-				// For typed indices, unwrap to number (keep as index for static values)
 				if (
 					type === 'methodType'
 					|| type === 'string'
@@ -2739,33 +2738,15 @@ const createDalvikExecutableParser = <Instructions>({
 					return (value as any).value;
 				}
 
-				// For long values, return as bigint
-				if (type === 'long') {
-					return value;
-				}
-
-				// For boolean values, return as boolean
-				if (type === 'boolean') {
-					return value;
-				}
-
-				// For null values, return null
-				if (type === 'null') {
-					return null;
-				}
-
-				// For arrays, recursively resolve elements
 				if (type === 'array') {
 					return value.map(resolveTaggedEncodedValueForStaticValues);
 				}
 
-				// For annotations
 				if (type === 'annotation') {
 					return value as any;
 				}
 
-				// Fallback: return value as number
-				return value as number;
+				return value;
 			}
 
 			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for annotation elements
