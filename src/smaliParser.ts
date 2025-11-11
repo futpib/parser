@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
 import {
-	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
@@ -2138,30 +2138,32 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 				});
 			}
 
-			const { method: methodDescriptor, accessFlags } = method.dalvikExecutableMethodWithAccess;
-			const parameterCount = methodDescriptor.prototype.parameters.length;
-			const annotations: DalvikExecutableAnnotation[][] = Array.from(
-				{ length: parameterCount },
-				() => [],
-			);
+			// Create an annotations array for all parameters, not just those with annotations
+			// In smali, instance methods have p0 as 'this', p1 as first param, etc.
+			// But DEX parameter annotations only include the actual parameters (not 'this')
+			const isStatic = method.dalvikExecutableMethodWithAccess.accessFlags.static;
+			const smaliRegisterOffset = isStatic ? 0 : 1; // P0 is 'this' for instance methods
 
-			for (const parameterAnnotation of method.parameterAnnotations) {
-				const parameterIndex = parameterAnnotation.register.index - (accessFlags.static ? 0 : 1);
+			const allParameterAnnotations = method.dalvikExecutableMethodWithAccess.method.prototype.parameters.map((_, parameterIndex) => {
+				const smaliRegisterIndex = parameterIndex + smaliRegisterOffset;
+				const parameterAnnotation = method.parameterAnnotations.find(pa => pa.register.prefix === 'p' && pa.register.index === smaliRegisterIndex);
 
-				if (parameterIndex >= 0 && parameterIndex < parameterCount && parameterAnnotation.annotation) {
-					annotations[parameterIndex] = [ {
+				if (parameterAnnotation?.annotation) {
+					return [ {
 						type: parameterAnnotation.annotation.type,
 						visibility: parameterAnnotation.annotation.visibility,
 						elements: parameterAnnotation.annotation.elements as any ?? [], // TODO
 					} ];
 				}
-			}
 
-			// Only add parameter annotations if at least one parameter has annotations
-			if (annotations.some(annotationArray => annotationArray.length > 0)) {
+				return [];
+			});
+
+			// Only push parameter annotations if there are some actual annotations
+			if (allParameterAnnotations.some(annotations => annotations.length > 0)) {
 				pushParameterAnnotation({
-					method: methodDescriptor,
-					annotations,
+					method: method.dalvikExecutableMethodWithAccess.method,
+					annotations: allParameterAnnotations,
 				});
 			}
 
