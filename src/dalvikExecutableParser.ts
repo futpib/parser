@@ -807,24 +807,24 @@ const createSkipToThenClassDataItemsParser = (sizeOffset: SizeOffset): Parser<Da
 
 // Internal type for encoded values with type tags during parsing
 type TaggedEncodedValue =
-	| { valueType: 'byte'; value: number }
-	| { valueType: 'short'; value: number }
-	| { valueType: 'char'; value: number }
-	| { valueType: 'int'; value: number }
-	| { valueType: 'long'; value: bigint }
-	| { valueType: 'float'; value: number }
-	| { valueType: 'double'; value: number }
-	| { valueType: 'methodType'; value: number }
-	| { valueType: 'methodHandle'; value: number }
-	| { valueType: 'string'; value: number }
-	| { valueType: 'type'; value: number }
-	| { valueType: 'field'; value: number }
-	| { valueType: 'method'; value: number }
-	| { valueType: 'enum'; value: number }
-	| { valueType: 'array'; value: TaggedEncodedValue[] }
-	| { valueType: 'annotation'; value: DalvikExecutableEncodedAnnotation }
-	| { valueType: 'null'; value: null }
-	| { valueType: 'boolean'; value: boolean };
+	| { type: 'byte'; value: number }
+	| { type: 'short'; value: number }
+	| { type: 'char'; value: number }
+	| { type: 'int'; value: number }
+	| { type: 'long'; value: bigint }
+	| { type: 'float'; value: number }
+	| { type: 'double'; value: number }
+	| { type: 'methodType'; value: IndexIntoPrototypeIds }
+	| { type: 'methodHandle'; value: number }
+	| { type: 'string'; value: IndexIntoStringIds }
+	| { type: 'type'; value: IndexIntoTypeIds }
+	| { type: 'field'; value: IndexIntoFieldIds }
+	| { type: 'method'; value: IndexIntoMethodIds }
+	| { type: 'enum'; value: IndexIntoFieldIds }
+	| { type: 'array'; value: TaggedEncodedValue[] }
+	| { type: 'annotation'; value: DalvikExecutableEncodedAnnotation }
+	| { type: 'null'; value: null }
+	| { type: 'boolean'; value: boolean };
 
 const createByteWith5LeastSignificantBitsEqualParser = (leastSignificant5: number): Parser<number, Uint8Array> => {
 	const byteWith5LeastSignificantBitsEqualParser: Parser<number, Uint8Array> = async parserContext => {
@@ -853,7 +853,7 @@ const encodedValueByteParser: Parser<TaggedEncodedValue, Uint8Array> = promiseCo
 		createExactElementParser(0),
 		ubyteParser,
 	]),
-	([ _, value ]) => ({ valueType: 'byte' as const, value }),
+	([ _, value ]) => ({ type: 'byte' as const, value }),
 );
 
 setParserName(encodedValueByteParser, 'encodedValueByteParser');
@@ -868,7 +868,7 @@ const encodedValueShortParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'short' as const, value: buffer.readInt8(0) };
+					return { type: 'short' as const, value: buffer.readInt8(0) };
 				},
 			);
 		}
@@ -879,7 +879,7 @@ const encodedValueShortParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'short' as const, value: buffer.readInt16LE(0) };
+				return { type: 'short' as const, value: buffer.readInt16LE(0) };
 			},
 		);
 	},
@@ -897,7 +897,7 @@ const encodedValueCharParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ 0, ...uint8Array ]);
-					return { valueType: 'char' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'char' as const, value: buffer.readUInt16LE(0) };
 				},
 			);
 		}
@@ -908,7 +908,7 @@ const encodedValueCharParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'char' as const, value: buffer.readUInt16LE(0) };
+				return { type: 'char' as const, value: buffer.readUInt16LE(0) };
 			},
 		);
 	},
@@ -926,7 +926,7 @@ const encodedValueIntParser: Parser<TaggedEncodedValue, Uint8Array> = parserCrea
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'int' as const, value: buffer.readInt8(0) };
+					return { type: 'int' as const, value: buffer.readInt8(0) };
 				},
 			);
 		}
@@ -936,7 +936,7 @@ const encodedValueIntParser: Parser<TaggedEncodedValue, Uint8Array> = parserCrea
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'int' as const, value: buffer.readInt16LE(0) };
+					return { type: 'int' as const, value: buffer.readInt16LE(0) };
 				},
 			);
 		}
@@ -950,7 +950,7 @@ const encodedValueIntParser: Parser<TaggedEncodedValue, Uint8Array> = parserCrea
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
-					return { valueType: 'int' as const, value: buffer.readInt32LE(0) };
+					return { type: 'int' as const, value: buffer.readInt32LE(0) };
 				},
 			);
 		}
@@ -961,7 +961,7 @@ const encodedValueIntParser: Parser<TaggedEncodedValue, Uint8Array> = parserCrea
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'int' as const, value: buffer.readInt32LE(0) };
+				return { type: 'int' as const, value: buffer.readInt32LE(0) };
 			},
 		);
 	},
@@ -979,7 +979,7 @@ const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'long' as const, value: BigInt(buffer.readInt8(0)) };
+					return { type: 'long' as const, value: BigInt(buffer.readInt8(0)) };
 				},
 			);
 		}
@@ -989,7 +989,7 @@ const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'long' as const, value: BigInt(buffer.readInt16LE(0)) };
+					return { type: 'long' as const, value: BigInt(buffer.readInt16LE(0)) };
 				},
 			);
 		}
@@ -1003,7 +1003,7 @@ const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
-					return { valueType: 'long' as const, value: BigInt(buffer.readInt32LE(0)) };
+					return { type: 'long' as const, value: BigInt(buffer.readInt32LE(0)) };
 				},
 			);
 		}
@@ -1013,7 +1013,7 @@ const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'long' as const, value: BigInt(buffer.readInt32LE(0)) };
+					return { type: 'long' as const, value: BigInt(buffer.readInt32LE(0)) };
 				},
 			);
 		}
@@ -1027,7 +1027,7 @@ const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ extensionByte, extensionByte, extensionByte, ...uint8Array ]);
-					return { valueType: 'long' as const, value: BigInt(buffer.readBigInt64LE(0)) };
+					return { type: 'long' as const, value: BigInt(buffer.readBigInt64LE(0)) };
 				},
 			);
 		}
@@ -1038,7 +1038,7 @@ const encodedValueLongParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'long' as const, value: buffer.readBigInt64LE(0) };
+				return { type: 'long' as const, value: buffer.readBigInt64LE(0) };
 			},
 		);
 	},
@@ -1056,7 +1056,7 @@ const encodedValueFloatParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0 ]);
-					return { valueType: 'float' as const, value: buffer.readFloatLE(0) };
+					return { type: 'float' as const, value: buffer.readFloatLE(0) };
 				},
 			);
 		}
@@ -1066,7 +1066,7 @@ const encodedValueFloatParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0 ]);
-					return { valueType: 'float' as const, value: buffer.readFloatLE(0) };
+					return { type: 'float' as const, value: buffer.readFloatLE(0) };
 				},
 			);
 		}
@@ -1077,7 +1077,7 @@ const encodedValueFloatParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'float' as const, value: buffer.readFloatLE(0) };
+				return { type: 'float' as const, value: buffer.readFloatLE(0) };
 			},
 		);
 	},
@@ -1095,7 +1095,7 @@ const encodedValueDoubleParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0, 0 ]);
-					return { valueType: 'double' as const, value: buffer.readDoubleLE(0) };
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
 		}
@@ -1105,7 +1105,7 @@ const encodedValueDoubleParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0 ]);
-					return { valueType: 'double' as const, value: buffer.readDoubleLE(0) };
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
 		}
@@ -1115,7 +1115,7 @@ const encodedValueDoubleParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0 ]);
-					return { valueType: 'double' as const, value: buffer.readDoubleLE(0) };
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
 		}
@@ -1126,7 +1126,7 @@ const encodedValueDoubleParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'double' as const, value: buffer.readDoubleLE(0) };
+				return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 			},
 		);
 	},
@@ -1144,7 +1144,7 @@ const encodedValueMethodTypeParser: Parser<TaggedEncodedValue, Uint8Array> = par
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'methodType' as const, value: buffer.readUint8(0) };
+					return { type: 'methodType' as const, value: isoIndexIntoPrototypeIds.wrap(buffer.readUint8(0)) };
 				},
 			);
 		}
@@ -1154,7 +1154,7 @@ const encodedValueMethodTypeParser: Parser<TaggedEncodedValue, Uint8Array> = par
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'methodType' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'methodType' as const, value: isoIndexIntoPrototypeIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1165,7 +1165,7 @@ const encodedValueMethodTypeParser: Parser<TaggedEncodedValue, Uint8Array> = par
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'methodType' as const, value: buffer.readUInt32LE(0) };
+				return { type: 'methodType' as const, value: isoIndexIntoPrototypeIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1183,7 +1183,7 @@ const encodedValueMethodHandleParser: Parser<TaggedEncodedValue, Uint8Array> = p
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'methodHandle' as const, value: buffer.readUInt8(0) };
+					return { type: 'methodHandle' as const, value: buffer.readUInt8(0) };
 				},
 			);
 		}
@@ -1193,7 +1193,7 @@ const encodedValueMethodHandleParser: Parser<TaggedEncodedValue, Uint8Array> = p
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'methodHandle' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'methodHandle' as const, value: buffer.readUInt16LE(0) };
 				},
 			);
 		}
@@ -1204,7 +1204,7 @@ const encodedValueMethodHandleParser: Parser<TaggedEncodedValue, Uint8Array> = p
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'methodHandle' as const, value: buffer.readUInt32LE(0) };
+				return { type: 'methodHandle' as const, value: buffer.readUInt32LE(0) };
 			},
 		);
 	},
@@ -1222,7 +1222,7 @@ const encodedValueStringParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'string' as const, value: buffer.readUInt8(0) };
+					return { type: 'string' as const, value: isoIndexIntoStringIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1232,7 +1232,7 @@ const encodedValueStringParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'string' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'string' as const, value: isoIndexIntoStringIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1243,7 +1243,7 @@ const encodedValueStringParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'string' as const, value: buffer.readUInt32LE(0) };
+				return { type: 'string' as const, value: isoIndexIntoStringIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1261,7 +1261,7 @@ const encodedValueTypeParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'type' as const, value: buffer.readUInt8(0) };
+					return { type: 'type' as const, value: isoIndexIntoTypeIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1271,7 +1271,7 @@ const encodedValueTypeParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'type' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'type' as const, value: isoIndexIntoTypeIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1282,7 +1282,7 @@ const encodedValueTypeParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'type' as const, value: buffer.readUInt32LE(0) };
+				return { type: 'type' as const, value: isoIndexIntoTypeIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1300,7 +1300,7 @@ const encodedValueFieldParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'field' as const, value: buffer.readUInt8(0) };
+					return { type: 'field' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1310,7 +1310,7 @@ const encodedValueFieldParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'field' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'field' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1321,7 +1321,7 @@ const encodedValueFieldParser: Parser<TaggedEncodedValue, Uint8Array> = parserCr
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'field' as const, value: buffer.readUInt32LE(0) };
+				return { type: 'field' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1339,7 +1339,7 @@ const encodedValueMethodParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'method' as const, value: buffer.readUInt8(0) };
+					return { type: 'method' as const, value: isoIndexIntoMethodIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1349,7 +1349,7 @@ const encodedValueMethodParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'method' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'method' as const, value: isoIndexIntoMethodIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1360,7 +1360,7 @@ const encodedValueMethodParser: Parser<TaggedEncodedValue, Uint8Array> = parserC
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'method' as const, value: buffer.readUInt32LE(0) };
+				return { type: 'method' as const, value: isoIndexIntoMethodIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1378,7 +1378,7 @@ const encodedValueEnumParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'enum' as const, value: buffer.readUInt8(0) };
+					return { type: 'enum' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1388,7 +1388,7 @@ const encodedValueEnumParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return { valueType: 'enum' as const, value: buffer.readUInt16LE(0) };
+					return { type: 'enum' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1399,7 +1399,7 @@ const encodedValueEnumParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return { valueType: 'enum' as const, value: buffer.readUInt32LE(0) };
+				return { type: 'enum' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1429,7 +1429,7 @@ const encodedValueArrayParser: Parser<TaggedEncodedValue, Uint8Array> = promiseC
 		)(),
 		encodedArrayParser,
 	]),
-	([ _, array ]) => ({ valueType: 'array' as const, value: array }),
+	([ _, array ]) => ({ type: 'array' as const, value: array }),
 );
 
 setParserName(encodedValueArrayParser, 'encodedValueArrayParser');
@@ -1498,7 +1498,7 @@ const encodedValueAnnotationParser: Parser<TaggedEncodedValue, Uint8Array> = pro
 		)(),
 		encodedAnnotationParser,
 	]),
-	([ _, annotation ]) => ({ valueType: 'annotation' as const, value: annotation }),
+	([ _, annotation ]) => ({ type: 'annotation' as const, value: annotation }),
 );
 
 setParserName(encodedValueAnnotationParser, 'encodedValueAnnotationParser');
@@ -1507,7 +1507,7 @@ const encodedValueNullParser: Parser<TaggedEncodedValue, Uint8Array> = parserCre
 	() => createEncodedValueArgParser(0x1E),
 	valueArg => parserContext => {
 		parserContext.invariant(valueArg === 0, '(encodedValueNullParser) valueArg: %s', valueArg);
-		return ({ valueType: 'null' as const, value: null });
+		return ({ type: 'null' as const, value: null });
 	},
 )();
 
@@ -1515,7 +1515,7 @@ setParserName(encodedValueNullParser, 'encodedValueNullParser');
 
 const encodedValueBooleanParser: Parser<TaggedEncodedValue, Uint8Array> = promiseCompose(
 	createEncodedValueArgParser(0x1F),
-	valueArg => ({ valueType: 'boolean' as const, value: Boolean(valueArg) }),
+	valueArg => ({ type: 'boolean' as const, value: Boolean(valueArg) }),
 );
 
 setParserName(encodedValueBooleanParser, 'encodedValueBooleanParser');
@@ -2708,50 +2708,56 @@ const createDalvikExecutableParser = <Instructions>({
 			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for static values
 			// Static values don't allow strings, so we keep indices as numbers
 			function resolveTaggedEncodedValueForStaticValues(taggedValue: TaggedEncodedValue): DalvikExecutableEncodedValue {
-				const { valueType, value } = taggedValue;
+				const { type, value } = taggedValue;
 
 				// For primitive types, return the value as a number
 				if (
-					valueType === 'byte'
-					|| valueType === 'short'
-					|| valueType === 'char'
-					|| valueType === 'int'
-					|| valueType === 'float'
-					|| valueType === 'double'
-					|| valueType === 'methodType'
-					|| valueType === 'methodHandle'
-					|| valueType === 'string' // Keep as index
-					|| valueType === 'type' // Keep as index
-					|| valueType === 'field'
-					|| valueType === 'method'
-					|| valueType === 'enum'
+					type === 'byte'
+					|| type === 'short'
+					|| type === 'char'
+					|| type === 'int'
+					|| type === 'float'
+					|| type === 'double'
+					|| type === 'methodHandle'
 				) {
 					return value as number;
 				}
 
+				// For typed indices, unwrap to number
+				if (
+					type === 'methodType'
+					|| type === 'string'
+					|| type === 'type'
+					|| type === 'field'
+					|| type === 'method'
+					|| type === 'enum'
+				) {
+					return (value as any).value;
+				}
+
 				// For long values, convert bigint to number
-				if (valueType === 'long') {
+				if (type === 'long') {
 					return Number(value);
 				}
 
 				// For boolean values, convert to number
-				if (valueType === 'boolean') {
+				if (type === 'boolean') {
 					return value ? 1 : 0;
 				}
 
 				// For null values, return undefined
-				if (valueType === 'null') {
+				if (type === 'null') {
 					return undefined;
 				}
 
 				// For arrays, recursively resolve elements
-				if (valueType === 'array') {
+				if (type === 'array') {
 					const array = value as TaggedEncodedValue[];
 					return array.map(resolveTaggedEncodedValueForStaticValues);
 				}
 
 				// For annotations
-				if (valueType === 'annotation') {
+				if (type === 'annotation') {
 					return value as any;
 				}
 
@@ -2762,76 +2768,82 @@ const createDalvikExecutableParser = <Instructions>({
 			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for annotation elements
 			// Annotation elements allow strings in arrays for specific value types
 			function resolveTaggedEncodedValueForAnnotations(taggedValue: TaggedEncodedValue): DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string> {
-				const { valueType, value } = taggedValue;
+				const { type, value } = taggedValue;
 
 				// For primitive types, return the value as a number
 				if (
-					valueType === 'byte'
-					|| valueType === 'short'
-					|| valueType === 'char'
-					|| valueType === 'int'
-					|| valueType === 'float'
-					|| valueType === 'double'
-					|| valueType === 'methodType'
-					|| valueType === 'methodHandle'
-					|| valueType === 'field'
-					|| valueType === 'method'
-					|| valueType === 'enum'
+					type === 'byte'
+					|| type === 'short'
+					|| type === 'char'
+					|| type === 'int'
+					|| type === 'float'
+					|| type === 'double'
+					|| type === 'methodHandle'
 				) {
 					return value as number;
 				}
 
+				// For typed indices that stay as numbers, unwrap them
+				if (
+					type === 'methodType'
+					|| type === 'field'
+					|| type === 'method'
+					|| type === 'enum'
+				) {
+					return (value as any).value;
+				}
+
 				// For long values, convert bigint to number
-				if (valueType === 'long') {
+				if (type === 'long') {
 					return Number(value);
 				}
 
 				// For boolean values, convert to number
-				if (valueType === 'boolean') {
+				if (type === 'boolean') {
 					return value ? 1 : 0;
 				}
 
 				// For null values, return undefined
-				if (valueType === 'null') {
+				if (type === 'null') {
 					return undefined;
 				}
 
 				// For string type, resolve the string index to actual string
 				// Note: string index 0 might be used as "null" in some contexts
-				if (valueType === 'string') {
-					const stringIndex = value as number;
-					if (stringIndex === 0) {
+				if (type === 'string') {
+					const stringIndex = value as IndexIntoStringIds;
+					if (isoIndexIntoStringIds.unwrap(stringIndex) === 0) {
 						// String index 0 might not exist, treat as undefined/null
 						return undefined;
 					}
-					const string = strings.at(isoIndexIntoStringIds.wrap(stringIndex));
-					invariant(string, 'String must be there. String id: %s', stringIndex);
+					const string = strings.at(stringIndex);
+					invariant(string, 'String must be there. String id: %s', isoIndexIntoStringIds.unwrap(stringIndex));
 					// Return string directly for use in annotation arrays
 					return string as any;
 				}
 
 				// For type, resolve the type index to actual type string
 				// Note: type index 0 might be used as "null" in some contexts
-				if (valueType === 'type') {
-					const typeIndex = value as number;
-					if (typeIndex === 0) {
+				if (type === 'type') {
+					const typeIndex = value as IndexIntoTypeIds;
+					if (isoIndexIntoTypeIds.unwrap(typeIndex) === 0) {
 						// Type index 0 might not exist, treat as undefined/null
 						return undefined;
 					}
-					const type = types.at(isoIndexIntoTypeIds.wrap(typeIndex));
-					invariant(type, 'Type must be there. Type id: %s', typeIndex);
+					const typeString = types.at(typeIndex);
+					invariant(typeString, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(typeIndex));
 					// Return type string directly for use in annotation arrays
-					return type as any;
+					return typeString as any;
 				}
 
 				// For arrays, recursively resolve elements
-				if (valueType === 'array') {
+				if (type === 'array') {
 					const array = value as TaggedEncodedValue[];
 					return array.map(resolveTaggedEncodedValueForAnnotations) as any;
 				}
 
 				// For annotations
-				if (valueType === 'annotation') {
+				if (type === 'annotation') {
 					return value as any;
 				}
 
