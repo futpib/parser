@@ -150,96 +150,42 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 	},
 });
 
-test.serial(parseDexAgainstSmaliMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', 'pl/czak/minimal/MainActivity');
+const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; isolate?: boolean }>> = {
+	'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4': [
+		'pl/czak/minimal/MainActivity',
+	],
+	'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy': [
+		{ smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity', isolate: true },
+	],
+	'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq': [
+		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
+		{ smaliFilePath: 'androidx/lifecycle/b0', isolate: true },
+		{ smaliFilePath: 'l4/a', isolate: true },
+		{ smaliFilePath: 'a', isolate: true },
+		{ smaliFilePath: 'a/b', isolate: true },
+		{ smaliFilePath: 'android/app/AppComponentFactory', isolate: true },
+		{ smaliFilePath: 'a0/i', isolate: true },
+		{ smaliFilePath: 'a0/l', isolate: true },
+		{ smaliFilePath: 'a0/n', isolate: true },
+		{ smaliFilePath: 'a0/p', isolate: true },
+		{ smaliFilePath: 'a0/v', isolate: true },
+		{ smaliFilePath: 'a0/v$a', isolate: true },
+		{ smaliFilePath: 'a3/a', isolate: true },
+		{ smaliFilePath: 'a3/b', isolate: true },
+		{ smaliFilePath: 'a3/d', isolate: true },
+		{ smaliFilePath: 'a4/b', isolate: true },
+	],
+};
 
-test.serial(parseDexAgainstSmaliMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', {
-	smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'androidx/lifecycle/b0',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'l4/a',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a/b',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'android/app/AppComponentFactory',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a0/i',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a0/l',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a0/n',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a0/p',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a0/v',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a0/v$a',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a3/a',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a3/b',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a3/d',
-	isolate: true,
-});
-
-test.serial(parseDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	smaliFilePath: 'a4/b',
-	isolate: true,
-});
+for (const [dexCid, smaliFilePaths] of Object.entries(testCasesByCid)) {
+	for (const smaliFilePath of smaliFilePaths) {
+		test.serial(parseDexAgainstSmaliMacro, dexCid, smaliFilePath);
+	}
+}
 
 test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
-test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq');
+test.serial.only(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq');
 
 const smali = `
 .class public final La0/l;
