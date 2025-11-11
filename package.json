@@ -43,14 +43,6 @@
     "typescript": "^5.9.2",
     "xo": "^1.2.2"
   },
-  "xo": {
-    "extends": [
-      "eslint-config-xo-typescript-overrides"
-    ],
-    "rules": {
-      "ava/no-ignored-test-files": "off"
-    }
-  },
   "packageManager": "yarn@4.9.4",
   "dependencies": {
     "fp-ts": "^2.16.11",
