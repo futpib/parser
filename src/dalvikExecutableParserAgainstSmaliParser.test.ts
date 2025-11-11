@@ -155,6 +155,10 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 			if (failures.length >= 4) {
 				for (const failure of failures) {
+					console.log(failure.errors.at(0));
+				}
+
+				for (const failure of failures) {
 					failure.commit();
 				}
 			}
