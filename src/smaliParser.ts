@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
 import {
-	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
@@ -1536,6 +1536,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		createOptionalParser(smaliCodeRegistersParser),
 		createArrayParser(smaliAnnotationParser),
 		createArrayParser(smaliCodeParameterParser),
+		createOptionalParser(smaliCommentsOrNewlinesParser),
 		createSeparatedArrayParser(
 			smaliAnnotationParser,
 			smaliCommentsOrNewlinesParser,
@@ -1558,6 +1559,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		registersSize,
 		annotations1,
 		parameters,
+		_leadingCommentsOrNewlines,
 		annotations2,
 		instructionsAndCatchDirectives,
 	]) => {
@@ -2136,14 +2138,32 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 				});
 			}
 
-			pushParameterAnnotation({
-				method: method.dalvikExecutableMethodWithAccess.method,
-				annotations: method.parameterAnnotations.map(parameterAnnotation => [ {
-					type: parameterAnnotation.annotation!.type, // TODO
-					visibility: parameterAnnotation.annotation!.visibility, // TODO
-					elements: parameterAnnotation.annotation?.elements as any ?? [], // TODO
-				} ]),
-			});
+			const { method: methodDescriptor, accessFlags } = method.dalvikExecutableMethodWithAccess;
+			const parameterCount = methodDescriptor.prototype.parameters.length;
+			const annotations: DalvikExecutableAnnotation[][] = Array.from(
+				{ length: parameterCount },
+				() => [],
+			);
+
+			for (const parameterAnnotation of method.parameterAnnotations) {
+				const parameterIndex = parameterAnnotation.register.index - (accessFlags.static ? 0 : 1);
+
+				if (parameterIndex >= 0 && parameterIndex < parameterCount && parameterAnnotation.annotation) {
+					annotations[parameterIndex] = [ {
+						type: parameterAnnotation.annotation.type,
+						visibility: parameterAnnotation.annotation.visibility,
+						elements: parameterAnnotation.annotation.elements as any ?? [], // TODO
+					} ];
+				}
+			}
+
+			// Only add parameter annotations if at least one parameter has annotations
+			if (annotations.some(annotationArray => annotationArray.length > 0)) {
+				pushParameterAnnotation({
+					method: methodDescriptor,
+					annotations,
+				});
+			}
 
 			if (type === 'directMethod') {
 				directMethods.push(method.dalvikExecutableMethodWithAccess);
