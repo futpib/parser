@@ -799,6 +799,87 @@ const smaliCodeLabelLineParser: Parser<string, string> = promiseCompose(
 
 setParserName(smaliCodeLabelLineParser, 'smaliCodeLabelLineParser');
 
+type SmaliCatchDirective = {
+	type: string | undefined; // undefined for .catchall
+	startLabel: string;
+	endLabel: string;
+	handlerLabel: string;
+};
+
+const smaliCatchDirectiveParser: Parser<SmaliCatchDirective, string> = promiseCompose(
+	createTupleParser([
+		smaliIndentationParser,
+		createExactSequenceParser('.catch'),
+		createUnionParser<string | undefined, string, string>([
+			promiseCompose(
+				createExactSequenceParser('all'),
+				() => undefined as undefined,
+			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser(' '),
+					smaliTypeDescriptorParser,
+				]),
+				([
+					_space,
+					type,
+				]) => type,
+			),
+		]),
+		createExactSequenceParser(' {'),
+		smaliCodeLabelParser,
+		createExactSequenceParser(' .. '),
+		smaliCodeLabelParser,
+		createExactSequenceParser('} '),
+		smaliCodeLabelParser,
+		smaliLineEndPraser,
+	]),
+	([
+		_indentation,
+		_catch,
+		type,
+		_openBrace,
+		startLabel,
+		_dots,
+		endLabel,
+		_closeBrace,
+		handlerLabel,
+		_newline,
+	]) => ({
+		type,
+		startLabel,
+		endLabel,
+		handlerLabel,
+	}),
+);
+
+setParserName(smaliCatchDirectiveParser, 'smaliCatchDirectiveParser');
+
+type SmaliLabeledCatchDirective = {
+	labels: string[];
+	catchDirective: SmaliCatchDirective;
+};
+
+const smaliLabeledCatchDirectiveParser: Parser<SmaliLabeledCatchDirective, string> = promiseCompose(
+	createTupleParser([
+		createArrayParser(smaliCodeLineParser),
+		createOptionalParser(smaliCodeLocalParser),
+		createArrayParser(smaliCodeLabelLineParser),
+		smaliCatchDirectiveParser,
+	]),
+	([
+		_lines,
+		_local,
+		labels,
+		catchDirective,
+	]) => ({
+		labels,
+		catchDirective,
+	}),
+);
+
+setParserName(smaliLabeledCatchDirectiveParser, 'smaliLabeledCatchDirectiveParser');
+
 const smaliParametersRegisterRangeParser: Parser<SmaliRegister[], string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('{'),
@@ -1461,10 +1542,13 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		createArrayParser(promiseCompose(
 			createTupleParser([
 				createOptionalParser(smaliCommentsOrNewlinesParser),
-				smaliAnnotatedCodeOperationParser,
+				createUnionParser([
+					smaliAnnotatedCodeOperationParser,
+					smaliLabeledCatchDirectiveParser,
+				]),
 			]),
 			([
-				_commentsOrNewlines,
+				_commentsOrNewlinesParser,
 				operation,
 			]) => operation,
 		)),
@@ -1474,9 +1558,29 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		annotations1,
 		parameters,
 		annotations2,
-		instructions,
+		instructionsAndCatchDirectives,
 	]) => {
 		const annotations = [ ...annotations1, ...annotations2 ];
+		const instructions: SmaliCodeOperation[] = [];
+		const catchDirectives: SmaliCatchDirective[] = [];
+		const catchDirectiveLabels: Map<SmaliCatchDirective, string[]> = new Map();
+		
+		for (const item of instructionsAndCatchDirectives) {
+			if (item && typeof item === 'object') {
+				if ('labels' in item && 'catchDirective' in item) {
+					// This is a SmaliLabeledCatchDirective
+					const labeledCatch = item as SmaliLabeledCatchDirective;
+					catchDirectives.push(labeledCatch.catchDirective);
+					catchDirectiveLabels.set(labeledCatch.catchDirective, labeledCatch.labels);
+				} else if ('type' in item && 'startLabel' in item && 'endLabel' in item && 'handlerLabel' in item) {
+					// This is a bare SmaliCatchDirective (shouldn't happen with current parser structure)
+					catchDirectives.push(item as SmaliCatchDirective);
+				} else if (item !== undefined) {
+					// This is a SmaliCodeOperation
+					instructions.push(item as SmaliCodeOperation);
+				}
+			}
+		}
 
 		if (
 			registersSize === undefined
@@ -1628,6 +1732,106 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			}
 		}
 
+		// Build label-to-index mapping
+		// Labels attached to instructions map to that instruction's index
+		// Labels before catch directives should map to the position they mark
+		const labelToIndexMap = new Map<string, number>();
+		
+		// First, map labels from instructions
+		for (const [ operationIndex, operation ] of instructions.entries()) {
+			if (
+				operation
+				&& typeof operation === 'object'
+				&& 'labels' in operation
+				&& operation.labels instanceof Set
+			) {
+				for (const label of operation.labels) {
+					labelToIndexMap.set(label, operationIndex);
+				}
+			}
+		}
+		
+		// Now handle labels from catch directives
+		// We need to figure out where each catch directive appears in the original sequence
+		let instructionArrayIndex = 0;
+		for (let i = 0; i < instructionsAndCatchDirectives.length; i++) {
+			const item = instructionsAndCatchDirectives[i];
+			if (item && typeof item === 'object' && 'labels' in item && 'catchDirective' in item) {
+				// This is a catch directive with labels
+				// These labels should map to the current instruction index
+				// (which is where the next instruction would be)
+				const labeledCatch = item as SmaliLabeledCatchDirective;
+				for (const label of labeledCatch.labels) {
+					labelToIndexMap.set(label, instructionArrayIndex);
+				}
+			} else if (item !== undefined && !(item && typeof item === 'object' && 'type' in item && 'startLabel' in item)) {
+				// This is an instruction, increment the counter
+				instructionArrayIndex++;
+			}
+		}
+
+		// Build tries array from catch directives
+		const triesByRange = new Map<string, {
+			startAddress: number;
+			instructionCount: number;
+			handlers: Array<{ type: string; address: number }>;
+			catchAllAddress: number | undefined;
+		}>();
+
+		for (const catchDirective of catchDirectives) {
+			// Find the start and end instruction indices
+			const startIndex = labelToIndexMap.get(catchDirective.startLabel);
+			const endIndex = labelToIndexMap.get(catchDirective.endLabel);
+			const handlerIndex = labelToIndexMap.get(catchDirective.handlerLabel);
+
+			invariant(startIndex !== undefined, 'Expected to find start label %s', catchDirective.startLabel);
+			invariant(endIndex !== undefined, 'Expected to find end label %s', catchDirective.endLabel);
+			invariant(handlerIndex !== undefined, 'Expected to find handler label %s', catchDirective.handlerLabel);
+
+			const startAddress = branchOffsetByBranchOffsetIndex.get(startIndex);
+			const endAddress = branchOffsetByBranchOffsetIndex.get(endIndex);
+			const handlerAddress = branchOffsetByBranchOffsetIndex.get(handlerIndex);
+
+			invariant(startAddress !== undefined, 'Expected start address for index %s', startIndex);
+			invariant(endAddress !== undefined, 'Expected end address for index %s', endIndex);
+			invariant(handlerAddress !== undefined, 'Expected handler address for index %s', handlerIndex);
+
+			const instructionCount = endAddress - startAddress;
+			const rangeKey = `${startAddress}-${instructionCount}`;
+
+			let tryEntry = triesByRange.get(rangeKey);
+			if (!tryEntry) {
+				tryEntry = {
+					startAddress,
+					instructionCount,
+					handlers: [],
+					catchAllAddress: undefined,
+				};
+				triesByRange.set(rangeKey, tryEntry);
+			}
+
+			if (catchDirective.type === undefined) {
+				// .catchall
+				tryEntry.catchAllAddress = handlerAddress;
+			} else {
+				// .catch Type
+				tryEntry.handlers.push({
+					type: catchDirective.type,
+					address: handlerAddress,
+				});
+			}
+		}
+
+		const tries = Array.from(triesByRange.values()).map(tryEntry => ({
+			startAddress: tryEntry.startAddress,
+			instructionCount: tryEntry.instructionCount,
+			handler: {
+				handlers: tryEntry.handlers,
+				catchAllAddress: tryEntry.catchAllAddress,
+				size: tryEntry.handlers.length,
+			},
+		}));
+
 		for (const operation of instructions) {
 			delete (operation as any).labels;
 			delete (operation as any).branchOffsetIndex;
@@ -1641,7 +1845,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				outsSize: -1, // TODO
 				debugInfo: undefined, // TODO
 				instructions: instructions as any, // TODO
-				tries: [], // TODO
+				tries,
 				// _annotations,
 			},
 			parameterAnnotations: parameters.filter(parameter => parameter.annotation !== undefined),
