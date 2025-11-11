@@ -114,7 +114,7 @@ const jsonFalseParser: Parser<false, string> = promiseCompose(createExactSequenc
 setParserName(jsonFalseParser, 'jsonFalseParser');
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-const jsonNullParser: Parser<undefined, string> = promiseCompose(createExactSequenceParser('null'), () => null);
+const jsonNullParser: Parser<null, string> = promiseCompose(createExactSequenceParser('null'), () => null);
 
 setParserName(jsonNullParser, 'jsonNullParser');
 

@@ -1458,7 +1458,7 @@ const encodedValueAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Ui
 
 setParserName(encodedValueAnnotationParser, 'encodedValueAnnotationParser');
 
-const encodedValueNullParser: Parser<undefined, Uint8Array> = parserCreatorCompose(
+const encodedValueNullParser: Parser<null, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x1E),
 	valueArg => parserContext => {
 		parserContext.invariant(valueArg === 0, '(encodedValueNullParser) valueArg: %s', valueArg);

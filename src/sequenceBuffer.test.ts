@@ -109,7 +109,8 @@ test('sequenceBuffer', t => {
 test('skip more then first sequence length', t => {
 	const sequenceBuffer = new SequenceBufferImplementation(stringParserInputCompanion);
 
-	sequenceBuffer.push('a', 'b');
+	sequenceBuffer.push('a');
+	sequenceBuffer.push('b');
 	sequenceBuffer.skip(2);
 
 	t.deepEqual(sequenceBuffer.toSequenceBufferState(), {
