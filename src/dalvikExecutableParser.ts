@@ -805,6 +805,27 @@ const createSkipToThenClassDataItemsParser = (sizeOffset: SizeOffset): Parser<Da
 	parserName: 'skipToThenClassDataItemsParser',
 });
 
+// Internal type for encoded values with type tags during parsing
+type DalvikExecutableTaggedEncodedValue =
+	| { type: 'byte'; value: number }
+	| { type: 'short'; value: number }
+	| { type: 'char'; value: number }
+	| { type: 'int'; value: number }
+	| { type: 'long'; value: bigint }
+	| { type: 'float'; value: number }
+	| { type: 'double'; value: number }
+	| { type: 'methodType'; value: IndexIntoPrototypeIds }
+	| { type: 'methodHandle'; value: number }
+	| { type: 'string'; value: IndexIntoStringIds }
+	| { type: 'type'; value: IndexIntoTypeIds }
+	| { type: 'field'; value: IndexIntoFieldIds }
+	| { type: 'method'; value: IndexIntoMethodIds }
+	| { type: 'enum'; value: IndexIntoFieldIds }
+	| { type: 'array'; value: DalvikExecutableTaggedEncodedValue[] }
+	| { type: 'annotation'; value: DalvikExecutableEncodedAnnotation }
+	| { type: 'null'; value: null }
+	| { type: 'boolean'; value: boolean };
+
 const createByteWith5LeastSignificantBitsEqualParser = (leastSignificant5: number): Parser<number, Uint8Array> => {
 	const byteWith5LeastSignificantBitsEqualParser: Parser<number, Uint8Array> = async parserContext => {
 		const byte = await parserContext.read(0);
@@ -827,17 +848,17 @@ const createEncodedValueArgParser = (valueType: number): Parser<number, Uint8Arr
 	byte => byte >> 5,
 );
 
-const encodedValueByteParser: Parser<number, Uint8Array> = promiseCompose(
+const encodedValueByteParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		createExactElementParser(0),
 		ubyteParser,
 	]),
-	([ _, value ]) => value,
+	([ _, value ]) => ({ type: 'byte' as const, value }),
 );
 
 setParserName(encodedValueByteParser, 'encodedValueByteParser');
 
-const encodedValueShortParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueShortParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x02),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -847,7 +868,7 @@ const encodedValueShortParser: Parser<number, Uint8Array> = parserCreatorCompose
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readInt8(0);
+					return { type: 'short' as const, value: buffer.readInt8(0) };
 				},
 			);
 		}
@@ -858,7 +879,7 @@ const encodedValueShortParser: Parser<number, Uint8Array> = parserCreatorCompose
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readInt16LE(0);
+				return { type: 'short' as const, value: buffer.readInt16LE(0) };
 			},
 		);
 	},
@@ -866,7 +887,7 @@ const encodedValueShortParser: Parser<number, Uint8Array> = parserCreatorCompose
 
 setParserName(encodedValueShortParser, 'encodedValueShortParser');
 
-const encodedValueCharParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueCharParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x03),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -876,7 +897,7 @@ const encodedValueCharParser: Parser<number, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ 0, ...uint8Array ]);
-					return buffer.readUInt16LE(0);
+					return { type: 'char' as const, value: buffer.readUInt16LE(0) };
 				},
 			);
 		}
@@ -887,7 +908,7 @@ const encodedValueCharParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt16LE(0);
+				return { type: 'char' as const, value: buffer.readUInt16LE(0) };
 			},
 		);
 	},
@@ -895,7 +916,7 @@ const encodedValueCharParser: Parser<number, Uint8Array> = parserCreatorCompose(
 
 setParserName(encodedValueCharParser, 'encodedValueCharParser');
 
-const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueIntParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x04),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -905,7 +926,7 @@ const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readInt8(0);
+					return { type: 'int' as const, value: buffer.readInt8(0) };
 				},
 			);
 		}
@@ -915,7 +936,7 @@ const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readInt16LE(0);
+					return { type: 'int' as const, value: buffer.readInt16LE(0) };
 				},
 			);
 		}
@@ -929,7 +950,7 @@ const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
-					return buffer.readInt32LE(0);
+					return { type: 'int' as const, value: buffer.readInt32LE(0) };
 				},
 			);
 		}
@@ -940,7 +961,7 @@ const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readInt32LE(0);
+				return { type: 'int' as const, value: buffer.readInt32LE(0) };
 			},
 		);
 	},
@@ -948,7 +969,7 @@ const encodedValueIntParser: Parser<number, Uint8Array> = parserCreatorCompose(
 
 setParserName(encodedValueIntParser, 'encodedValueIntParser');
 
-const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
+const encodedValueLongParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x06),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -958,7 +979,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return BigInt(buffer.readInt8(0));
+					return { type: 'long' as const, value: BigInt(buffer.readInt8(0)) };
 				},
 			);
 		}
@@ -968,7 +989,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return BigInt(buffer.readInt16LE(0));
+					return { type: 'long' as const, value: BigInt(buffer.readInt16LE(0)) };
 				},
 			);
 		}
@@ -982,7 +1003,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
-					return BigInt(buffer.readInt32LE(0));
+					return { type: 'long' as const, value: BigInt(buffer.readInt32LE(0)) };
 				},
 			);
 		}
@@ -992,7 +1013,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return BigInt(buffer.readInt32LE(0));
+					return { type: 'long' as const, value: BigInt(buffer.readInt32LE(0)) };
 				},
 			);
 		}
@@ -1006,7 +1027,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ extensionByte, extensionByte, extensionByte, ...uint8Array ]);
-					return BigInt(buffer.readBigInt64LE(0));
+					return { type: 'long' as const, value: BigInt(buffer.readBigInt64LE(0)) };
 				},
 			);
 		}
@@ -1017,7 +1038,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readBigInt64LE(0);
+				return { type: 'long' as const, value: buffer.readBigInt64LE(0) };
 			},
 		);
 	},
@@ -1025,7 +1046,7 @@ const encodedValueLongParser: Parser<bigint, Uint8Array> = parserCreatorCompose(
 
 setParserName(encodedValueLongParser, 'encodedValueLongParser');
 
-const encodedValueFloatParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueFloatParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x10),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1035,7 +1056,7 @@ const encodedValueFloatParser: Parser<number, Uint8Array> = parserCreatorCompose
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0 ]);
-					return buffer.readFloatLE(0);
+					return { type: 'float' as const, value: buffer.readFloatLE(0) };
 				},
 			);
 		}
@@ -1045,7 +1066,7 @@ const encodedValueFloatParser: Parser<number, Uint8Array> = parserCreatorCompose
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0 ]);
-					return buffer.readFloatLE(0);
+					return { type: 'float' as const, value: buffer.readFloatLE(0) };
 				},
 			);
 		}
@@ -1056,7 +1077,7 @@ const encodedValueFloatParser: Parser<number, Uint8Array> = parserCreatorCompose
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readFloatLE(0);
+				return { type: 'float' as const, value: buffer.readFloatLE(0) };
 			},
 		);
 	},
@@ -1064,7 +1085,7 @@ const encodedValueFloatParser: Parser<number, Uint8Array> = parserCreatorCompose
 
 setParserName(encodedValueFloatParser, 'encodedValueFloatParser');
 
-const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueDoubleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x11),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1074,7 +1095,7 @@ const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompos
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0, 0 ]);
-					return buffer.readDoubleLE(0);
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
 		}
@@ -1084,7 +1105,7 @@ const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompos
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0 ]);
-					return buffer.readDoubleLE(0);
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
 		}
@@ -1094,7 +1115,7 @@ const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompos
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0 ]);
-					return buffer.readDoubleLE(0);
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
 		}
@@ -1105,7 +1126,7 @@ const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompos
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readDoubleLE(0);
+				return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 			},
 		);
 	},
@@ -1113,7 +1134,7 @@ const encodedValueDoubleParser: Parser<number, Uint8Array> = parserCreatorCompos
 
 setParserName(encodedValueDoubleParser, 'encodedValueDoubleParser');
 
-const encodedValueMethodTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueMethodTypeParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x15),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1123,7 +1144,7 @@ const encodedValueMethodTypeParser: Parser<number, Uint8Array> = parserCreatorCo
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUint8(0);
+					return { type: 'methodType' as const, value: isoIndexIntoPrototypeIds.wrap(buffer.readUint8(0)) };
 				},
 			);
 		}
@@ -1133,7 +1154,7 @@ const encodedValueMethodTypeParser: Parser<number, Uint8Array> = parserCreatorCo
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt16LE(0);
+					return { type: 'methodType' as const, value: isoIndexIntoPrototypeIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1144,7 +1165,7 @@ const encodedValueMethodTypeParser: Parser<number, Uint8Array> = parserCreatorCo
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt32LE(0);
+				return { type: 'methodType' as const, value: isoIndexIntoPrototypeIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1152,7 +1173,7 @@ const encodedValueMethodTypeParser: Parser<number, Uint8Array> = parserCreatorCo
 
 setParserName(encodedValueMethodTypeParser, 'encodedValueMethodTypeParser');
 
-const encodedValueMethodHandleParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueMethodHandleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x16),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1162,7 +1183,7 @@ const encodedValueMethodHandleParser: Parser<number, Uint8Array> = parserCreator
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt8(0);
+					return { type: 'methodHandle' as const, value: buffer.readUInt8(0) };
 				},
 			);
 		}
@@ -1172,7 +1193,7 @@ const encodedValueMethodHandleParser: Parser<number, Uint8Array> = parserCreator
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt16LE(0);
+					return { type: 'methodHandle' as const, value: buffer.readUInt16LE(0) };
 				},
 			);
 		}
@@ -1183,7 +1204,7 @@ const encodedValueMethodHandleParser: Parser<number, Uint8Array> = parserCreator
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt32LE(0);
+				return { type: 'methodHandle' as const, value: buffer.readUInt32LE(0) };
 			},
 		);
 	},
@@ -1191,7 +1212,7 @@ const encodedValueMethodHandleParser: Parser<number, Uint8Array> = parserCreator
 
 setParserName(encodedValueMethodHandleParser, 'encodedValueMethodHandleParser');
 
-const encodedValueStringParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueStringParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x17),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1201,7 +1222,7 @@ const encodedValueStringParser: Parser<number, Uint8Array> = parserCreatorCompos
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt8(0);
+					return { type: 'string' as const, value: isoIndexIntoStringIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1211,7 +1232,7 @@ const encodedValueStringParser: Parser<number, Uint8Array> = parserCreatorCompos
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt16LE(0);
+					return { type: 'string' as const, value: isoIndexIntoStringIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1222,7 +1243,7 @@ const encodedValueStringParser: Parser<number, Uint8Array> = parserCreatorCompos
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt32LE(0);
+				return { type: 'string' as const, value: isoIndexIntoStringIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1230,7 +1251,7 @@ const encodedValueStringParser: Parser<number, Uint8Array> = parserCreatorCompos
 
 setParserName(encodedValueStringParser, 'encodedValueStringParser');
 
-const encodedValueTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueTypeParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x18),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1240,7 +1261,7 @@ const encodedValueTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt8(0);
+					return { type: 'type' as const, value: isoIndexIntoTypeIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1250,7 +1271,7 @@ const encodedValueTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt16LE(0);
+					return { type: 'type' as const, value: isoIndexIntoTypeIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1261,7 +1282,7 @@ const encodedValueTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt32LE(0);
+				return { type: 'type' as const, value: isoIndexIntoTypeIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1269,7 +1290,7 @@ const encodedValueTypeParser: Parser<number, Uint8Array> = parserCreatorCompose(
 
 setParserName(encodedValueTypeParser, 'encodedValueTypeParser');
 
-const encodedValueFieldParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueFieldParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x19),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1279,7 +1300,7 @@ const encodedValueFieldParser: Parser<number, Uint8Array> = parserCreatorCompose
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt8(0);
+					return { type: 'field' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1289,7 +1310,7 @@ const encodedValueFieldParser: Parser<number, Uint8Array> = parserCreatorCompose
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt16LE(0);
+					return { type: 'field' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1300,7 +1321,7 @@ const encodedValueFieldParser: Parser<number, Uint8Array> = parserCreatorCompose
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt32LE(0);
+				return { type: 'field' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1308,7 +1329,7 @@ const encodedValueFieldParser: Parser<number, Uint8Array> = parserCreatorCompose
 
 setParserName(encodedValueFieldParser, 'encodedValueFieldParser');
 
-const encodedValueMethodParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueMethodParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x1A),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1318,7 +1339,7 @@ const encodedValueMethodParser: Parser<number, Uint8Array> = parserCreatorCompos
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt8(0);
+					return { type: 'method' as const, value: isoIndexIntoMethodIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1328,7 +1349,7 @@ const encodedValueMethodParser: Parser<number, Uint8Array> = parserCreatorCompos
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt16LE(0);
+					return { type: 'method' as const, value: isoIndexIntoMethodIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1339,7 +1360,7 @@ const encodedValueMethodParser: Parser<number, Uint8Array> = parserCreatorCompos
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt32LE(0);
+				return { type: 'method' as const, value: isoIndexIntoMethodIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1347,7 +1368,7 @@ const encodedValueMethodParser: Parser<number, Uint8Array> = parserCreatorCompos
 
 setParserName(encodedValueMethodParser, 'encodedValueMethodParser');
 
-const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
+const encodedValueEnumParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x1B),
 	sizeSubOne => {
 		const size = sizeSubOne + 1;
@@ -1357,7 +1378,7 @@ const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt8(0);
+					return { type: 'enum' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt8(0)) };
 				},
 			);
 		}
@@ -1367,7 +1388,7 @@ const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from(uint8Array);
-					return buffer.readUInt16LE(0);
+					return { type: 'enum' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt16LE(0)) };
 				},
 			);
 		}
@@ -1378,7 +1399,7 @@ const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
 			createFixedLengthSequenceParser(size),
 			uint8Array => {
 				const buffer = Buffer.from(uint8Array);
-				return buffer.readUInt32LE(0);
+				return { type: 'enum' as const, value: isoIndexIntoFieldIds.wrap(buffer.readUInt32LE(0)) };
 			},
 		);
 	},
@@ -1386,9 +1407,9 @@ const encodedValueEnumParser: Parser<number, Uint8Array> = parserCreatorCompose(
 
 setParserName(encodedValueEnumParser, 'encodedValueEnumParser');
 
-type DalvikExecutableEncodedArray = DalvikExecutableEncodedValue[];
+type DalvikExecutableEncodedArray = DalvikExecutableTaggedEncodedValue[];
 
-const encodedArrayParser: Parser<DalvikExecutableEncodedArray, Uint8Array> = parserCreatorCompose(
+const encodedArrayParser: Parser<DalvikExecutableTaggedEncodedValue[], Uint8Array> = parserCreatorCompose(
 	() => uleb128NumberParser,
 	size => createQuantifierParser(
 		encodedValueParser,
@@ -1398,7 +1419,7 @@ const encodedArrayParser: Parser<DalvikExecutableEncodedArray, Uint8Array> = par
 
 setParserName(encodedArrayParser, 'encodedArrayParser');
 
-const encodedValueArrayParser: Parser<DalvikExecutableEncodedValue[], Uint8Array> = promiseCompose(
+const encodedValueArrayParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		parserCreatorCompose(
 			() => createEncodedValueArgParser(0x1C),
@@ -1408,14 +1429,14 @@ const encodedValueArrayParser: Parser<DalvikExecutableEncodedValue[], Uint8Array
 		)(),
 		encodedArrayParser,
 	]),
-	([ _, array ]) => array,
+	([ _, array ]) => ({ type: 'array' as const, value: array }),
 );
 
 setParserName(encodedValueArrayParser, 'encodedValueArrayParser');
 
 type DalvikExecutableAnnotationElement = {
 	nameIndex: IndexIntoStringIds;
-	value: DalvikExecutableEncodedValue;
+	value: DalvikExecutableTaggedEncodedValue;
 };
 
 type DalvikExecutableEncodedAnnotation = {
@@ -1467,7 +1488,7 @@ const encodedAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Uint8Ar
 
 setParserName(encodedAnnotationParser, 'encodedAnnotationParser');
 
-const encodedValueAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Uint8Array> = promiseCompose(
+const encodedValueAnnotationParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		parserCreatorCompose(
 			() => createEncodedValueArgParser(0x1D),
@@ -1477,29 +1498,29 @@ const encodedValueAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Ui
 		)(),
 		encodedAnnotationParser,
 	]),
-	([ _, annotation ]) => annotation,
+	([ _, annotation ]) => ({ type: 'annotation' as const, value: annotation }),
 );
 
 setParserName(encodedValueAnnotationParser, 'encodedValueAnnotationParser');
 
-const encodedValueNullParser: Parser<null, Uint8Array> = parserCreatorCompose(
+const encodedValueNullParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = parserCreatorCompose(
 	() => createEncodedValueArgParser(0x1E),
 	valueArg => parserContext => {
 		parserContext.invariant(valueArg === 0, '(encodedValueNullParser) valueArg: %s', valueArg);
-		return null;
+		return ({ type: 'null' as const, value: null });
 	},
 )();
 
 setParserName(encodedValueNullParser, 'encodedValueNullParser');
 
-const encodedValueBooleanParser: Parser<boolean, Uint8Array> = promiseCompose(
+const encodedValueBooleanParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createEncodedValueArgParser(0x1F),
-	Boolean,
+	valueArg => ({ type: 'boolean' as const, value: Boolean(valueArg) }),
 );
 
 setParserName(encodedValueBooleanParser, 'encodedValueBooleanParser');
 
-const encodedValueParser: Parser<DalvikExecutableEncodedValue, Uint8Array> = createDisjunctionParser([
+const encodedValueParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = createDisjunctionParser([
 	encodedValueByteParser,
 	encodedValueShortParser,
 	encodedValueCharParser,
@@ -2684,6 +2705,148 @@ const createDalvikExecutableParser = <Instructions>({
 				});
 			}
 
+			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for static values
+			// Static values don't allow strings, so we keep indices as numbers
+			function resolveTaggedEncodedValueForStaticValues(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue {
+				const { type, value } = taggedValue;
+
+				// For primitive types, return the value
+				if (
+					type === 'byte'
+					|| type === 'short'
+					|| type === 'char'
+					|| type === 'int'
+					|| type === 'float'
+					|| type === 'double'
+				) {
+					return value;
+				}
+
+				// For method handle (index without typed wrapper), return as number
+				if (type === 'methodHandle') {
+					return value;
+				}
+
+				if (
+					type === 'methodType'
+					|| type === 'string'
+					|| type === 'type'
+					|| type === 'field'
+					|| type === 'method'
+					|| type === 'enum'
+				) {
+					return (value as any).value;
+				}
+
+				if (type === 'array') {
+					return value.map(resolveTaggedEncodedValueForStaticValues);
+				}
+
+				if (type === 'annotation') {
+					return value as any;
+				}
+
+				return value;
+			}
+
+			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for annotation elements
+			// Annotation elements allow strings in arrays for specific value types
+			function resolveTaggedEncodedValueForAnnotations(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string> {
+				const { type, value } = taggedValue;
+
+				// For primitive types, return the value as a number
+				if (
+					type === 'byte'
+					|| type === 'short'
+					|| type === 'char'
+					|| type === 'int'
+					|| type === 'float'
+					|| type === 'double'
+				) {
+					return value;
+				}
+
+				// For method handle (index without typed wrapper), return as number
+				if (type === 'methodHandle') {
+					return value;
+				}
+
+				// For typed indices that stay as numbers/objects, resolve them
+				if (type === 'methodType') {
+					const prototype = prototypes.at(value);
+					invariant(prototype, 'Prototype must be there. Prototype id: %s', isoIndexIntoPrototypeIds.unwrap(value));
+					return prototype as any;
+				}
+
+				if (type === 'field') {
+					const field = fields.at(value);
+					invariant(field, 'Field must be there. Field id: %s', isoIndexIntoFieldIds.unwrap(value));
+					return field as any;
+				}
+
+				if (type === 'method') {
+					const method = methods.at(value);
+					invariant(method, 'Method must be there. Method id: %s', isoIndexIntoMethodIds.unwrap(value));
+					return method as any;
+				}
+
+				if (type === 'enum') {
+					const enumField = fields.at(value);
+					invariant(enumField, 'Enum field must be there. Field id: %s', isoIndexIntoFieldIds.unwrap(value));
+					return enumField as any;
+				}
+
+				// For long values, return as bigint
+				if (type === 'long') {
+					return value;
+				}
+
+				// For boolean values, return as boolean
+				if (type === 'boolean') {
+					return value;
+				}
+
+				// For null values, return null
+				if (type === 'null') {
+					return null;
+				}
+
+				// For string type, resolve the string index to actual string
+				if (type === 'string') {
+					const string = strings.at(value);
+					// Handle cases where string index might not exist (e.g., index 0 in some DEX files)
+					if (string === undefined) {
+						return undefined;
+					}
+					// Return string directly for use in annotation arrays
+					return string as any;
+				}
+
+				// For type, resolve the type index to actual type string
+				if (type === 'type') {
+					const typeString = types.at(value);
+					// Handle cases where type index might not exist (e.g., index 0 in some DEX files)
+					if (typeString === undefined) {
+						return undefined;
+					}
+					// Return type string directly for use in annotation arrays
+					return typeString as any;
+				}
+
+				// For arrays, recursively resolve elements
+				if (type === 'array') {
+					return value.map(resolveTaggedEncodedValueForAnnotations) as any;
+				}
+
+				// For annotations
+				if (type === 'annotation') {
+					return value as any;
+				}
+
+				// Fallback: return value as number
+				return value as number;
+			}
+
 			function resolveAnnotationOffsetItem({ annotationOffset }: DalvikExecutableAnnotationOffsetItem): DalvikExecutableAnnotation {
 				const annotationItem = annotationItemByOffset.get(annotationOffset);
 				invariant(annotationItem, 'Annotation must be there. Annotation offset: %s', annotationOffset);
@@ -2697,7 +2860,7 @@ const createDalvikExecutableParser = <Instructions>({
 
 					return {
 						name,
-						value: element.value,
+						value: resolveTaggedEncodedValueForAnnotations(element.value),
 					};
 				});
 
@@ -2715,143 +2878,7 @@ const createDalvikExecutableParser = <Instructions>({
 					return [];
 				}
 
-				return annotationSet.map(resolveAnnotationElements);
-			}
-
-			function resolveAnnotationElements(annotation: DalvikExecutableAnnotation) {
-				if (annotation.elements.length === 0) {
-					return annotation;
-				}
-
-				// Annotations with 'value' element containing array of type indices
-				if (
-					annotation.type === 'Ldalvik/annotation/Throws;'
-						|| annotation.type === 'Ldalvik/annotation/MemberClasses;'
-				) {
-					const elements = annotation.elements.map(element => {
-						if (
-							element.name !== 'value'
-							|| !Array.isArray(element.value)
-						) {
-							return element;
-						}
-
-						const value = element.value.map(encodedValue => {
-							if (typeof encodedValue !== 'number') {
-								return encodedValue;
-							}
-
-							const type = types.at(isoIndexIntoTypeIds.wrap(encodedValue));
-							invariant(type, 'Type must be there. Type id: %s', encodedValue);
-
-							return type;
-						});
-
-						return { ...element, value };
-					});
-
-					return { ...annotation, elements };
-				}
-
-				if (
-					annotation.type === 'Ldalvik/annotation/Signature;'
-				) {
-					const elements = annotation.elements.map(element => {
-						if (
-							element.name !== 'value'
-							|| !Array.isArray(element.value)
-						) {
-							return element;
-						}
-
-						const value = element.value.map(encodedValue => {
-							if (typeof encodedValue !== 'number') {
-								return encodedValue;
-							}
-
-							const string = strings.at(isoIndexIntoStringIds.wrap(encodedValue));
-							invariant(string, 'String must be there. String id: %s', encodedValue);
-
-							return string;
-						});
-
-						return { ...element, value };
-					});
-
-					return { ...annotation, elements };
-				}
-
-				if (
-					annotation.type === 'Landroid/annotation/SuppressLint;'
-				) {
-					const elements = annotation.elements.map(element => {
-						if (
-							element.name !== 'value'
-							|| !Array.isArray(element.value)
-						) {
-							return element;
-						}
-
-						const value = element.value.map(encodedValue => {
-							if (typeof encodedValue !== 'number') {
-								return encodedValue;
-							}
-
-							const string = strings.at(isoIndexIntoStringIds.wrap(encodedValue));
-							invariant(string, 'String must be there. String id: %s', encodedValue);
-
-							return string;
-						});
-
-						return { ...element, value };
-					});
-
-					return { ...annotation, elements };
-				}
-
-				if (
-					annotation.type === 'Ldalvik/annotation/EnclosingClass;'
-				) {
-					const elements = annotation.elements.map(element => {
-						if (
-							element.name !== 'value'
-							|| typeof element.value !== 'number'
-						) {
-							return element;
-						}
-
-						const type = types.at(isoIndexIntoTypeIds.wrap(element.value));
-						invariant(type, 'Type must be there. Type id: %s', element.value);
-
-						return { ...element, value: type as any };
-					});
-
-					return { ...annotation, elements };
-				}
-
-				if (
-					annotation.type === 'Ldalvik/annotation/InnerClass;'
-				) {
-					const elements = annotation.elements.map(element => {
-						if (typeof element.value !== 'number') {
-							return element;
-						}
-
-						if (element.name === 'name') {
-							const string = strings.at(isoIndexIntoStringIds.wrap(element.value));
-							invariant(string, 'String must be there. String id: %s', element.value);
-
-							return { ...element, value: string as any };
-						}
-
-						// AccessFlags remains as a number
-						return element;
-					});
-
-					return { ...annotation, elements };
-				}
-
-				return annotation;
+				return annotationSet;
 			}
 
 			const classDefinitions = classDefinitionItems.map(classDefinitionItem => {
@@ -2966,8 +2993,10 @@ const createDalvikExecutableParser = <Instructions>({
 
 				const classData = classDataByOffset.get(classDefinitionItem.classDataOffset);
 
-				const staticValues = isoOffsetToEncodedArrayItem.unwrap(classDefinitionItem.staticValuesOffset) === 0 ? [] : encodedArrayItemByOffset.get(classDefinitionItem.staticValuesOffset);
-				invariant(staticValues, 'Static values must be there. Static values offset: %s', classDefinitionItem.staticValuesOffset);
+				const staticValuesTagged = isoOffsetToEncodedArrayItem.unwrap(classDefinitionItem.staticValuesOffset) === 0 ? [] : encodedArrayItemByOffset.get(classDefinitionItem.staticValuesOffset);
+				invariant(staticValuesTagged, 'Static values must be there. Static values offset: %s', classDefinitionItem.staticValuesOffset);
+
+				const staticValues = staticValuesTagged.map(resolveTaggedEncodedValueForStaticValues);
 
 				const allMembers = [
 					...classData?.staticFields ?? [],
