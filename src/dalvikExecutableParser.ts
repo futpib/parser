@@ -2718,8 +2718,12 @@ const createDalvikExecutableParser = <Instructions>({
 					|| type === 'int'
 					|| type === 'float'
 					|| type === 'double'
-					|| type === 'methodHandle'
 				) {
+					return value as number;
+				}
+
+				// For method handle (index without typed wrapper), return as number
+				if (type === 'methodHandle') {
 					return value as number;
 				}
 
@@ -2778,8 +2782,12 @@ const createDalvikExecutableParser = <Instructions>({
 					|| type === 'int'
 					|| type === 'float'
 					|| type === 'double'
-					|| type === 'methodHandle'
 				) {
+					return value as number;
+				}
+
+				// For method handle (index without typed wrapper), return as number
+				if (type === 'methodHandle') {
 					return value as number;
 				}
 
