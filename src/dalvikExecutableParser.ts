@@ -373,12 +373,14 @@ const parseAccessFlags = (flags: number): DalvikExecutableAccessFlags => parseAc
 const parseFieldAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
 	...parseAccessFlagsCommon(flags),
 	volatile: Boolean(flags & 0b0100_0000),
+	varargs: false, // Varargs is only for methods, not fields
 	bridge: false,
 });
 
 const parseMethodAccessFlags = (flags: number): DalvikExecutableAccessFlags => ({
 	...parseAccessFlagsCommon(flags),
 	volatile: false,
+	transient: false, // Transient is only for fields, not methods
 	bridge: Boolean(flags & 0b0100_0000),
 });
 
