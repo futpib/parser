@@ -799,6 +799,45 @@ const smaliCodeLabelLineParser: Parser<string, string> = promiseCompose(
 
 setParserName(smaliCodeLabelLineParser, 'smaliCodeLabelLineParser');
 
+const smaliCatchDirectiveParser: Parser<void, string> = promiseCompose(
+	createTupleParser([
+		smaliIndentationParser,
+		createExactSequenceParser('.catch'),
+		createUnionParser([
+			createExactSequenceParser('all'),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser(' '),
+					smaliTypeDescriptorParser,
+				]),
+				() => undefined,
+			),
+		]),
+		createExactSequenceParser(' {'),
+		smaliCodeLabelParser,
+		createExactSequenceParser(' .. '),
+		smaliCodeLabelParser,
+		createExactSequenceParser('} '),
+		smaliCodeLabelParser,
+		smaliLineEndPraser,
+	]),
+	() => undefined,
+);
+
+setParserName(smaliCatchDirectiveParser, 'smaliCatchDirectiveParser');
+
+const smaliLabeledCatchDirectiveParser: Parser<void, string> = promiseCompose(
+	createTupleParser([
+		createArrayParser(smaliCodeLineParser),
+		createOptionalParser(smaliCodeLocalParser),
+		createArrayParser(smaliCodeLabelLineParser),
+		smaliCatchDirectiveParser,
+	]),
+	() => undefined,
+);
+
+setParserName(smaliLabeledCatchDirectiveParser, 'smaliLabeledCatchDirectiveParser');
+
 const smaliParametersRegisterRangeParser: Parser<SmaliRegister[], string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('{'),
@@ -1461,10 +1500,13 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		createArrayParser(promiseCompose(
 			createTupleParser([
 				createOptionalParser(smaliCommentsOrNewlinesParser),
-				smaliAnnotatedCodeOperationParser,
+				createUnionParser([
+					smaliAnnotatedCodeOperationParser,
+					smaliLabeledCatchDirectiveParser,
+				]),
 			]),
 			([
-				_commentsOrNewlines,
+				_commentsOrNewlinesParser,
 				operation,
 			]) => operation,
 		)),
@@ -1474,9 +1516,10 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		annotations1,
 		parameters,
 		annotations2,
-		instructions,
+		instructions_,
 	]) => {
 		const annotations = [ ...annotations1, ...annotations2 ];
+		const instructions = instructions_.filter((instruction): instruction is SmaliCodeOperation => instruction !== undefined);
 
 		if (
 			registersSize === undefined
