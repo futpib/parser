@@ -1620,15 +1620,6 @@ const smaliAnnotatedCodeOperationParser: Parser<SmaliCodeOperation, string> = pr
 
 setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
 
-// Parser for orphaned labels (labels without following instructions)
-// These can appear at the end of a method before .end method
-const smaliOrphanedLabelsParser: Parser<undefined, string> = promiseCompose(
-	createNonEmptyArrayParser(smaliCodeLabelLineParser),
-	() => undefined,
-);
-
-setParserName(smaliOrphanedLabelsParser, 'smaliOrphanedLabelsParser');
-
 type SmaliExecutableCode<DalvikBytecode> = {
 	dalvikExecutableCode: DalvikExecutableCode<DalvikBytecode>;
 	parameterAnnotations: SmaliCodeParameter[]; // TODO?: SmaliAnnotation[]
@@ -1652,7 +1643,6 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 					smaliIndentedCommentParser,
 					smaliAnnotatedCodeOperationParser,
 					smaliLabeledCatchDirectiveParser,
-					smaliOrphanedLabelsParser,
 				]),
 			]),
 			([
