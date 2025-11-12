@@ -203,6 +203,9 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 			if (result.passed) {
 				result.commit();
+
+				console.log('ok', smaliFilePath);
+
 				continue;
 			}
 
@@ -222,6 +225,12 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 				}
 			}
 		}
+
+		for (const failure of failures) {
+			failure.commit();
+		}
+
+		t.pass('completed all classes');
 	},
 });
 
@@ -274,9 +283,9 @@ for (const [ dexCid, smaliFilePaths ] of Object.entries(testCasesByCid)) {
 
 test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
-test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
-	skipUntilClassPath: 'androidx/appcompat/widget/ActionBarContextView$a',
-});
+for (const dexCid of Object.keys(testCasesByCid)) {
+	test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, dexCid);
+}
 
 const smali = `
 .class public final La0/l;
