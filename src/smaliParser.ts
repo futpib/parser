@@ -595,8 +595,13 @@ type SmaliField = {
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('.field '),
-		smaliAccessFlagsParser,
-		smaliSingleWhitespaceParser,
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliAccessFlagsParser,
+				smaliSingleWhitespaceParser,
+			]),
+			([accessFlags, _space]) => accessFlags,
+		)),
 		smaliMemberNameParser,
 		createExactSequenceParser(':'),
 		smaliTypeDescriptorParser,
@@ -628,7 +633,6 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 	([
 		_field,
 		accessFlags,
-		_space,
 		name,
 		_colon,
 		type,
@@ -637,7 +641,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		annotations,
 	]) => ({
 		field: {
-			accessFlags,
+			accessFlags: accessFlags ?? dalvikExecutableAccessFlagsDefault(),
 			field: {
 				class: 'FILLED_LATER',
 				type,
