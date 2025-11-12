@@ -79,6 +79,31 @@ function sortParameterAnnotations(classDefinition: any) {
 	}
 }
 
+function sortFieldAnnotations(classDefinition: any) {
+	if (
+		classDefinition
+		&& typeof classDefinition === 'object'
+		&& 'annotations' in classDefinition
+		&& classDefinition.annotations
+		&& typeof classDefinition.annotations === 'object'
+		&& 'fieldAnnotations' in classDefinition.annotations
+		&& Array.isArray(classDefinition.annotations.fieldAnnotations)
+	) {
+		classDefinition.annotations.fieldAnnotations.sort((a: any, b: any) => {
+			// Sort by class name first
+			if (a.field.class !== b.field.class) {
+				return a.field.class.localeCompare(b.field.class);
+			}
+			// Then by field name
+			if (a.field.name !== b.field.name) {
+				return a.field.name.localeCompare(b.field.name);
+			}
+			// Then by field type
+			return a.field.type.localeCompare(b.field.type);
+		});
+	}
+}
+
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
 		if (
@@ -152,6 +177,10 @@ const parseDexAgainstSmaliMacro = test.macro({
 		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
 		sortParameterAnnotations(classDefinitionFromDex);
 		sortParameterAnnotations(classDefinitionFromSmali);
+
+		// Sort field annotations to ensure consistent ordering between DEX and Smali
+		sortFieldAnnotations(classDefinitionFromDex);
+		sortFieldAnnotations(classDefinitionFromSmali);
 
 		// Console.dir({
 		// 	classDefinitionFromSmali,
@@ -256,6 +285,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/appcompat/widget/e', isolate: true },
 		{ smaliFilePath: 'androidx/appcompat/widget/m0', isolate: true },
 		{ smaliFilePath: 'androidx/appcompat/widget/r1', isolate: true },
+		{ smaliFilePath: 'androidx/recyclerview/widget/RecyclerView$a0', isolate: true },
 		{ smaliFilePath: 'l4/a', isolate: true },
 		{ smaliFilePath: 'a', isolate: true },
 		{ smaliFilePath: 'a/b', isolate: true },
@@ -339,6 +369,10 @@ test.serial(
 		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
 		sortParameterAnnotations(classDefinitionFromDex);
 		sortParameterAnnotations(classDefinitionFromSmali);
+
+		// Sort field annotations to ensure consistent ordering between DEX and Smali
+		sortFieldAnnotations(classDefinitionFromDex);
+		sortFieldAnnotations(classDefinitionFromSmali);
 
 		t.deepEqual(
 			classDefinitionFromDex,
