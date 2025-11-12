@@ -378,11 +378,12 @@ const smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, 
 	// First, do a quick check to see if this looks like a method reference
 	// by looking for the '->' pattern
 	let hasArrow = false;
-	for (let i = 0; i < 200; i++) {  // Look ahead up to 200 characters
+	for (let i = 0; i < 200; i++) { // Look ahead up to 200 characters
 		const char = await parserContext.peek(i);
 		if (char === undefined || char === '\n') {
-			break;  // End of line reached without finding ->
+			break; // End of line reached without finding ->
 		}
+
 		if (char === '-') {
 			const nextChar = await parserContext.peek(i + 1);
 			if (nextChar === '>') {
@@ -391,19 +392,19 @@ const smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, 
 			}
 		}
 	}
-	
+
 	// If no -> found, this is not a method reference, fail early
 	if (!hasArrow) {
 		throw new ParserParsingFailedError('Not a method reference (no -> found)', 0, parserContext.position);
 	}
-	
+
 	// Parse class type descriptor
 	const classCharacters: string[] = [];
 	while (true) {
 		const character = await parserContext.peek(0);
 		parserContext.invariant(character !== undefined, 'Unexpected end of input');
 		invariant(character !== undefined, 'Unexpected end of input');
-		
+
 		if (character === '-') {
 			// Check if next is '>'
 			const nextChar = await parserContext.peek(1);
@@ -411,65 +412,65 @@ const smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, 
 				break;
 			}
 		}
-		
+
 		classCharacters.push(character);
 		parserContext.skip(1);
 	}
-	
+
 	const classType = classCharacters.join('');
-	
+
 	// Parse '->'
 	const arrow1 = await parserContext.peek(0);
 	const arrow2 = await parserContext.peek(1);
 	parserContext.invariant(arrow1 === '-' && arrow2 === '>', 'Expected ->');
 	parserContext.skip(2);
-	
+
 	// Parse method name
 	const methodNameCharacters: string[] = [];
 	while (true) {
 		const character = await parserContext.peek(0);
 		parserContext.invariant(character !== undefined, 'Unexpected end of input');
 		invariant(character !== undefined, 'Unexpected end of input');
-		
+
 		if (character === '(') {
 			break;
 		}
-		
+
 		methodNameCharacters.push(character);
 		parserContext.skip(1);
 	}
-	
+
 	const methodName = methodNameCharacters.join('');
-	
+
 	// Parse '('
 	const openParen = await parserContext.peek(0);
 	parserContext.invariant(openParen === '(', 'Expected (');
 	parserContext.skip(1);
-	
+
 	// Parse parameters (simplified - collect everything until ')')
 	const parametersCharacters: string[] = [];
 	while (true) {
 		const character = await parserContext.peek(0);
 		parserContext.invariant(character !== undefined, 'Unexpected end of input');
 		invariant(character !== undefined, 'Unexpected end of input');
-		
+
 		if (character === ')') {
 			break;
 		}
-		
+
 		parametersCharacters.push(character);
 		parserContext.skip(1);
 	}
-	
+
 	// Parse ')'
 	const closeParen = await parserContext.peek(0);
 	parserContext.invariant(closeParen === ')', 'Expected )');
 	parserContext.skip(1);
-	
+
 	// Parse return type (single character for primitives, or L....; for objects)
 	const returnTypeCharacters: string[] = [];
 	let char = await parserContext.peek(0);
-	
+
 	if (char === 'V' || char === 'Z' || char === 'B' || char === 'S' || char === 'C' || char === 'I' || char === 'J' || char === 'F' || char === 'D') {
 		// Primitive or void
 		returnTypeCharacters.push(char);
@@ -488,28 +489,28 @@ const smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, 
 			}
 		}
 	}
-	
+
 	const returnType = returnTypeCharacters.join('');
-	
+
 	// Parse parameters into array
 	const paramString = parametersCharacters.join('');
 	const parameters: string[] = [];
-	
+
 	if (paramString.length > 0) {
 		let i = 0;
 		while (i < paramString.length) {
 			let param = '';
-			
+
 			// Handle array prefix
 			while (i < paramString.length && paramString[i] === '[') {
 				param += paramString[i];
 				i++;
 			}
-			
+
 			if (i >= paramString.length) {
 				break;
 			}
-			
+
 			const typeChar = paramString[i];
 			if (typeChar === 'L') {
 				// Object type - collect until ';'
@@ -528,16 +529,16 @@ const smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, 
 				param += typeChar;
 				i++;
 			}
-			
+
 			if (param.length > 0) {
 				parameters.push(param);
 			}
 		}
 	}
-	
+
 	// Calculate shorty using the global function
 	const shorty = shortyFromLongy(returnType) + parameters.map(param => shortyFromLongy(param)).join('');
-	
+
 	return {
 		class: classType,
 		name: methodName,
@@ -1806,7 +1807,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		const instructions: SmaliCodeOperation[] = [];
 		const catchDirectives: SmaliCatchDirective[] = [];
 		const catchDirectiveLabels: Map<SmaliCatchDirective, string[]> = new Map();
-		
+
 		for (const item of instructionsAndCatchDirectives) {
 			if (item && typeof item === 'object') {
 				if ('labels' in item && 'catchDirective' in item) {
@@ -1978,7 +1979,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		// Labels attached to instructions map to that instruction's index
 		// Labels before catch directives should map to the position they mark
 		const labelToIndexMap = new Map<string, number>();
-		
+
 		// First, map labels from instructions
 		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (
@@ -1992,7 +1993,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				}
 			}
 		}
-		
+
 		// Now handle labels from catch directives
 		// We need to figure out where each catch directive appears in the original sequence
 		let instructionArrayIndex = 0;
