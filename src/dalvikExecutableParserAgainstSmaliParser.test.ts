@@ -235,6 +235,7 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 });
 
 const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; isolate?: boolean }>> = {
+	bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda: [],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
 	],
