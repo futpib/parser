@@ -266,6 +266,7 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; isolate?: boolean }>> = {
 	bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda: [
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$1', isolate: true },
+		{ smaliFilePath: 'androidx/activity/ComponentActivity$NonConfigurationInstances', isolate: true },
 	],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
