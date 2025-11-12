@@ -1834,7 +1834,7 @@ const dalvikBytecodeOperationArrayLengthParser: Parser<DalvikBytecodeOperationAr
 	]),
 	([ _opcode, { registers } ]) => ({
 		operation: 'array-length',
-		registers,
+		registers: registers.reverse(),
 	}),
 );
 
