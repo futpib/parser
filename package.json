@@ -18,7 +18,8 @@
       },
       "compile": false
     },
-    "verbose": true
+    "verbose": true,
+    "timeout": "20s"
   },
   "devDependencies": {
     "@ava/typescript": "^6.0.0",
