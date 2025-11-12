@@ -120,7 +120,7 @@ stringParserTest(smaliFieldParser, [
 					type: 'Lcom/journeyapps/barcodescanner/DecoratedBarcodeView;',
 				},
 			},
-			annotation: undefined,
+		annotations: [],
 		},
 	],
 	[
@@ -164,21 +164,23 @@ stringParserTest(smaliFieldParser, [
 					type: 'Lo/b;',
 				},
 			},
-			annotation: {
-				visibility: 'system',
-				type: 'Ldalvik/annotation/Signature;',
-				elements: [
-					{
-						name: 'value',
-						value: [
-							'Lo/b<',
-							'Ljava/lang/Float;',
-							'Lo/i;',
-							'>;',
-						],
-					},
-				],
-			},
+		annotations: [
+				{
+					visibility: 'system',
+					type: 'Ldalvik/annotation/Signature;',
+					elements: [
+						{
+							name: 'value',
+							value: [
+								'Lo/b<',
+								'Ljava/lang/Float;',
+								'Lo/i;',
+								'>;',
+							],
+						},
+					],
+				},
+			],
 		},
 	],
 ]);
