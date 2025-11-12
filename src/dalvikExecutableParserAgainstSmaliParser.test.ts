@@ -228,6 +228,7 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; isolate?: boolean }>> = {
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
+		'pl/czak/minimal/R',
 	],
 	bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy: [
 		{ smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity', isolate: true },

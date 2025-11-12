@@ -2263,7 +2263,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 	createTupleParser([
 		smaliClassDeclarationParser,
 		smaliSuperDeclarationParser,
-		smaliSourceDeclarationParser,
+		createOptionalParser(smaliSourceDeclarationParser),
 		createOptionalParser(promiseCompose(
 			createTupleParser([
 				smaliCommentsOrNewlinesParser,
@@ -2307,14 +2307,13 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		{
 			superclass,
 		},
-		{
-			sourceFile,
-		},
+		sourceFileObject,
 		interfaces,
 		classAnnotations,
 		smaliFields,
 		methods,
 	]) => {
+		const sourceFile = sourceFileObject?.sourceFile;
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],
