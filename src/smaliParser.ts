@@ -1949,7 +1949,7 @@ function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeO
 		sortRegistersOperations.has(operation.operation)
 		&& 'registers' in operation
 	) {
-		operation.registers.sort();
+		operation.registers.sort((a, b) => a - b);
 	}
 
 	if (
