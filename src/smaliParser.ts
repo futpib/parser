@@ -26,7 +26,6 @@ import { type IndexIntoMethodIds } from './dalvikExecutableParser/typedNumbers.j
 import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createDebugLogParser } from './debugLogParser.js';
 import { createElementParser } from './elementParser.js';
-import { ParserParsingFailedError } from './parserError.js';
 
 function shortyFromLongy(longy: string): string {
 	if (longy.startsWith('[')) {
@@ -374,183 +373,8 @@ setParserName(smaliEnumValueParser, 'smaliEnumValueParser');
 // Parser for method references in annotations (e.g., for EnclosingMethod annotation)
 // Parses: ClassName;->methodName(Parameters)ReturnType
 // Returns a DalvikExecutableMethod object to match the DEX parser output
-const smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, string> = async (parserContext: ParserContext<string, string>) => {
-	// First, do a quick check to see if this looks like a method reference
-	// by looking for the '->' pattern
-	let hasArrow = false;
-	for (let i = 0; i < 200; i++) { // Look ahead up to 200 characters
-		const char = await parserContext.peek(i);
-		if (char === undefined || char === '\n') {
-			break; // End of line reached without finding ->
-		}
-
-		if (char === '-') {
-			const nextChar = await parserContext.peek(i + 1);
-			if (nextChar === '>') {
-				hasArrow = true;
-				break;
-			}
-		}
-	}
-
-	// If no -> found, this is not a method reference, fail early
-	if (!hasArrow) {
-		throw new ParserParsingFailedError('Not a method reference (no -> found)', 0, parserContext.position);
-	}
-
-	// Parse class type descriptor
-	const classCharacters: string[] = [];
-	while (true) {
-		const character = await parserContext.peek(0);
-		parserContext.invariant(character !== undefined, 'Unexpected end of input');
-		invariant(character !== undefined, 'Unexpected end of input');
-
-		if (character === '-') {
-			// Check if next is '>'
-			const nextChar = await parserContext.peek(1);
-			if (nextChar === '>') {
-				break;
-			}
-		}
-
-		classCharacters.push(character);
-		parserContext.skip(1);
-	}
-
-	const classType = classCharacters.join('');
-
-	// Parse '->'
-	const arrow1 = await parserContext.peek(0);
-	const arrow2 = await parserContext.peek(1);
-	parserContext.invariant(arrow1 === '-' && arrow2 === '>', 'Expected ->');
-	parserContext.skip(2);
-
-	// Parse method name
-	const methodNameCharacters: string[] = [];
-	while (true) {
-		const character = await parserContext.peek(0);
-		parserContext.invariant(character !== undefined, 'Unexpected end of input');
-		invariant(character !== undefined, 'Unexpected end of input');
-
-		if (character === '(') {
-			break;
-		}
-
-		methodNameCharacters.push(character);
-		parserContext.skip(1);
-	}
-
-	const methodName = methodNameCharacters.join('');
-
-	// Parse '('
-	const openParen = await parserContext.peek(0);
-	parserContext.invariant(openParen === '(', 'Expected (');
-	parserContext.skip(1);
-
-	// Parse parameters (simplified - collect everything until ')')
-	const parametersCharacters: string[] = [];
-	while (true) {
-		const character = await parserContext.peek(0);
-		parserContext.invariant(character !== undefined, 'Unexpected end of input');
-		invariant(character !== undefined, 'Unexpected end of input');
-
-		if (character === ')') {
-			break;
-		}
-
-		parametersCharacters.push(character);
-		parserContext.skip(1);
-	}
-
-	// Parse ')'
-	const closeParen = await parserContext.peek(0);
-	parserContext.invariant(closeParen === ')', 'Expected )');
-	parserContext.skip(1);
-
-	// Parse return type (single character for primitives, or L....; for objects)
-	const returnTypeCharacters: string[] = [];
-	let char = await parserContext.peek(0);
-
-	if (char === 'V' || char === 'Z' || char === 'B' || char === 'S' || char === 'C' || char === 'I' || char === 'J' || char === 'F' || char === 'D') {
-		// Primitive or void
-		returnTypeCharacters.push(char);
-		parserContext.skip(1);
-	} else if (char === 'L' || char === '[') {
-		// Object type or array - collect until ';' or end
-		while (true) {
-			char = await parserContext.peek(0);
-			if (char === undefined || char === '\n' || char === ' ' || char === '\t') {
-				break;
-			}
-			returnTypeCharacters.push(char);
-			parserContext.skip(1);
-			if (char === ';') {
-				break;
-			}
-		}
-	}
-
-	const returnType = returnTypeCharacters.join('');
-
-	// Parse parameters into array
-	const paramString = parametersCharacters.join('');
-	const parameters: string[] = [];
-
-	if (paramString.length > 0) {
-		let i = 0;
-		while (i < paramString.length) {
-			let param = '';
-
-			// Handle array prefix
-			while (i < paramString.length && paramString[i] === '[') {
-				param += paramString[i];
-				i++;
-			}
-
-			if (i >= paramString.length) {
-				break;
-			}
-
-			const typeChar = paramString[i];
-			if (typeChar === 'L') {
-				// Object type - collect until ';'
-				param += typeChar;
-				i++;
-				while (i < paramString.length && paramString[i] !== ';') {
-					param += paramString[i];
-					i++;
-				}
-				if (i < paramString.length) {
-					param += paramString[i]; // Include the ';'
-					i++;
-				}
-			} else {
-				// Primitive type
-				param += typeChar;
-				i++;
-			}
-
-			if (param.length > 0) {
-				parameters.push(param);
-			}
-		}
-	}
-
-	// Calculate shorty using the global function
-	const shorty = shortyFromLongy(returnType) + parameters.map(param => shortyFromLongy(param)).join('');
-
-	return {
-		class: classType,
-		name: methodName,
-		prototype: {
-			parameters,
-			returnType,
-			shorty,
-		},
-	};
-};
-
-setParserName(smaliAnnotationMethodReferenceValueParser, 'smaliAnnotationMethodReferenceValueParser');
+// Forward reference to smaliAnnotationMethodReferenceValueParser (defined later after dependencies)
+let smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, string>;
 
 const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
 	createTupleParser([
@@ -560,7 +384,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		createDisjunctionParser([
 			smaliEnumValueParser,
 			smaliQuotedStringParser,
-			smaliAnnotationMethodReferenceValueParser,
+			async (parserContext) => smaliAnnotationMethodReferenceValueParser(parserContext),
 			smaliTypeDescriptorParser,
 			smaliNumberParser,
 			promiseCompose(
@@ -1284,6 +1108,12 @@ const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = prom
 );
 
 setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
+
+// Parser for method references in annotations (e.g., EnclosingMethod annotation)
+// Reuses smaliParametersMethodParser which parses: ClassName;->methodName(Parameters)ReturnType
+smaliAnnotationMethodReferenceValueParser = cloneParser(smaliParametersMethodParser);
+
+setParserName(smaliAnnotationMethodReferenceValueParser, 'smaliAnnotationMethodReferenceValueParser');
 
 const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = promiseCompose(
 	createTupleParser([
