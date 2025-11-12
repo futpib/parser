@@ -271,6 +271,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$1', isolate: true },
 		{ smaliFilePath: 'androidx/activity/R$id', isolate: true },
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$NonConfigurationInstances', isolate: true },
+		{ smaliFilePath: 'androidx/core/content/FileProvider', isolate: true },
 	],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
@@ -280,6 +281,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity', isolate: true },
 		{ smaliFilePath: '_COROUTINE/ArtificialStackFrames', isolate: true },
 		{ smaliFilePath: 'androidx/appcompat/widget/AppCompatTextHelper', isolate: true },
+		{ smaliFilePath: '_COROUTINE/CoroutineDebuggingKt', isolate: true },
 	],
 	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
@@ -313,6 +315,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a3/b', isolate: true },
 		{ smaliFilePath: 'a3/d', isolate: true },
 		{ smaliFilePath: 'a4/b', isolate: true },
+		{ smaliFilePath: 'y4/t1', isolate: true },
 	],
 };
 
