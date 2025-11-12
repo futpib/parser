@@ -1844,6 +1844,42 @@ const dalvikBytecodeOperationConstClassParser: Parser<DalvikBytecodeOperationCon
 
 setParserName(dalvikBytecodeOperationConstClassParser, 'dalvikBytecodeOperationConstClassParser');
 
+type DalvikBytecodeOperationMonitorEnter = {
+	operation: 'monitor-enter';
+	registers: number[];
+};
+
+const dalvikBytecodeOperationMonitorEnterParser: Parser<DalvikBytecodeOperationMonitorEnter, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x1D),
+		dalvikBytecodeFormat11xParser,
+	]),
+	([ _opcode, { registers } ]) => ({
+		operation: 'monitor-enter',
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationMonitorEnterParser, 'dalvikBytecodeOperationMonitorEnterParser');
+
+type DalvikBytecodeOperationMonitorExit = {
+	operation: 'monitor-exit';
+	registers: number[];
+};
+
+const dalvikBytecodeOperationMonitorExitParser: Parser<DalvikBytecodeOperationMonitorExit, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x1E),
+		dalvikBytecodeFormat11xParser,
+	]),
+	([ _opcode, { registers } ]) => ({
+		operation: 'monitor-exit',
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationMonitorExitParser, 'dalvikBytecodeOperationMonitorExitParser');
+
 type DalvikBytecodeOperationReturnVoid = {
 	operation: 'return-void';
 };
@@ -2306,6 +2342,9 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationConstMethodHandle
 	| DalvikBytecodeOperationConstClass
 
+	| DalvikBytecodeOperationMonitorEnter
+	| DalvikBytecodeOperationMonitorExit
+
 	| DalvikBytecodeOperationThrow
 
 	| DalvikBytecodeOperationCompare
@@ -2350,6 +2389,9 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 			dalvikBytecodeOperationConstStringJumboParser,
 			dalvikBytecodeOperationConstMethodHandleParser,
 			dalvikBytecodeOperationConstClassParser,
+
+			dalvikBytecodeOperationMonitorEnterParser,
+			dalvikBytecodeOperationMonitorExitParser,
 
 			dalvikBytecodeOperationReturnVoidParser,
 			dalvikBytecodeOperationReturn1Parser,
