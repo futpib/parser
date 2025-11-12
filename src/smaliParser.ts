@@ -370,9 +370,54 @@ const smaliEnumValueParser: Parser<DalvikExecutableField, string> = promiseCompo
 
 setParserName(smaliEnumValueParser, 'smaliEnumValueParser');
 
-// Parser for method references in annotations (e.g., for EnclosingMethod annotation)
-// Parses: ClassName;->methodName(Parameters)ReturnType
-// Returns a DalvikExecutableMethod object to match the DEX parser output
+const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('('),
+		createArrayParser(smaliTypeDescriptorParser),
+		createExactSequenceParser(')'),
+		smaliTypeDescriptorParser,
+	]),
+	([
+		_openParenthesis,
+		parameters,
+		_closeParenthesis,
+		returnType,
+	]) => ({
+		parameters,
+		returnType,
+		shorty: shortyFromLongy(returnType) + parameters.map(parameter => {
+			if (parameter === 'V') {
+				return '';
+			}
+
+			return shortyFromLongy(parameter);
+		}).join(''),
+	}),
+);
+
+setParserName(smaliMethodPrototypeParser, 'smaliMethodPrototypeParser');
+
+const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = promiseCompose(
+	createTupleParser([
+		smaliTypeDescriptorParser,
+		createExactSequenceParser('->'),
+		smaliMemberNameParser,
+		smaliMethodPrototypeParser,
+	]),
+	([
+		classPath,
+		_separator,
+		methodName,
+		prototype,
+	]) => ({
+		class: classPath,
+		prototype,
+		name: methodName,
+	}),
+);
+
+setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
+
 const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
 	createTupleParser([
 		smaliIndentationParser,
@@ -381,9 +426,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		createDisjunctionParser([
 			smaliEnumValueParser,
 			smaliQuotedStringParser,
-			// Forward reference to smaliParametersMethodParser (defined later after dependencies)
-			// Parses method references like: ClassName;->methodName(Parameters)ReturnType
-			async (parserContext) => smaliParametersMethodParser(parserContext),
+			smaliParametersMethodParser,
 			smaliTypeDescriptorParser,
 			smaliNumberParser,
 			promiseCompose(
@@ -670,33 +713,6 @@ function shortyGetInsSize(shorty: string): number {
 
 	return size;
 }
-
-const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('('),
-		createArrayParser(smaliTypeDescriptorParser),
-		createExactSequenceParser(')'),
-		smaliTypeDescriptorParser,
-	]),
-	([
-		_openParenthesis,
-		parameters,
-		_closeParenthesis,
-		returnType,
-	]) => ({
-		parameters,
-		returnType,
-		shorty: shortyFromLongy(returnType) + parameters.map(parameter => {
-			if (parameter === 'V') {
-				return '';
-			}
-
-			return shortyFromLongy(parameter);
-		}).join(''),
-	}),
-);
-
-setParserName(smaliMethodPrototypeParser, 'smaliMethodPrototypeParser');
 
 const smaliCodeRegistersParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
@@ -1086,27 +1102,6 @@ setParserName(smaliParametersLabelParser, 'smaliParametersLabelParser');
 const smaliParametersTypeParser: Parser<string, string> = cloneParser(smaliTypeDescriptorParser);
 
 setParserName(smaliParametersTypeParser, 'smaliParametersTypeParser');
-
-const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = promiseCompose(
-	createTupleParser([
-		smaliTypeDescriptorParser,
-		createExactSequenceParser('->'),
-		smaliMemberNameParser,
-		smaliMethodPrototypeParser,
-	]),
-	([
-		classPath,
-		_separator,
-		methodName,
-		prototype,
-	]) => ({
-		class: classPath,
-		prototype,
-		name: methodName,
-	}),
-);
-
-setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
 
 const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = promiseCompose(
 	createTupleParser([
