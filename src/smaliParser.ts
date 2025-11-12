@@ -50,7 +50,7 @@ function getOperationFormatSize(operation: SmaliCodeOperation): number {
 		return dataSize + paddingSize + 8; // 8 bytes for header (ident + elementWidth + size)
 	}
 
-	const operationFormat = operationFormats[operation.operation];
+	const operationFormat = operationFormats[operation.operation as keyof typeof operationFormats];
 	invariant(operationFormat, 'Unknown operation format for "%s" (operation: %o)', operation.operation, operation);
 
 	const operationSize = formatSizes[operationFormat];
@@ -576,7 +576,7 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
-	annotation: SmaliAnnotation | undefined;
+	annotations: SmaliAnnotation[];
 };
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
@@ -590,13 +590,16 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		smaliLineEndPraser,
 		createOptionalParser(promiseCompose(
 			createTupleParser([
-				smaliAnnotationParser,
+				createSeparatedArrayParser(
+					smaliAnnotationParser,
+					smaliNewlinesParser,
+				),
 				createExactSequenceParser('.end field\n'),
 			]),
 			([
-				annotation,
+				annotations,
 				_endField,
-			]) => annotation,
+			]) => annotations,
 		)),
 	]),
 	([
@@ -607,7 +610,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		_colon,
 		type,
 		_newline,
-		annotation,
+		annotations,
 	]) => ({
 		field: {
 			accessFlags,
@@ -617,7 +620,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 				name,
 			},
 		},
-		annotation,
+		annotations: annotations ?? [],
 	}),
 );
 
@@ -2325,7 +2328,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		};
 
 		for (const smaliField of [ ...(smaliFields?.staticFields ?? []), ...(smaliFields?.instanceFields ?? []) ]) {
-			if (!smaliField.annotation) {
+			if (smaliField.annotations.length === 0) {
 				continue;
 			}
 
@@ -2336,13 +2339,13 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 
 			if (existingFieldAnnotations) {
 				existingFieldAnnotations.annotations ??= [];
-				existingFieldAnnotations.annotations.push(smaliField.annotation as any); // TODO
+				existingFieldAnnotations.annotations.push(...smaliField.annotations as any); // TODO
 				continue;
 			}
 
 			annotations.fieldAnnotations.push({
 				field: smaliField.field.field,
-				annotations: [ smaliField.annotation as any ], // TODO
+				annotations: smaliField.annotations as any, // TODO
 			});
 		}
 
