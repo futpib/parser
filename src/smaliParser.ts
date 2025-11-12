@@ -336,18 +336,70 @@ type SmaliAnnotationElement = {
 	value: unknown; // TODO
 };
 
+const smaliEnumValueParser: Parser<DalvikExecutableField, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('.enum '),
+		smaliTypeDescriptorParser,
+		createExactSequenceParser('->'),
+		smaliMemberNameParser,
+		createExactSequenceParser(':'),
+		smaliTypeDescriptorParser,
+	]),
+	([
+		_enum,
+		classType,
+		_arrow,
+		fieldName,
+		_colon,
+		fieldType,
+	]) => ({
+		class: classType,
+		type: fieldType,
+		name: fieldName,
+	}),
+);
+
+setParserName(smaliEnumValueParser, 'smaliEnumValueParser');
+
 const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
 	createTupleParser([
 		smaliIndentationParser,
 		smaliIdentifierParser,
 		createExactSequenceParser(' = '),
-		createUnionParser([
+		createDisjunctionParser([
+			smaliEnumValueParser,
 			smaliQuotedStringParser,
 			smaliTypeDescriptorParser,
 			smaliNumberParser,
 			promiseCompose(
 				createExactSequenceParser('null'),
 				() => null,
+			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('{\n'),
+					createSeparatedArrayParser(
+						promiseCompose(
+							createTupleParser([
+								smaliIndentationParser,
+								smaliEnumValueParser,
+							]),
+							([
+								_indentation,
+								value,
+							]) => value,
+						),
+						createExactSequenceParser(',\n'),
+					),
+					smaliLineEndPraser,
+					smaliIndentationParser,
+					createExactSequenceParser('}'),
+				]),
+				([
+					_openBrace,
+					value,
+					_closeBrace,
+				]) => value,
 			),
 			promiseCompose(
 				createTupleParser([
