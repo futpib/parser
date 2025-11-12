@@ -214,13 +214,13 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 });
 
 const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; isolate?: boolean }>> = {
-	'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4': [
+	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
 	],
-	'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy': [
+	bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy: [
 		{ smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity', isolate: true },
 	],
-	'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq': [
+	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
 		{ smaliFilePath: 'androidx/lifecycle/b0', isolate: true },
 		{ smaliFilePath: 'androidx/activity/b', isolate: true },
@@ -247,7 +247,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 	],
 };
 
-for (const [dexCid, smaliFilePaths] of Object.entries(testCasesByCid)) {
+for (const [ dexCid, smaliFilePaths ] of Object.entries(testCasesByCid)) {
 	for (const smaliFilePath of smaliFilePaths) {
 		test.serial(parseDexAgainstSmaliMacro, dexCid, smaliFilePath);
 	}
