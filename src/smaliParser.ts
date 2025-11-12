@@ -1889,7 +1889,9 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			handler: {
 				handlers: tryEntry.handlers,
 				catchAllAddress: tryEntry.catchAllAddress,
-				size: tryEntry.handlers.length,
+				size: tryEntry.catchAllAddress !== undefined
+					? (tryEntry.handlers.length === 0 ? 0 : -tryEntry.handlers.length)
+					: tryEntry.handlers.length,
 			},
 		}));
 
