@@ -373,9 +373,6 @@ setParserName(smaliEnumValueParser, 'smaliEnumValueParser');
 // Parser for method references in annotations (e.g., for EnclosingMethod annotation)
 // Parses: ClassName;->methodName(Parameters)ReturnType
 // Returns a DalvikExecutableMethod object to match the DEX parser output
-// Forward reference to smaliAnnotationMethodReferenceValueParser (defined later after dependencies)
-let smaliAnnotationMethodReferenceValueParser: Parser<DalvikExecutableMethod, string>;
-
 const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
 	createTupleParser([
 		smaliIndentationParser,
@@ -384,7 +381,9 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		createDisjunctionParser([
 			smaliEnumValueParser,
 			smaliQuotedStringParser,
-			async (parserContext) => smaliAnnotationMethodReferenceValueParser(parserContext),
+			// Forward reference to smaliParametersMethodParser (defined later after dependencies)
+			// Parses method references like: ClassName;->methodName(Parameters)ReturnType
+			async (parserContext) => smaliParametersMethodParser(parserContext),
 			smaliTypeDescriptorParser,
 			smaliNumberParser,
 			promiseCompose(
@@ -1108,10 +1107,6 @@ const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = prom
 );
 
 setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
-
-// Parser for method references in annotations (e.g., EnclosingMethod annotation)
-// Reuses smaliParametersMethodParser which parses: ClassName;->methodName(Parameters)ReturnType
-smaliAnnotationMethodReferenceValueParser = smaliParametersMethodParser;
 
 const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = promiseCompose(
 	createTupleParser([
