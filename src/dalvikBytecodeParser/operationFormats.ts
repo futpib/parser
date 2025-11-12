@@ -202,7 +202,6 @@ export const operationFormats = {
 	'add-int/lit16': '22s',
 	'rsub-int': '22s',
 	'rsub-int/lit16': '22s',
-	'rsub-long': '12x',
 	'mul-int/lit16': '22s',
 	'div-int/lit16': '22s',
 	'rem-int/lit16': '22s',

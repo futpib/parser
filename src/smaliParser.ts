@@ -1983,6 +1983,7 @@ const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>
 	'ushr-int/2addr',
 
 	'add-long/2addr',
+	'sub-long/2addr',
 	'mul-long/2addr',
 	'div-long/2addr',
 	'rem-long/2addr',
@@ -2003,9 +2004,6 @@ const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>
 	'mul-double/2addr',
 	'div-double/2addr',
 	'rem-double/2addr',
-
-	// Reverse subtract (also 12x format)
-	'rsub-long',
 ]);
 
 function normalizeOperation(operation: DalvikBytecodeOperation): DalvikBytecodeOperation {
