@@ -113,9 +113,21 @@ export const smaliCommentParser: Parser<string, string> = promiseCompose(
 	]) => comment,
 );
 
+const smaliIndentedCommentParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createNonEmptyArrayParser(smaliSingleIndentationParser),
+		smaliCommentParser,
+	]),
+	([
+		_indentation,
+		comment,
+	]) => comment,
+);
+
 const smaliCommentsOrNewlinesParser: Parser<string[], string> = promiseCompose(
 	createArrayParser(createUnionParser<undefined | string, string, string>([
 		smaliNewlinesParser,
+		smaliIndentedCommentParser,
 		smaliCommentParser,
 	])),
 	newlinesOrComments => newlinesOrComments.filter((newlineOrComment): newlineOrComment is string => typeof newlineOrComment === 'string'),
