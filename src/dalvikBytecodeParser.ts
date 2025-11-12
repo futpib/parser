@@ -1030,9 +1030,9 @@ const dalvikBytecodeOperationAddLongInPlaceParser = createDalvikBytecodeOperatio
 
 type DalvikBytecodeOperationAddLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddLongInPlaceParser>>;
 
-const dalvikBytecodeOperationReverseSubtractLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rsub-long', 0xBC);
+const dalvikBytecodeOperationSubtractLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-long/2addr', 0xBC);
 
-type DalvikBytecodeOperationReverseSubtractLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationReverseSubtractLongInPlaceParser>>;
+type DalvikBytecodeOperationSubtractLongInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractLongInPlaceParser>>;
 
 const dalvikBytecodeOperationMultiplyLongInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-long/2addr', 0xBD);
 
@@ -1119,7 +1119,7 @@ type DalvikBytecodeOperationBinaryOperationInPlace =
 	| DalvikBytecodeOperationShiftRightIntInPlace
 	| DalvikBytecodeOperationUnsignedShiftRightIntInPlace
 	| DalvikBytecodeOperationAddLongInPlace
-	| DalvikBytecodeOperationReverseSubtractLongInPlace
+	| DalvikBytecodeOperationSubtractLongInPlace
 	| DalvikBytecodeOperationMultiplyLongInPlace
 	| DalvikBytecodeOperationDivideLongInPlace
 	| DalvikBytecodeOperationRemainderLongInPlace
@@ -1153,7 +1153,7 @@ const dalvikBytecodeOperationBinaryOperationInPlaceParser: Parser<DalvikBytecode
 	dalvikBytecodeOperationShiftRightIntInPlaceParser,
 	dalvikBytecodeOperationUnsignedShiftRightIntInPlaceParser,
 	dalvikBytecodeOperationAddLongInPlaceParser,
-	dalvikBytecodeOperationReverseSubtractLongInPlaceParser,
+	dalvikBytecodeOperationSubtractLongInPlaceParser,
 	dalvikBytecodeOperationMultiplyLongInPlaceParser,
 	dalvikBytecodeOperationDivideLongInPlaceParser,
 	dalvikBytecodeOperationRemainderLongInPlaceParser,
