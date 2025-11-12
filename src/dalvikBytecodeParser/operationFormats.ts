@@ -29,8 +29,6 @@ export const operationFormats = {
 	'const-string': '21c',
 	'const-string/jumbo': '31c',
 	'const-class': '21c',
-	'const-method-handle': '21c',
-	'const-method-type': '21c',
 	'monitor-enter': '11x',
 	'monitor-exit': '11x',
 	'check-cast': '21c',

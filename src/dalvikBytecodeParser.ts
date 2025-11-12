@@ -1822,6 +1822,24 @@ const dalvikBytecodeOperationCheckCastParser: Parser<DalvikBytecodeOperationChec
 
 setParserName(dalvikBytecodeOperationCheckCastParser, 'dalvikBytecodeOperationCheckCastParser');
 
+type DalvikBytecodeOperationArrayLength = {
+	operation: 'array-length';
+	registers: number[];
+};
+
+const dalvikBytecodeOperationArrayLengthParser: Parser<DalvikBytecodeOperationArrayLength, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x21),
+		dalvikBytecodeFormat12xParser,
+	]),
+	([ _opcode, { registers } ]) => ({
+		operation: 'array-length',
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationArrayLengthParser, 'dalvikBytecodeOperationArrayLengthParser');
+
 type DalvikBytecodeOperationConstClass = {
 	operation: 'const-class';
 	typeIndex: IndexIntoTypeIds;
@@ -2325,6 +2343,7 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationFillArrayData
 	| DalvikBytecodeOperationCheckCast
 	| DalvikBytecodeOperationInstanceOf
+	| DalvikBytecodeOperationArrayLength
 
 	| DalvikBytecodeOperationArrayElement
 	| DalvikBytecodeOperationInstanceField
@@ -2380,6 +2399,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 			dalvikBytecodeOperationFillArrayDataParser,
 			dalvikBytecodeOperationCheckCastParser,
 			dalvikBytecodeOperationInstanceOfParser,
+			dalvikBytecodeOperationArrayLengthParser,
 
 			dalvikBytecodeOperationArrayElementParser,
 			dalvikBytecodeOperationInstanceFieldParser,

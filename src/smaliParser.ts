@@ -50,7 +50,7 @@ function getOperationFormatSize(operation: SmaliCodeOperation): number {
 		return dataSize + paddingSize + 8; // 8 bytes for header (ident + elementWidth + size)
 	}
 
-	const operationFormat = operationFormats[operation.operation];
+	const operationFormat = operationFormats[operation.operation as keyof typeof operationFormats];
 	invariant(operationFormat, 'Unknown operation format for "%s" (operation: %o)', operation.operation, operation);
 
 	const operationSize = formatSizes[operationFormat];
