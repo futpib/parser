@@ -113,6 +113,14 @@ export const smaliCommentParser: Parser<string, string> = promiseCompose(
 	]) => comment,
 );
 
+const smaliIndentedCommentParser: Parser<undefined, string> = promiseCompose(
+	createTupleParser([
+		smaliSingleIndentationParser,
+		smaliCommentParser,
+	]),
+	_commentWithIndent => undefined,
+);
+
 const smaliCommentsOrNewlinesParser: Parser<string[], string> = promiseCompose(
 	createArrayParser(createUnionParser<undefined | string, string, string>([
 		smaliNewlinesParser,
@@ -1610,7 +1618,8 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		createArrayParser(promiseCompose(
 			createTupleParser([
 				createOptionalParser(smaliCommentsOrNewlinesParser),
-				createUnionParser([
+				createDisjunctionParser([
+					smaliIndentedCommentParser,
 					smaliAnnotatedCodeOperationParser,
 					smaliLabeledCatchDirectiveParser,
 				]),
