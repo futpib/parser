@@ -1111,9 +1111,7 @@ setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
 
 // Parser for method references in annotations (e.g., EnclosingMethod annotation)
 // Reuses smaliParametersMethodParser which parses: ClassName;->methodName(Parameters)ReturnType
-smaliAnnotationMethodReferenceValueParser = cloneParser(smaliParametersMethodParser);
-
-setParserName(smaliAnnotationMethodReferenceValueParser, 'smaliAnnotationMethodReferenceValueParser');
+smaliAnnotationMethodReferenceValueParser = smaliParametersMethodParser;
 
 const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = promiseCompose(
 	createTupleParser([
