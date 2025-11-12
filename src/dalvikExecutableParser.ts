@@ -2611,28 +2611,28 @@ const createDalvikExecutableParser = <Instructions>({
 			const resolvers: DalvikBytecodeOperationResolvers = {
 				resolveIndexIntoStringIds(indexIntoStringIds) {
 					const string = strings.at(indexIntoStringIds);
-					invariant(string, 'String must be there. String id: %s', indexIntoStringIds);
+					invariant(string !== undefined, 'String must be there. String id: %s', indexIntoStringIds);
 
 					return string;
 				},
 
 				resolveIndexIntoTypeIds(indexIntoTypeIds) {
 					const type = types.at(indexIntoTypeIds);
-					invariant(type, 'Type must be there. Type id: %s', indexIntoTypeIds);
+					invariant(type !== undefined, 'Type must be there. Type id: %s', indexIntoTypeIds);
 
 					return type;
 				},
 
 				resolveIndexIntoMethodIds(indexIntoMethodIds) {
 					const method = methods.at(indexIntoMethodIds);
-					invariant(method, 'Method must be there. Method id: %s', indexIntoMethodIds);
+					invariant(method !== undefined, 'Method must be there. Method id: %s', indexIntoMethodIds);
 
 					return method;
 				},
 
 				resolveIndexIntoFieldIds(indexIntoFieldIds) {
 					const field = fields.at(indexIntoFieldIds);
-					invariant(field, 'Field must be there. Field id: %s', indexIntoFieldIds);
+					invariant(field !== undefined, 'Field must be there. Field id: %s', indexIntoFieldIds);
 
 					return field;
 				},
