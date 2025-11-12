@@ -79,6 +79,30 @@ function sortParameterAnnotations(classDefinition: any) {
 	}
 }
 
+function normalizeClassDefinition(classDefinition: any) {
+	objectWalk(classDefinition, (_path, value) => {
+		if (
+			value
+			&& typeof value === 'object'
+			&& 'debugInfo' in value
+		) {
+			value.debugInfo = undefined;
+		}
+
+		// Filter out nop instructions as they may differ between DEX and reassembled smali
+		if (
+			value
+			&& typeof value === 'object'
+			&& 'instructions' in value
+			&& Array.isArray(value.instructions)
+		) {
+			value.instructions = value.instructions.filter(
+				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
+			);
+		}
+	});
+}
+
 const parseDexAgainstSmaliMacro = test.macro({
 	title(providedTitle, dexCid: string, smaliFilePathInput: string | { smaliFilePath: string; isolate?: boolean }) {
 		const { smaliFilePath, isolate } = normalizeSmaliFilePath(smaliFilePathInput);
@@ -122,30 +146,6 @@ const parseDexAgainstSmaliMacro = test.macro({
 		const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
 
 		// Normalize both DEX and Smali by removing nop instructions and debug info
-		function normalizeClassDefinition(classDefinition: any) {
-			objectWalk(classDefinition, (_path, value) => {
-				if (
-					value
-					&& typeof value === 'object'
-					&& 'debugInfo' in value
-				) {
-					value.debugInfo = undefined;
-				}
-
-				// Filter out nop instructions as they may differ between DEX and reassembled smali
-				if (
-					value
-					&& typeof value === 'object'
-					&& 'instructions' in value
-					&& Array.isArray(value.instructions)
-				) {
-					value.instructions = value.instructions.filter(
-						(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
-					);
-				}
-			});
-		}
-
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
 
@@ -300,30 +300,6 @@ test.serial(
 		// });
 
 		// Normalize both DEX and Smali by removing nop instructions and debug info
-		function normalizeClassDefinition(classDefinition: any) {
-			objectWalk(classDefinition, (_path, value) => {
-				if (
-					value
-					&& typeof value === 'object'
-					&& 'debugInfo' in value
-				) {
-					value.debugInfo = undefined;
-				}
-
-				// Filter out nop instructions as they may differ between DEX and reassembled smali
-				if (
-					value
-					&& typeof value === 'object'
-					&& 'instructions' in value
-					&& Array.isArray(value.instructions)
-				) {
-					value.instructions = value.instructions.filter(
-						(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
-					);
-				}
-			});
-		}
-
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
 
