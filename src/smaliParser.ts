@@ -231,7 +231,7 @@ const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 
 const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = promiseCompose(
 	createSeparatedArrayParser(
-		createUnionParser<keyof DalvikExecutableAccessFlags, string>([
+		createUnionParser<keyof DalvikExecutableAccessFlags | 'declared-synchronized', string>([
 			createExactSequenceParser('public'),
 			createExactSequenceParser('protected'),
 			createExactSequenceParser('private'),
@@ -246,6 +246,7 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 			createExactSequenceParser('volatile'),
 			createExactSequenceParser('transient'),
 			createExactSequenceParser('synchronized'),
+			createExactSequenceParser('declared-synchronized'),
 			createExactSequenceParser('strict'),
 			createExactSequenceParser('interface'),
 			createExactSequenceParser('annotation'),
@@ -257,7 +258,11 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 		const accessFlags = dalvikExecutableAccessFlagsDefault();
 
 		for (const accessFlagName of accessFlagNames) {
-			accessFlags[accessFlagName] = true;
+			if (accessFlagName === 'declared-synchronized') {
+				accessFlags.declaredSynchronized = true;
+			} else {
+				accessFlags[accessFlagName] = true;
+			}
 		}
 
 		return accessFlags;
