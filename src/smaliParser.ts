@@ -236,6 +236,7 @@ const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = prom
 			createExactSequenceParser('abstract'),
 			createExactSequenceParser('native'),
 			createExactSequenceParser('volatile'),
+			createExactSequenceParser('transient'),
 			createExactSequenceParser('synchronized'),
 			createExactSequenceParser('strict'),
 			createExactSequenceParser('interface'),
