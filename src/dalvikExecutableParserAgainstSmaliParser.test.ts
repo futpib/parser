@@ -210,11 +210,12 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 		const dexStream: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
 
-		const classes = await baksmaliListClasses(dexStream);
+		const classes = (await baksmaliListClasses(dexStream)).sort(() => Math.random() - 0.5);
 
 		const failures: TryResult[] = [];
 
 		let shouldProcess = options?.skipUntilClassPath === undefined;
+		let processedCount = 0;
 
 		for (const smaliFilePath of classes) {
 			if (options?.skipUntilClassPath && smaliFilePath === options.skipUntilClassPath) {
@@ -225,6 +226,8 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 				continue;
 			}
 
+			processedCount++;
+
 			const result = await t.try(parseDexAgainstSmaliMacro, dexCid, {
 				smaliFilePath,
 				isolate: true,
@@ -233,7 +236,7 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 			if (result.passed) {
 				result.commit();
 
-				console.log('ok', smaliFilePath);
+				console.log(`ok ${processedCount}/${classes.length}`, smaliFilePath);
 
 				continue;
 			}
