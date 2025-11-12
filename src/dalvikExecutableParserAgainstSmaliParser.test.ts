@@ -238,6 +238,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 	bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda: [],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
+		'pl/czak/minimal/R',
 	],
 	bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy: [
 		{ smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity', isolate: true },
