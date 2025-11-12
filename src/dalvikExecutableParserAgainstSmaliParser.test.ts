@@ -168,10 +168,10 @@ const parseDexAgainstSmaliMacro = test.macro({
 });
 
 const parseAllClassesInDexAgainstSmaliMacro = test.macro({
-	title(providedTitle, dexCid: string) {
-		return providedTitle ?? `parse all classes from dex ${dexCid} against smali`;
+	title(providedTitle, dexCid: string, options?: { skipUntilClassPath?: string }) {
+		return providedTitle ?? `parse all classes from dex ${dexCid} against smali${options?.skipUntilClassPath ? ` (skip until ${options.skipUntilClassPath})` : ''}`;
 	},
-	async exec(t, dexCid: string) {
+	async exec(t, dexCid: string, options?: { skipUntilClassPath?: string }) {
 		const hasBaksmali = await hasBaksmaliPromise;
 
 		if (!hasBaksmali) {
@@ -185,7 +185,17 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 		const failures: TryResult[] = [];
 
+		let shouldProcess = options?.skipUntilClassPath === undefined;
+
 		for (const smaliFilePath of classes) {
+			if (options?.skipUntilClassPath && smaliFilePath === options.skipUntilClassPath) {
+				shouldProcess = true;
+			}
+
+			if (!shouldProcess) {
+				continue;
+			}
+
 			const result = await t.try(parseDexAgainstSmaliMacro, dexCid, {
 				smaliFilePath,
 				isolate: true,
@@ -202,7 +212,9 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 			if (failures.length >= 4) {
 				for (const failure of failures) {
-					console.log(failure.errors.at(0));
+					const [ error ] = failure.errors;
+
+					console.log((error as any).formattedDetails.at(0).formatted ?? error);
 				}
 
 				for (const failure of failures) {
@@ -256,7 +268,9 @@ for (const [ dexCid, smaliFilePaths ] of Object.entries(testCasesByCid)) {
 
 test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
-test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq');
+test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', {
+	skipUntilClassPath: 'androidx/appcompat/widget/ActionBarContextView$a',
+});
 
 const smali = `
 .class public final La0/l;
