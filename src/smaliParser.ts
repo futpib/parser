@@ -1549,6 +1549,8 @@ setParserName(smaliCodeOperationParser, 'smaliCodeOperationParser');
 const operationsWithTypeArgument = new Set<DalvikBytecodeOperation['operation']>([
 	'new-instance',
 	'new-array',
+	'filled-new-array',
+	'filled-new-array/range',
 	'check-cast',
 	'instance-of',
 	'const-class',
