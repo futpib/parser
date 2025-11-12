@@ -27,6 +27,14 @@ import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createDebugLogParser } from './debugLogParser.js';
 import { createElementParser } from './elementParser.js';
 
+function shortyFromLongy(longy: string): string {
+	if (longy.startsWith('[')) {
+		return 'L';
+	}
+
+	return longy.slice(0, 1);
+}
+
 function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	if (operation.operation === 'packed-switch-payload') {
 		return (operation.branchOffsetIndices.length * 2) + 4;
@@ -362,6 +370,54 @@ const smaliEnumValueParser: Parser<DalvikExecutableField, string> = promiseCompo
 
 setParserName(smaliEnumValueParser, 'smaliEnumValueParser');
 
+const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('('),
+		createArrayParser(smaliTypeDescriptorParser),
+		createExactSequenceParser(')'),
+		smaliTypeDescriptorParser,
+	]),
+	([
+		_openParenthesis,
+		parameters,
+		_closeParenthesis,
+		returnType,
+	]) => ({
+		parameters,
+		returnType,
+		shorty: shortyFromLongy(returnType) + parameters.map(parameter => {
+			if (parameter === 'V') {
+				return '';
+			}
+
+			return shortyFromLongy(parameter);
+		}).join(''),
+	}),
+);
+
+setParserName(smaliMethodPrototypeParser, 'smaliMethodPrototypeParser');
+
+const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = promiseCompose(
+	createTupleParser([
+		smaliTypeDescriptorParser,
+		createExactSequenceParser('->'),
+		smaliMemberNameParser,
+		smaliMethodPrototypeParser,
+	]),
+	([
+		classPath,
+		_separator,
+		methodName,
+		prototype,
+	]) => ({
+		class: classPath,
+		prototype,
+		name: methodName,
+	}),
+);
+
+setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
+
 const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
 	createTupleParser([
 		smaliIndentationParser,
@@ -370,6 +426,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		createDisjunctionParser([
 			smaliEnumValueParser,
 			smaliQuotedStringParser,
+			smaliParametersMethodParser,
 			smaliTypeDescriptorParser,
 			smaliNumberParser,
 			promiseCompose(
@@ -643,14 +700,6 @@ const smaliShortyReturnTypeParser: Parser<string, string> = createUnionParser([
 
 setParserName(smaliShortyReturnTypeParser, 'smaliShortyReturnTypeParser');
 
-function shortyFromLongy(longy: string): string {
-	if (longy.startsWith('[')) {
-		return 'L';
-	}
-
-	return longy.slice(0, 1);
-}
-
 function shortyGetInsSize(shorty: string): number {
 	let size = 0;
 
@@ -664,33 +713,6 @@ function shortyGetInsSize(shorty: string): number {
 
 	return size;
 }
-
-const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('('),
-		createArrayParser(smaliTypeDescriptorParser),
-		createExactSequenceParser(')'),
-		smaliTypeDescriptorParser,
-	]),
-	([
-		_openParenthesis,
-		parameters,
-		_closeParenthesis,
-		returnType,
-	]) => ({
-		parameters,
-		returnType,
-		shorty: shortyFromLongy(returnType) + parameters.map(parameter => {
-			if (parameter === 'V') {
-				return '';
-			}
-
-			return shortyFromLongy(parameter);
-		}).join(''),
-	}),
-);
-
-setParserName(smaliMethodPrototypeParser, 'smaliMethodPrototypeParser');
 
 const smaliCodeRegistersParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
@@ -1080,27 +1102,6 @@ setParserName(smaliParametersLabelParser, 'smaliParametersLabelParser');
 const smaliParametersTypeParser: Parser<string, string> = cloneParser(smaliTypeDescriptorParser);
 
 setParserName(smaliParametersTypeParser, 'smaliParametersTypeParser');
-
-const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = promiseCompose(
-	createTupleParser([
-		smaliTypeDescriptorParser,
-		createExactSequenceParser('->'),
-		smaliMemberNameParser,
-		smaliMethodPrototypeParser,
-	]),
-	([
-		classPath,
-		_separator,
-		methodName,
-		prototype,
-	]) => ({
-		class: classPath,
-		prototype,
-		name: methodName,
-	}),
-);
-
-setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
 
 const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = promiseCompose(
 	createTupleParser([
@@ -1624,7 +1625,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		const instructions: SmaliCodeOperation[] = [];
 		const catchDirectives: SmaliCatchDirective[] = [];
 		const catchDirectiveLabels: Map<SmaliCatchDirective, string[]> = new Map();
-		
+
 		for (const item of instructionsAndCatchDirectives) {
 			if (item && typeof item === 'object') {
 				if ('labels' in item && 'catchDirective' in item) {
@@ -1796,7 +1797,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		// Labels attached to instructions map to that instruction's index
 		// Labels before catch directives should map to the position they mark
 		const labelToIndexMap = new Map<string, number>();
-		
+
 		// First, map labels from instructions
 		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (
@@ -1810,7 +1811,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				}
 			}
 		}
-		
+
 		// Now handle labels from catch directives
 		// We need to figure out where each catch directive appears in the original sequence
 		let instructionArrayIndex = 0;
