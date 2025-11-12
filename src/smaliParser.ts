@@ -585,7 +585,37 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
 	annotations: SmaliAnnotation[];
+	hasInitValue: boolean;
 };
+
+// Parser for field initialization values (e.g., = "_COROUTINE")
+// Returns true to indicate that an init value was present
+const smaliFieldInitValueParser: Parser<true, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser(' = '),
+		(async (parserContext: ParserContext<string, string>) => {
+			// Skip everything until newline
+			while (true) {
+				const character = await parserContext.peek(0);
+
+				parserContext.invariant(character !== undefined, 'Unexpected end of input');
+
+				invariant(character !== undefined, 'Unexpected end of input');
+
+				if (character === '\n') {
+					break;
+				}
+
+				parserContext.skip(1);
+			}
+
+			return undefined;
+		}),
+	]),
+	_value => true,
+);
+
+setParserName(smaliFieldInitValueParser, 'smaliFieldInitValueParser');
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 	createTupleParser([
@@ -595,6 +625,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		smaliMemberNameParser,
 		createExactSequenceParser(':'),
 		smaliTypeDescriptorParser,
+		createOptionalParser(smaliFieldInitValueParser),
 		smaliLineEndPraser,
 		createOptionalParser(promiseCompose(
 			createTupleParser([
@@ -617,6 +648,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		name,
 		_colon,
 		type,
+		hasInitValue,
 		_newline,
 		annotations,
 	]) => ({
@@ -629,6 +661,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 			},
 		},
 		annotations: annotations ?? [],
+		hasInitValue: hasInitValue ?? false,
 	}),
 );
 
@@ -2323,6 +2356,12 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		methods,
 	]) => {
 		const sourceFile = sourceFileObject?.sourceFile;
+		
+		// Compute staticValues from fields with init values
+		const staticValues = (smaliFields?.staticFields ?? [])
+			.filter(smaliField => smaliField.hasInitValue)
+			.map(() => undefined);
+		
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],
@@ -2435,7 +2474,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 					: undefined
 			),
 			interfaces: interfaces ?? [],
-			staticValues: [], // TODO
+			staticValues,
 		};
 	},
 );
