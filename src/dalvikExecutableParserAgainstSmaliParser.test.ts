@@ -227,6 +227,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/activity/result/a$a', isolate: true },
 		{ smaliFilePath: 'androidx/annotation/Keep', isolate: true },
 		{ smaliFilePath: 'androidx/activity/result/e', isolate: true },
+		{ smaliFilePath: 'androidx/appcompat/widget/ActionBarContextView$a', isolate: true },
 		{ smaliFilePath: 'l4/a', isolate: true },
 		{ smaliFilePath: 'a', isolate: true },
 		{ smaliFilePath: 'a/b', isolate: true },
