@@ -121,7 +121,6 @@ stringParserTest(smaliFieldParser, [
 				},
 			},
 		annotations: [],
-		hasInitValue: false,
 		},
 	],
 	[
@@ -182,7 +181,6 @@ stringParserTest(smaliFieldParser, [
 					],
 				},
 			],
-			hasInitValue: false,
 		},
 	],
 ]);

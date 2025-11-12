@@ -113,17 +113,21 @@ export const smaliCommentParser: Parser<string, string> = promiseCompose(
 	]) => comment,
 );
 
-const smaliIndentedCommentParser: Parser<undefined, string> = promiseCompose(
+const smaliIndentedCommentParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
-		smaliSingleIndentationParser,
+		createNonEmptyArrayParser(smaliSingleIndentationParser),
 		smaliCommentParser,
 	]),
-	_commentWithIndent => undefined,
+	([
+		_indentation,
+		comment,
+	]) => comment,
 );
 
 const smaliCommentsOrNewlinesParser: Parser<string[], string> = promiseCompose(
 	createArrayParser(createUnionParser<undefined | string, string, string>([
 		smaliNewlinesParser,
+		smaliIndentedCommentParser,
 		smaliCommentParser,
 	])),
 	newlinesOrComments => newlinesOrComments.filter((newlineOrComment): newlineOrComment is string => typeof newlineOrComment === 'string'),
@@ -585,47 +589,35 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
 	annotations: SmaliAnnotation[];
-	hasInitValue: boolean;
+	initialValue?: number | string;
 };
-
-// Parser for field initialization values (e.g., = "_COROUTINE")
-// Returns true to indicate that an init value was present
-const smaliFieldInitValueParser: Parser<true, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser(' = '),
-		(async (parserContext: ParserContext<string, string>) => {
-			// Skip everything until newline
-			while (true) {
-				const character = await parserContext.peek(0);
-
-				parserContext.invariant(character !== undefined, 'Unexpected end of input');
-
-				invariant(character !== undefined, 'Unexpected end of input');
-
-				if (character === '\n') {
-					break;
-				}
-
-				parserContext.skip(1);
-			}
-
-			return undefined;
-		}),
-	]),
-	_value => true,
-);
-
-setParserName(smaliFieldInitValueParser, 'smaliFieldInitValueParser');
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('.field '),
-		smaliAccessFlagsParser,
-		smaliSingleWhitespaceParser,
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliAccessFlagsParser,
+				smaliSingleWhitespaceParser,
+			]),
+			([accessFlags, _space]) => accessFlags,
+		)),
 		smaliMemberNameParser,
 		createExactSequenceParser(':'),
 		smaliTypeDescriptorParser,
-		createOptionalParser(smaliFieldInitValueParser),
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				createExactSequenceParser(' = '),
+				createUnionParser<number | string, string>([
+					smaliNumberParser,
+					smaliQuotedStringParser,
+				]),
+			]),
+			([
+				_equals,
+				value,
+			]) => value,
+		)),
 		smaliLineEndPraser,
 		createOptionalParser(promiseCompose(
 			createTupleParser([
@@ -644,16 +636,15 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 	([
 		_field,
 		accessFlags,
-		_space,
 		name,
 		_colon,
 		type,
-		hasInitValue,
+		initialValue,
 		_newline,
 		annotations,
 	]) => ({
 		field: {
-			accessFlags,
+			accessFlags: accessFlags ?? dalvikExecutableAccessFlagsDefault(),
 			field: {
 				class: 'FILLED_LATER',
 				type,
@@ -661,7 +652,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 			},
 		},
 		annotations: annotations ?? [],
-		hasInitValue: hasInitValue ?? false,
+		...(initialValue !== undefined ? { initialValue } : {}),
 	}),
 );
 
@@ -2356,12 +2347,9 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		methods,
 	]) => {
 		const sourceFile = sourceFileObject?.sourceFile;
-		
-		// Compute staticValues from fields with init values
 		const staticValues = (smaliFields?.staticFields ?? [])
-			.filter(smaliField => smaliField.hasInitValue)
-			.map(() => undefined);
-		
+			.filter(smaliField => smaliField.initialValue !== undefined)
+			.map(smaliField => typeof smaliField.initialValue === 'number' ? smaliField.initialValue : undefined);
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],
