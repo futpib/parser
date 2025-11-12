@@ -1780,6 +1780,50 @@ const dalvikBytecodeOperationNewArrayParser: Parser<DalvikBytecodeOperationNewAr
 
 setParserName(dalvikBytecodeOperationNewArrayParser, 'dalvikBytecodeOperationNewArrayParser');
 
+type DalvikBytecodeOperationFilledNewArray = {
+	operation: 'filled-new-array';
+	typeIndex: IndexIntoTypeIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationFilledNewArrayParser: Parser<DalvikBytecodeOperationFilledNewArray, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x24),
+		createDalvikBytecodeFormat35cParser({
+			isoIndex: isoIndexIntoTypeIds,
+		}),
+	]),
+	([ _opcode, { index, registers } ]) => ({
+		operation: 'filled-new-array',
+		typeIndex: index,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationFilledNewArrayParser, 'dalvikBytecodeOperationFilledNewArrayParser');
+
+type DalvikBytecodeOperationFilledNewArrayRange = {
+	operation: 'filled-new-array/range';
+	typeIndex: IndexIntoTypeIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationFilledNewArrayRangeParser: Parser<DalvikBytecodeOperationFilledNewArrayRange, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x25),
+		createDalvikBytecodeFormat3rcParser({
+			isoIndex: isoIndexIntoTypeIds,
+		}),
+	]),
+	([ _opcode, { index, registers } ]) => ({
+		operation: 'filled-new-array/range',
+		typeIndex: index,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationFilledNewArrayRangeParser, 'dalvikBytecodeOperationFilledNewArrayRangeParser');
+
 type DalvikBytecodeOperationFillArrayData = {
 	operation: 'fill-array-data';
 	branchOffset: number;
@@ -2322,6 +2366,8 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationSparseSwitch
 	| DalvikBytecodeOperationSparseSwitchPayload
 	| DalvikBytecodeOperationNewArray
+	| DalvikBytecodeOperationFilledNewArray
+	| DalvikBytecodeOperationFilledNewArrayRange
 	| DalvikBytecodeOperationFillArrayDataPayload
 
 	| DalvikBytecodeOperationMoveResult1
@@ -2396,6 +2442,8 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 
 			dalvikBytecodeOperationNewInstanceParser,
 			dalvikBytecodeOperationNewArrayParser,
+			dalvikBytecodeOperationFilledNewArrayParser,
+			dalvikBytecodeOperationFilledNewArrayRangeParser,
 			dalvikBytecodeOperationFillArrayDataParser,
 			dalvikBytecodeOperationCheckCastParser,
 			dalvikBytecodeOperationInstanceOfParser,
