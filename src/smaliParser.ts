@@ -589,6 +589,7 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
 	annotations: SmaliAnnotation[];
+	initialValue?: number;
 };
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
@@ -604,6 +605,16 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		smaliMemberNameParser,
 		createExactSequenceParser(':'),
 		smaliTypeDescriptorParser,
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				createExactSequenceParser(' = '),
+				smaliNumberParser,
+			]),
+			([
+				_equals,
+				value,
+			]) => value,
+		)),
 		smaliLineEndPraser,
 		createOptionalParser(promiseCompose(
 			createTupleParser([
@@ -625,6 +636,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		name,
 		_colon,
 		type,
+		initialValue,
 		_newline,
 		annotations,
 	]) => ({
@@ -637,6 +649,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 			},
 		},
 		annotations: annotations ?? [],
+		...(initialValue !== undefined ? { initialValue } : {}),
 	}),
 );
 
@@ -2331,6 +2344,9 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		methods,
 	]) => {
 		const sourceFile = sourceFileObject?.sourceFile;
+		const staticValues = (smaliFields?.staticFields ?? [])
+			.map(smaliField => smaliField.initialValue)
+			.filter((value): value is number => value !== undefined);
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],
@@ -2443,7 +2459,7 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 					: undefined
 			),
 			interfaces: interfaces ?? [],
-			staticValues: [], // TODO
+			staticValues,
 		};
 	},
 );
