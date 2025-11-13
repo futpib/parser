@@ -47,7 +47,7 @@ function getOperationFormatSize(operation: SmaliCodeOperation): number {
 	if (operation.operation === 'fill-array-data-payload') {
 		const dataSize = operation.data.length;
 		const paddingSize = dataSize % 2; // 1 if odd, 0 if even
-		return dataSize + paddingSize + 8; // 8 bytes for header (ident + elementWidth + size)
+		return (dataSize + paddingSize) / 2 + 4; // 4 code units for header (ident + elementWidth + size), data in code units
 	}
 
 	const operationFormat = operationFormats[operation.operation as keyof typeof operationFormats];
