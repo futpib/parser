@@ -280,6 +280,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 	bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy: [
 		{ smaliFilePath: 'com/journeyapps/barcodescanner/CaptureActivity', isolate: true },
 		{ smaliFilePath: '_COROUTINE/ArtificialStackFrames', isolate: true },
+		{ smaliFilePath: 'androidx/appcompat/widget/AppCompatTextHelper', isolate: true },
 		{ smaliFilePath: '_COROUTINE/CoroutineDebuggingKt', isolate: true },
 	],
 	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [

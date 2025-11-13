@@ -2068,8 +2068,13 @@ type SmaliMethod<DalvikBytecode> = {
 export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('.method '),
-		smaliAccessFlagsParser,
-		smaliSingleWhitespaceParser,
+		createOptionalParser(promiseCompose(
+			createTupleParser([
+				smaliAccessFlagsParser,
+				smaliSingleWhitespaceParser,
+			]),
+			([accessFlags]) => accessFlags,
+		)),
 		smaliMemberNameParser,
 		smaliMethodPrototypeParser,
 		smaliLineEndPraser,
@@ -2079,8 +2084,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 	]),
 	([
 		_method,
-		accessFlags,
-		_space,
+		accessFlagsOrUndefined,
 		name,
 		prototype,
 		_newline,
@@ -2092,6 +2096,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 		_lines,
 		_endMethod,
 	]) => {
+		const accessFlags = accessFlagsOrUndefined ?? dalvikExecutableAccessFlagsDefault();
 		let code: DalvikExecutableCode<DalvikBytecode> | undefined = dalvikExecutableCode;
 
 		if (accessFlags.native && code.instructions.length === 0) {
