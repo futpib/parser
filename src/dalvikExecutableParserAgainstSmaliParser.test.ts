@@ -104,7 +104,7 @@ function sortFieldAnnotations(classDefinition: any) {
 	}
 }
 
-function normalizeClassDefinition(classDefinition: any, skipInstructionsForClass: boolean = false) {
+function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
 		if (
 			value
@@ -121,39 +121,20 @@ function normalizeClassDefinition(classDefinition: any, skipInstructionsForClass
 			&& 'instructions' in value
 			&& Array.isArray(value.instructions)
 		) {
-			// For classes with severe smali assembler bugs, skip instruction comparison entirely
-			if (skipInstructionsForClass) {
-				value.instructions = [];
-			} else {
-				value.instructions = value.instructions.filter(
-					(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
-				);
-			}
+			value.instructions = value.instructions.filter(
+				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
+			);
 		}
 
 		// Normalize mul-double/2addr vs div-double/2addr due to smali assembler bug
 		// The smali assembler incorrectly generates div-double/2addr (0xCD) when assembling mul-double/2addr
-		// This bug appears to affect multiple double arithmetic operations
 		if (
 			value
 			&& typeof value === 'object'
 			&& 'operation' in value
+			&& value.operation === 'div-double/2addr'
 		) {
-			// Normalize all variations of the mul/div confusion bug
-			const operation = value.operation;
-			if (operation === 'div-double/2addr') {
-				value.operation = 'mul-double/2addr';
-			} else if (operation === 'div-double') {
-				value.operation = 'mul-double';
-			} else if (operation === 'sub-double/2addr') {
-				value.operation = 'add-double/2addr';
-			} else if (operation === 'sub-double') {
-				value.operation = 'add-double';
-			} else if (operation === 'rem-double/2addr') {
-				value.operation = 'mul-double/2addr';
-			} else if (operation === 'rem-double') {
-				value.operation = 'mul-double';
-			}
+			value.operation = 'mul-double/2addr';
 		}
 	});
 }
@@ -200,12 +181,9 @@ const parseDexAgainstSmaliMacro = test.macro({
 
 		const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
 
-		// Classes with severe smali assembler bugs that add/remove instructions
-		const skipInstructions = smaliFilePath === 'q2/d$a';
-
 		// Normalize both DEX and Smali by removing nop instructions and debug info
-		normalizeClassDefinition(classDefinitionFromDex, skipInstructions);
-		normalizeClassDefinition(classDefinitionFromSmali, skipInstructions);
+		normalizeClassDefinition(classDefinitionFromDex);
+		normalizeClassDefinition(classDefinitionFromSmali);
 
 		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
 		sortParameterAnnotations(classDefinitionFromDex);
