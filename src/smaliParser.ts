@@ -241,28 +241,63 @@ const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	string => string.replaceAll(String.raw`\'`, '\''),
 );
 
+// Parser that matches identifier continuation characters (letters, digits, $, -, _)
+const smaliIdentifierContinuationParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
+	const character = await parserContext.peek(0);
+	
+	parserContext.invariant(character !== undefined, 'Unexpected end of input');
+	
+	invariant(character !== undefined, 'Unexpected end of input');
+	
+	parserContext.invariant(
+		(character >= 'a' && character <= 'z')
+		|| (character >= 'A' && character <= 'Z')
+		|| (character >= '0' && character <= '9')
+		|| character === '$'
+		|| character === '-'
+		|| character === '_',
+		'Expected identifier continuation character, got "%s"',
+		character,
+	);
+	
+	parserContext.skip(1);
+	
+	return character;
+};
+
+setParserName(smaliIdentifierContinuationParser, 'smaliIdentifierContinuationParser');
+
+// Helper to create an access flag parser with word boundary check
+const createAccessFlagParser = (keyword: string): Parser<typeof keyword, string> => promiseCompose(
+	createTupleParser([
+		createExactSequenceParser(keyword),
+		createNegativeLookaheadParser(smaliIdentifierContinuationParser),
+	]),
+	([flag]) => flag,
+);
+
 const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = promiseCompose(
 	createSeparatedArrayParser(
 		createUnionParser<keyof DalvikExecutableAccessFlags | 'declared-synchronized', string>([
-			createExactSequenceParser('public'),
-			createExactSequenceParser('protected'),
-			createExactSequenceParser('private'),
-			createExactSequenceParser('final'),
-			createExactSequenceParser('bridge'),
-			createExactSequenceParser('synthetic'),
-			createExactSequenceParser('varargs'),
-			createExactSequenceParser('static'),
-			createExactSequenceParser('constructor'),
-			createExactSequenceParser('abstract'),
-			createExactSequenceParser('native'),
-			createExactSequenceParser('volatile'),
-			createExactSequenceParser('transient'),
-			createExactSequenceParser('synchronized'),
-			createExactSequenceParser('declared-synchronized'),
-			createExactSequenceParser('strict'),
-			createExactSequenceParser('interface'),
-			createExactSequenceParser('annotation'),
-			createExactSequenceParser('enum'),
+			createAccessFlagParser('public'),
+			createAccessFlagParser('protected'),
+			createAccessFlagParser('private'),
+			createAccessFlagParser('final'),
+			createAccessFlagParser('bridge'),
+			createAccessFlagParser('synthetic'),
+			createAccessFlagParser('varargs'),
+			createAccessFlagParser('static'),
+			createAccessFlagParser('constructor'),
+			createAccessFlagParser('abstract'),
+			createAccessFlagParser('native'),
+			createAccessFlagParser('volatile'),
+			createAccessFlagParser('transient'),
+			createAccessFlagParser('synchronized'),
+			createAccessFlagParser('declared-synchronized'),
+			createAccessFlagParser('strict'),
+			createAccessFlagParser('interface'),
+			createAccessFlagParser('annotation'),
+			createAccessFlagParser('enum'),
 		]),
 		smaliSingleWhitespaceParser,
 	),
