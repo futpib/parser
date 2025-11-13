@@ -236,25 +236,41 @@ const smaliNumberParser = createDisjunctionParser<number, string, string>([
 
 setParserName(smaliNumberParser, 'smaliNumberParser');
 
-const smaliFloatParser = promiseCompose(
+type SmaliFieldValue = 
+	| { type: 'float'; value: number }
+	| { type: 'boolean'; value: boolean }
+	| { type: 'number'; value: number }
+	| { type: 'string'; value: string };
+
+const smaliFloatParser: Parser<SmaliFieldValue, string> = promiseCompose(
 	createTupleParser([
 		jsonNumberParser,
 		createExactSequenceParser('f'),
 	]),
-	([number, _f]) => number,
+	([number, _f]) => ({ type: 'float' as const, value: number }),
 );
 
 setParserName(smaliFloatParser, 'smaliFloatParser');
 
-const smaliBooleanParser = promiseCompose(
+const smaliBooleanParser: Parser<SmaliFieldValue, string> = promiseCompose(
 	createUnionParser<string, string>([
 		createExactSequenceParser('true'),
 		createExactSequenceParser('false'),
 	]),
-	boolString => boolString === 'true',
+	boolString => ({ type: 'boolean' as const, value: boolString === 'true' }),
 );
 
 setParserName(smaliBooleanParser, 'smaliBooleanParser');
+
+const smaliNumberFieldValueParser: Parser<SmaliFieldValue, string> = promiseCompose(
+	smaliNumberParser,
+	value => ({ type: 'number' as const, value }),
+);
+
+const smaliQuotedStringFieldValueParser: Parser<SmaliFieldValue, string> = promiseCompose(
+	jsonStringParser,
+	value => ({ type: 'string' as const, value: value.replaceAll(String.raw`\'`, '\'') }),
+);
 
 const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	jsonStringParser,
@@ -635,7 +651,7 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
 	annotations: SmaliAnnotation[];
-	initialValue?: number | string | boolean;
+	initialValue?: SmaliFieldValue;
 };
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
@@ -654,11 +670,11 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		createOptionalParser(promiseCompose(
 			createTupleParser([
 				createExactSequenceParser(' = '),
-				createDisjunctionParser<number | string | boolean, string, string>([
+				createDisjunctionParser<SmaliFieldValue, string, string>([
 					smaliFloatParser,
-					smaliNumberParser,
+					smaliNumberFieldValueParser,
 					smaliBooleanParser,
-					smaliQuotedStringParser,
+					smaliQuotedStringFieldValueParser,
 				]),
 			]),
 			([
@@ -2407,8 +2423,25 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 	]) => {
 		const sourceFile = sourceFileObject?.sourceFile;
 		const staticValues = (smaliFields?.staticFields ?? [])
-			.filter(smaliField => smaliField.initialValue !== undefined)
-			.map(smaliField => typeof smaliField.initialValue === 'number' ? smaliField.initialValue : undefined);
+			.map(smaliField => {
+				if (!smaliField.initialValue) {
+					return undefined;
+				}
+				const { type, value } = smaliField.initialValue;
+				// For float literals, return the numeric value
+				if (type === 'float') {
+					return value;
+				}
+				// For boolean literals, exclude false (default value) from staticValues
+				if (type === 'boolean') {
+					return undefined;
+				}
+				if (type === 'number') {
+					return value;
+				}
+				// String values are not included in staticValues, return undefined
+				return undefined;
+			});
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],

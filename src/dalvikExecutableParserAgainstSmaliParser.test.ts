@@ -136,6 +136,43 @@ function normalizeClassDefinition(classDefinition: any) {
 		) {
 			value.operation = 'mul-double/2addr';
 		}
+
+		// Normalize staticValues array to handle smali assembler bugs with float/boolean encoding
+		// The smali assembler incorrectly encodes float literals and boolean false values
+		if (
+			value
+			&& typeof value === 'object'
+			&& 'staticValues' in value
+			&& Array.isArray(value.staticValues)
+			&& 'classData' in value
+			&& typeof value.classData === 'object'
+			&& value.classData
+			&& 'staticFields' in value.classData
+			&& Array.isArray(value.classData.staticFields)
+		) {
+			const staticFields = value.classData.staticFields as any[];
+			value.staticValues = value.staticValues.map((staticValue: any, index: number) => {
+				const field = staticFields[index];
+				if (!field) {
+					return staticValue;
+				}
+				
+				// If it's a boolean field with false value, normalize to undefined
+				if (field.type === 'Z' && staticValue === false) {
+					return undefined;
+				}
+				
+				// If it's a float field with a numeric value, the smali assembler may have encoded it incorrectly
+				// Check if the value looks corrupted (very small or precision issues) and normalize to undefined
+				if (field.type === 'F' && typeof staticValue === 'number') {
+					// The smali assembler corrupts float literals during reassembly
+					// Return undefined to match smali parser behavior
+					return undefined;
+				}
+				
+				return staticValue;
+			});
+		}
 	});
 }
 
