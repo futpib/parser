@@ -125,30 +125,6 @@ function normalizeClassDefinition(classDefinition: any) {
 				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
 			);
 		}
-
-		// Normalize mul-double/2addr vs div-double/2addr due to smali assembler bug
-		// The smali assembler incorrectly generates div-double/2addr (0xCD) when assembling mul-double/2addr
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'operation' in value
-			&& value.operation === 'div-double/2addr'
-		) {
-			value.operation = 'mul-double/2addr';
-		}
-
-		// Normalize branchOffset in fill-array-data instructions
-		// When smali is reassembled, the data layout changes and branchOffset values differ
-		// The actual array data being filled is what matters, not the offset
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'operation' in value
-			&& value.operation === 'fill-array-data'
-			&& 'branchOffset' in value
-		) {
-			value.branchOffset = undefined;
-		}
 	});
 }
 
