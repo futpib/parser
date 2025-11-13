@@ -272,6 +272,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/activity/R$id', isolate: true },
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$NonConfigurationInstances', isolate: true },
 		{ smaliFilePath: 'androidx/core/content/FileProvider', isolate: true },
+		{ smaliFilePath: 'com/google/android/exoplayer2/audio/Sonic', isolate: true },
 	],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
