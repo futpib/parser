@@ -7,8 +7,6 @@ import { hasExecutable } from './hasExecutable.js';
 import { backsmaliSmaliIsolateClass, baksmaliClass, baksmaliListClasses } from './backsmali.js';
 import { smaliParser } from './smaliParser.js';
 import { smaliClass } from './smali.js';
-import { operationFormats } from './dalvikBytecodeParser/operationFormats.js';
-import { formatSizes } from './dalvikBytecodeParser/formatSizes.js';
 
 const hasBaksmaliPromise = hasExecutable('baksmali');
 const hasSmaliPromise = hasExecutable('smali');
@@ -106,85 +104,6 @@ function sortFieldAnnotations(classDefinition: any) {
 	}
 }
 
-// Calculate operation size in code units (bytes / 2)
-function getOperationSize(operation: any): number {
-	if (operation.operation === 'packed-switch-payload') {
-		return (operation.branchOffsetIndices?.length || 0) * 2 + 4;
-	}
-
-	if (operation.operation === 'sparse-switch-payload') {
-		return (operation.branchOffsetIndices?.length || 0) * 4 + 2;
-	}
-
-	if (operation.operation === 'fill-array-data-payload') {
-		const dataSize = operation.data?.length || 0;
-		const paddingSize = dataSize % 2; // 1 if odd, 0 if even
-		return dataSize + paddingSize + 8; // 8 bytes for header
-	}
-
-	const operationFormat = operationFormats[operation.operation as keyof typeof operationFormats];
-	if (!operationFormat) {
-		return 2; // Default size
-	}
-
-	const operationSize = formatSizes[operationFormat];
-	return operationSize || 2;
-}
-
-// Normalize branchOffsets to be relative instruction indices instead of byte offsets
-// This makes comparison resilient to nop removal and instruction reordering
-function normalizeBranchOffsetsToIndices(instructions: any[]) {
-	// Build offset map
-	const offsetByIndex = new Map<number, number>();
-	const indexByOffset = new Map<number, number>();
-	let currentOffset = 0;
-	
-	for (let i = 0; i < instructions.length; i++) {
-		offsetByIndex.set(i, currentOffset);
-		indexByOffset.set(currentOffset, i);
-		currentOffset += getOperationSize(instructions[i]);
-	}
-	
-	// Convert branchOffset to relative index and remove the offset field
-	for (let i = 0; i < instructions.length; i++) {
-		const instr = instructions[i];
-		const sourceOffset = offsetByIndex.get(i);
-		
-		if (instr && typeof instr === 'object' && 'branchOffset' in instr && sourceOffset !== undefined) {
-			const targetOffset = sourceOffset + instr.branchOffset;
-			// Find the closest instruction index for this offset
-			let targetIndex = i;
-			for (let j = 0; j < instructions.length; j++) {
-				const jOffset = offsetByIndex.get(j);
-				if (jOffset === targetOffset) {
-					targetIndex = j;
-					break;
-				}
-			}
-			// Store as relative index for comparison
-			(instr as any).branchOffsetIndex = targetIndex - i;
-			// Remove the byte offset for comparison
-			delete (instr as any).branchOffset;
-		}
-		
-		if (instr && typeof instr === 'object' && 'branchOffsets' in instr && Array.isArray(instr.branchOffsets) && sourceOffset !== undefined) {
-			const indices = instr.branchOffsets.map((offset: number) => {
-				const targetOffset = sourceOffset + offset;
-				for (let j = 0; j < instructions.length; j++) {
-					const jOffset = offsetByIndex.get(j);
-					if (jOffset === targetOffset) {
-						return j - i;
-					}
-				}
-				return 0;
-			});
-			(instr as any).branchOffsetIndices = indices;
-			// Remove the byte offsets for comparison
-			delete (instr as any).branchOffsets;
-		}
-	}
-}
-
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
 		if (
@@ -193,22 +112,6 @@ function normalizeClassDefinition(classDefinition: any) {
 			&& 'debugInfo' in value
 		) {
 			value.debugInfo = undefined;
-		}
-
-		// Filter out nop instructions as they may differ between DEX and reassembled smali
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'instructions' in value
-			&& Array.isArray(value.instructions)
-		) {
-			const filteredInstructions = value.instructions.filter(
-				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
-			);
-			value.instructions = filteredInstructions;
-			
-			// Normalize branchOffsets to relative indices for comparison
-			normalizeBranchOffsetsToIndices(filteredInstructions);
 		}
 	});
 }
