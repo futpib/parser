@@ -295,6 +295,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/appcompat/widget/AppCompatTextHelper', isolate: true },
 		{ smaliFilePath: '_COROUTINE/CoroutineDebuggingKt', isolate: true },
 		{ smaliFilePath: 'androidx/compose/ui/text/android/style/LineHeightSpan', isolate: true },
+		{ smaliFilePath: 'androidx/recyclerview/widget/LinearSmoothScroller', isolate: true },
 	],
 	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },

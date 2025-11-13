@@ -220,7 +220,8 @@ const smaliHexNumberParser: Parser<number, string> = promiseCompose(
 	},
 );
 
-const smaliNumberParser = createUnionParser<number, string>([
+const smaliNumberParser = createDisjunctionParser<number, string, string>([
+	smaliHexNumberParser,
 	promiseCompose(
 		createTupleParser([
 			createNegativeLookaheadParser(createExactSequenceParser('0x')),
@@ -231,10 +232,29 @@ const smaliNumberParser = createUnionParser<number, string>([
 			number,
 		]) => number,
 	),
-	smaliHexNumberParser,
 ]);
 
 setParserName(smaliNumberParser, 'smaliNumberParser');
+
+const smaliFloatParser = promiseCompose(
+	createTupleParser([
+		jsonNumberParser,
+		createExactSequenceParser('f'),
+	]),
+	([number, _f]) => number,
+);
+
+setParserName(smaliFloatParser, 'smaliFloatParser');
+
+const smaliBooleanParser = promiseCompose(
+	createUnionParser<string, string>([
+		createExactSequenceParser('true'),
+		createExactSequenceParser('false'),
+	]),
+	boolString => boolString === 'true',
+);
+
+setParserName(smaliBooleanParser, 'smaliBooleanParser');
 
 const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	jsonStringParser,
@@ -589,7 +609,7 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
 	annotations: SmaliAnnotation[];
-	initialValue?: number | string;
+	initialValue?: number | string | boolean;
 };
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
@@ -608,8 +628,10 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		createOptionalParser(promiseCompose(
 			createTupleParser([
 				createExactSequenceParser(' = '),
-				createUnionParser<number | string, string>([
+				createDisjunctionParser<number | string | boolean, string, string>([
+					smaliFloatParser,
 					smaliNumberParser,
+					smaliBooleanParser,
 					smaliQuotedStringParser,
 				]),
 			]),
@@ -664,10 +686,10 @@ type SmaliFields = {
 };
 
 const smaliFieldsParser: Parser<SmaliFields, string> = promiseCompose(
-	createSeparatedNonEmptyArrayParser<string[] | SmaliField, string>(
+	createArrayParser<string[] | SmaliField, string>(createDisjunctionParser<string[] | SmaliField, string, string>([
 		smaliFieldParser,
 		smaliCommentsOrNewlinesParser,
-	),
+	])),
 	fieldsAndComments => {
 		let type: 'staticField' | 'instanceField' = 'instanceField';
 
