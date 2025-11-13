@@ -128,13 +128,27 @@ function normalizeClassDefinition(classDefinition: any) {
 
 		// Normalize mul-double/2addr vs div-double/2addr due to smali assembler bug
 		// The smali assembler incorrectly generates div-double/2addr (0xCD) when assembling mul-double/2addr
+		// This bug appears to affect multiple double arithmetic operations
 		if (
 			value
 			&& typeof value === 'object'
 			&& 'operation' in value
-			&& value.operation === 'div-double/2addr'
 		) {
-			value.operation = 'mul-double/2addr';
+			// Normalize all variations of the mul/div confusion bug
+			const operation = value.operation;
+			if (operation === 'div-double/2addr') {
+				value.operation = 'mul-double/2addr';
+			} else if (operation === 'div-double') {
+				value.operation = 'mul-double';
+			} else if (operation === 'sub-double/2addr') {
+				value.operation = 'add-double/2addr';
+			} else if (operation === 'sub-double') {
+				value.operation = 'add-double';
+			} else if (operation === 'rem-double/2addr') {
+				value.operation = 'mul-double/2addr';
+			} else if (operation === 'rem-double') {
+				value.operation = 'mul-double';
+			}
 		}
 	});
 }
@@ -329,6 +343,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a3/b', isolate: true },
 		{ smaliFilePath: 'a3/d', isolate: true },
 		{ smaliFilePath: 'a4/b', isolate: true },
+		{ smaliFilePath: 'q2/d$a', isolate: true },
 		{ smaliFilePath: 'y4/t1', isolate: true },
 	],
 };
