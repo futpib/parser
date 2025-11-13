@@ -136,6 +136,19 @@ function normalizeClassDefinition(classDefinition: any) {
 		) {
 			value.operation = 'mul-double/2addr';
 		}
+
+		// Normalize branchOffset in fill-array-data instructions
+		// When smali is reassembled, the data layout changes and branchOffset values differ
+		// The actual array data being filled is what matters, not the offset
+		if (
+			value
+			&& typeof value === 'object'
+			&& 'operation' in value
+			&& value.operation === 'fill-array-data'
+			&& 'branchOffset' in value
+		) {
+			value.branchOffset = undefined;
+		}
 	});
 }
 
@@ -282,6 +295,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$1', isolate: true },
 		{ smaliFilePath: 'androidx/activity/R$id', isolate: true },
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$NonConfigurationInstances', isolate: true },
+		{ smaliFilePath: 'androidx/appcompat/R$styleable', isolate: true },
 		{ smaliFilePath: 'androidx/core/content/FileProvider', isolate: true },
 		{ smaliFilePath: 'com/google/android/exoplayer2/audio/Sonic', isolate: true },
 	],
