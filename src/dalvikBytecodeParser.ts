@@ -76,7 +76,7 @@ const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNo
 			createExactUshortParser(0x02_00), // Sparse-switch-payload
 			createExactUshortParser(0x03_00), // Fill-array-data-payload
 		])),
-		createExactElementParser(0x00),
+		createExactUshortParser(0x00_00), // nop is 2 bytes: 0x00 0x00
 	]),
 	() => ({
 		operation: 'nop',
