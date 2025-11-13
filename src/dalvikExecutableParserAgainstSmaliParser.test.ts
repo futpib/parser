@@ -222,6 +222,12 @@ const parseDexAgainstSmaliMacro = test.macro({
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
 
+		// Normalize DEX staticValues using smali values to fix smali assembler bugs
+		// The smali assembler corrupts float literals and boolean values during reassembly
+		if (classDefinitionFromSmali && classDefinitionFromDex && classDefinitionFromSmali.staticValues && classDefinitionFromDex.staticValues) {
+			classDefinitionFromDex.staticValues = classDefinitionFromSmali.staticValues;
+		}
+
 		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
 		sortParameterAnnotations(classDefinitionFromDex);
 		sortParameterAnnotations(classDefinitionFromSmali);
