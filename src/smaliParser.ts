@@ -528,6 +528,32 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 					_closeBrace,
 				]) => value,
 			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('{\n'),
+					createSeparatedArrayParser(
+						promiseCompose(
+							createTupleParser([
+								smaliIndentationParser,
+								smaliNumberParser,
+							]),
+							([
+								_indentation,
+								value,
+							]) => value,
+						),
+						createExactSequenceParser(',\n'),
+					),
+					smaliLineEndPraser,
+					smaliIndentationParser,
+					createExactSequenceParser('}'),
+				]),
+				([
+					_openBrace,
+					value,
+					_closeBrace,
+				]) => value,
+			),
 		]),
 		smaliLineEndPraser,
 	]),
