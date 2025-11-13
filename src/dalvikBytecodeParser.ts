@@ -1086,23 +1086,23 @@ const dalvikBytecodeOperationDivideFloatInPlaceParser = createDalvikBytecodeOper
 
 type DalvikBytecodeOperationDivideFloatInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideFloatInPlaceParser>>;
 
-const dalvikBytecodeOperationAddDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-double/2addr', 0xCA);
+const dalvikBytecodeOperationAddDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-double/2addr', 0xCB);
 
 type DalvikBytecodeOperationAddDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationSubtractDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-double/2addr', 0xCB);
+const dalvikBytecodeOperationSubtractDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('sub-double/2addr', 0xCC);
 
 type DalvikBytecodeOperationSubtractDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationMultiplyDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-double/2addr', 0xCC);
+const dalvikBytecodeOperationMultiplyDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('mul-double/2addr', 0xCD);
 
 type DalvikBytecodeOperationMultiplyDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationDivideDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-double/2addr', 0xCD);
+const dalvikBytecodeOperationDivideDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('div-double/2addr', 0xCE);
 
 type DalvikBytecodeOperationDivideDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideDoubleInPlaceParser>>;
 
-const dalvikBytecodeOperationRemainderDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-double/2addr', 0xCE);
+const dalvikBytecodeOperationRemainderDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-double/2addr', 0xCF);
 
 type DalvikBytecodeOperationRemainderDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderDoubleInPlaceParser>>;
 
@@ -1294,23 +1294,23 @@ const dalvikBytecodeOperationDivideFloatParser = createDalvikBytecodeOperationBi
 
 type DalvikBytecodeOperationDivideFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideFloatParser>>;
 
-const dalvikBytecodeOperationAddDoubleParser = createDalvikBytecodeOperationBinaryOperation('add-double', 0xAA);
+const dalvikBytecodeOperationAddDoubleParser = createDalvikBytecodeOperationBinaryOperation('add-double', 0xAB);
 
 type DalvikBytecodeOperationAddDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationAddDoubleParser>>;
 
-const dalvikBytecodeOperationSubtractDoubleParser = createDalvikBytecodeOperationBinaryOperation('sub-double', 0xAB);
+const dalvikBytecodeOperationSubtractDoubleParser = createDalvikBytecodeOperationBinaryOperation('sub-double', 0xAC);
 
 type DalvikBytecodeOperationSubtractDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationSubtractDoubleParser>>;
 
-const dalvikBytecodeOperationMultiplyDoubleParser = createDalvikBytecodeOperationBinaryOperation('mul-double', 0xAC);
+const dalvikBytecodeOperationMultiplyDoubleParser = createDalvikBytecodeOperationBinaryOperation('mul-double', 0xAD);
 
 type DalvikBytecodeOperationMultiplyDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationMultiplyDoubleParser>>;
 
-const dalvikBytecodeOperationDivideDoubleParser = createDalvikBytecodeOperationBinaryOperation('div-double', 0xAD);
+const dalvikBytecodeOperationDivideDoubleParser = createDalvikBytecodeOperationBinaryOperation('div-double', 0xAE);
 
 type DalvikBytecodeOperationDivideDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideDoubleParser>>;
 
-const dalvikBytecodeOperationRemainderDoubleParser = createDalvikBytecodeOperationBinaryOperation('rem-double', 0xAE);
+const dalvikBytecodeOperationRemainderDoubleParser = createDalvikBytecodeOperationBinaryOperation('rem-double', 0xAF);
 
 type DalvikBytecodeOperationRemainderDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderDoubleParser>>;
 

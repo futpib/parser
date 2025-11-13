@@ -277,28 +277,63 @@ const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	string => string.replaceAll(String.raw`\'`, '\''),
 );
 
+// Parser that matches identifier continuation characters (letters, digits, $, -, _)
+const smaliIdentifierContinuationParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
+	const character = await parserContext.peek(0);
+	
+	parserContext.invariant(character !== undefined, 'Unexpected end of input');
+	
+	invariant(character !== undefined, 'Unexpected end of input');
+	
+	parserContext.invariant(
+		(character >= 'a' && character <= 'z')
+		|| (character >= 'A' && character <= 'Z')
+		|| (character >= '0' && character <= '9')
+		|| character === '$'
+		|| character === '-'
+		|| character === '_',
+		'Expected identifier continuation character, got "%s"',
+		character,
+	);
+	
+	parserContext.skip(1);
+	
+	return character;
+};
+
+setParserName(smaliIdentifierContinuationParser, 'smaliIdentifierContinuationParser');
+
+// Helper to create an access flag parser with word boundary check
+const createAccessFlagParser = (keyword: string): Parser<typeof keyword, string> => promiseCompose(
+	createTupleParser([
+		createExactSequenceParser(keyword),
+		createNegativeLookaheadParser(smaliIdentifierContinuationParser),
+	]),
+	([flag]) => flag,
+);
+
 const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = promiseCompose(
 	createSeparatedArrayParser(
 		createUnionParser<keyof DalvikExecutableAccessFlags | 'declared-synchronized', string>([
-			createExactSequenceParser('public'),
-			createExactSequenceParser('protected'),
-			createExactSequenceParser('private'),
-			createExactSequenceParser('final'),
-			createExactSequenceParser('bridge'),
-			createExactSequenceParser('synthetic'),
-			createExactSequenceParser('varargs'),
-			createExactSequenceParser('static'),
-			createExactSequenceParser('constructor'),
-			createExactSequenceParser('abstract'),
-			createExactSequenceParser('native'),
-			createExactSequenceParser('volatile'),
-			createExactSequenceParser('transient'),
-			createExactSequenceParser('synchronized'),
-			createExactSequenceParser('declared-synchronized'),
-			createExactSequenceParser('strict'),
-			createExactSequenceParser('interface'),
-			createExactSequenceParser('annotation'),
-			createExactSequenceParser('enum'),
+			createAccessFlagParser('public'),
+			createAccessFlagParser('protected'),
+			createAccessFlagParser('private'),
+			createAccessFlagParser('final'),
+			createAccessFlagParser('bridge'),
+			createAccessFlagParser('synthetic'),
+			createAccessFlagParser('varargs'),
+			createAccessFlagParser('static'),
+			createAccessFlagParser('constructor'),
+			createAccessFlagParser('abstract'),
+			createAccessFlagParser('native'),
+			createAccessFlagParser('volatile'),
+			createAccessFlagParser('transient'),
+			createAccessFlagParser('synchronized'),
+			createAccessFlagParser('declared-synchronized'),
+			createAccessFlagParser('strict'),
+			createAccessFlagParser('interface'),
+			createAccessFlagParser('annotation'),
+			createAccessFlagParser('enum'),
 		]),
 		smaliSingleWhitespaceParser,
 	),
@@ -2422,26 +2457,30 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		methods,
 	]) => {
 		const sourceFile = sourceFileObject?.sourceFile;
-		const staticValues = (smaliFields?.staticFields ?? [])
-			.map(smaliField => {
-				if (!smaliField.initialValue) {
-					return undefined;
-				}
-				const { type, value } = smaliField.initialValue;
-				// For float literals, return the numeric value
-				if (type === 'float') {
-					return value;
-				}
-				// For boolean literals, exclude false (default value) from staticValues
-				if (type === 'boolean') {
-					return undefined;
-				}
-				if (type === 'number') {
-					return value;
-				}
-				// String values are not included in staticValues, return undefined
-				return undefined;
-			});
+		// Create staticValues array matching DEX format:
+		// - Find the last static field with an initializer
+		// - Create array up to that index with values/nulls
+		// - Fields after the last initializer are not included
+		const staticFieldsList = smaliFields?.staticFields ?? [];
+		let lastIndexWithInitializer = -1;
+		for (let i = staticFieldsList.length - 1; i >= 0; i--) {
+			if (staticFieldsList[i].initialValue !== undefined) {
+				lastIndexWithInitializer = i;
+				break;
+			}
+		}
+
+		const staticValues = lastIndexWithInitializer === -1
+			? []
+			: staticFieldsList
+				.slice(0, lastIndexWithInitializer + 1)
+				.map(smaliField => {
+					if (smaliField.initialValue === undefined) {
+						return null;
+					}
+
+					return typeof smaliField.initialValue === 'number' ? smaliField.initialValue : undefined;
+				});
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],

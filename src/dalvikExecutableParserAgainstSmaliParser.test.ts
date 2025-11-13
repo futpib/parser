@@ -125,54 +125,6 @@ function normalizeClassDefinition(classDefinition: any) {
 				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
 			);
 		}
-
-		// Normalize mul-double/2addr vs div-double/2addr due to smali assembler bug
-		// The smali assembler incorrectly generates div-double/2addr (0xCD) when assembling mul-double/2addr
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'operation' in value
-			&& value.operation === 'div-double/2addr'
-		) {
-			value.operation = 'mul-double/2addr';
-		}
-
-		// Normalize staticValues array to handle smali assembler bugs with float/boolean encoding
-		// The smali assembler incorrectly encodes float literals and boolean false values
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'staticValues' in value
-			&& Array.isArray(value.staticValues)
-			&& 'classData' in value
-			&& typeof value.classData === 'object'
-			&& value.classData
-			&& 'staticFields' in value.classData
-			&& Array.isArray(value.classData.staticFields)
-		) {
-			const staticFields = value.classData.staticFields as any[];
-			value.staticValues = value.staticValues.map((staticValue: any, index: number) => {
-				const field = staticFields[index];
-				if (!field) {
-					return staticValue;
-				}
-				
-				// If it's a boolean field with false value, normalize to undefined
-				if (field.type === 'Z' && staticValue === false) {
-					return undefined;
-				}
-				
-				// If it's a float field with a numeric value, the smali assembler may have encoded it incorrectly
-				// Check if the value looks corrupted (very small or precision issues) and normalize to undefined
-				if (field.type === 'F' && typeof staticValue === 'number') {
-					// The smali assembler corrupts float literals during reassembly
-					// Return undefined to match smali parser behavior
-					return undefined;
-				}
-				
-				return staticValue;
-			});
-		}
 	});
 }
 
@@ -299,7 +251,7 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 			failures.push(result);
 
-			if (failures.length >= 4) {
+			if (failures.length >= 2) {
 				for (const failure of failures) {
 					const [ error ] = failure.errors;
 
@@ -325,6 +277,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$1', isolate: true },
 		{ smaliFilePath: 'androidx/activity/R$id', isolate: true },
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$NonConfigurationInstances', isolate: true },
+		{ smaliFilePath: 'androidx/appcompat/R$styleable', isolate: true },
 		{ smaliFilePath: 'androidx/core/content/FileProvider', isolate: true },
 		{ smaliFilePath: 'com/google/android/exoplayer2/audio/Sonic', isolate: true },
 	],
@@ -340,6 +293,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/compose/ui/text/android/style/LineHeightSpan', isolate: true },
 		{ smaliFilePath: 'androidx/recyclerview/widget/LinearSmoothScroller', isolate: true },
 		{ smaliFilePath: 'androidx/compose/ui/layout/LayoutIdElement', isolate: true },
+		{ smaliFilePath: 'androidx/compose/ui/text/EmojiSupportMatch', isolate: true },
 	],
 	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
@@ -374,6 +328,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a3/b', isolate: true },
 		{ smaliFilePath: 'a3/d', isolate: true },
 		{ smaliFilePath: 'a4/b', isolate: true },
+		{ smaliFilePath: 'q2/d$a', isolate: true },
 		{ smaliFilePath: 'y4/t1', isolate: true },
 	],
 };
