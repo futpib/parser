@@ -125,6 +125,17 @@ function normalizeClassDefinition(classDefinition: any) {
 				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
 			);
 		}
+
+		// Normalize mul-double/2addr vs div-double/2addr due to smali assembler bug
+		// The smali assembler incorrectly generates div-double/2addr (0xCD) when assembling mul-double/2addr
+		if (
+			value
+			&& typeof value === 'object'
+			&& 'operation' in value
+			&& value.operation === 'div-double/2addr'
+		) {
+			value.operation = 'mul-double/2addr';
+		}
 	});
 }
 
@@ -282,6 +293,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: '_COROUTINE/ArtificialStackFrames', isolate: true },
 		{ smaliFilePath: 'androidx/appcompat/widget/AppCompatTextHelper', isolate: true },
 		{ smaliFilePath: '_COROUTINE/CoroutineDebuggingKt', isolate: true },
+		{ smaliFilePath: 'androidx/compose/ui/text/android/style/LineHeightSpan', isolate: true },
 	],
 	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
