@@ -113,18 +113,6 @@ function normalizeClassDefinition(classDefinition: any) {
 		) {
 			value.debugInfo = undefined;
 		}
-
-		// Filter out nop instructions as they may differ between DEX and reassembled smali
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'instructions' in value
-			&& Array.isArray(value.instructions)
-		) {
-			value.instructions = value.instructions.filter(
-				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
-			);
-		}
 	});
 }
 
@@ -323,6 +311,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a4/b', isolate: true },
 		{ smaliFilePath: 'q2/d$a', isolate: true },
 		{ smaliFilePath: 'y4/t1', isolate: true },
+		{ smaliFilePath: 'com/google/android/material/textfield/b', isolate: true },
 	],
 };
 
