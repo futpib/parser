@@ -125,6 +125,17 @@ function normalizeClassDefinition(classDefinition: any) {
 				(instruction: any) => !(instruction && typeof instruction === 'object' && instruction.operation === 'nop'),
 			);
 		}
+
+		// Normalize branchOffset in fill-array-data instructions as they may differ when class is isolated
+		if (
+			value
+			&& typeof value === 'object'
+			&& 'operation' in value
+			&& value.operation === 'fill-array-data'
+			&& 'branchOffset' in value
+		) {
+			value.branchOffset = 0;
+		}
 	});
 }
 
@@ -323,6 +334,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a4/b', isolate: true },
 		{ smaliFilePath: 'q2/d$a', isolate: true },
 		{ smaliFilePath: 'y4/t1', isolate: true },
+		{ smaliFilePath: 'com/google/android/material/textfield/b', isolate: true },
 	],
 };
 
