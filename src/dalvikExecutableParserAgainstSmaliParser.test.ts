@@ -126,7 +126,7 @@ function normalizeClassDefinition(classDefinition: any) {
 			);
 		}
 
-		// Normalize branchOffset in fill-array-data instructions as they may differ when class is isolated
+		// Normalize branchOffset in fill-array-data instructions as they may differ between DEX and Smali
 		if (
 			value
 			&& typeof value === 'object'
