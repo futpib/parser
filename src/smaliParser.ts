@@ -1561,6 +1561,7 @@ const operationsWithTypeArgument = new Set<DalvikBytecodeOperation['operation']>
 
 const operationsWithBigintValue = new Set<DalvikBytecodeOperation['operation']>([
 	'const-wide/16',
+	'const-wide/32',
 	'const-wide',
 ]);
 
