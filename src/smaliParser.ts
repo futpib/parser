@@ -686,10 +686,13 @@ type SmaliFields = {
 };
 
 const smaliFieldsParser: Parser<SmaliFields, string> = promiseCompose(
-	createArrayParser<string[] | SmaliField, string>(createDisjunctionParser<string[] | SmaliField, string, string>([
-		smaliFieldParser,
+	createSeparatedNonEmptyArrayParser<string[] | SmaliField, string>(
+		createDisjunctionParser<string[] | SmaliField, string, string>([
+			smaliFieldParser,
+			smaliCommentsOrNewlinesParser,
+		]),
 		smaliCommentsOrNewlinesParser,
-	])),
+	),
 	fieldsAndComments => {
 		let type: 'staticField' | 'instanceField' = 'instanceField';
 
