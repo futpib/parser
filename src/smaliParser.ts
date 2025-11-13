@@ -2416,9 +2416,30 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		methods,
 	]) => {
 		const sourceFile = sourceFileObject?.sourceFile;
-		const staticValues = (smaliFields?.staticFields ?? [])
-			.filter(smaliField => smaliField.initialValue !== undefined)
-			.map(smaliField => typeof smaliField.initialValue === 'number' ? smaliField.initialValue : undefined);
+		// Create staticValues array matching DEX format:
+		// - Find the last static field with an initializer
+		// - Create array up to that index with values/nulls
+		// - Fields after the last initializer are not included
+		const staticFieldsList = smaliFields?.staticFields ?? [];
+		let lastIndexWithInitializer = -1;
+		for (let i = staticFieldsList.length - 1; i >= 0; i--) {
+			if (staticFieldsList[i].initialValue !== undefined) {
+				lastIndexWithInitializer = i;
+				break;
+			}
+		}
+
+		const staticValues = lastIndexWithInitializer === -1
+			? []
+			: staticFieldsList
+				.slice(0, lastIndexWithInitializer + 1)
+				.map(smaliField => {
+					if (smaliField.initialValue === undefined) {
+						return null;
+					}
+
+					return typeof smaliField.initialValue === 'number' ? smaliField.initialValue : undefined;
+				});
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],

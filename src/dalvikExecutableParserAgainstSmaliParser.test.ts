@@ -150,18 +150,6 @@ function normalizeClassDefinition(classDefinition: any) {
 			value.branchOffset = undefined;
 		}
 	});
-
-	// Remove null values from staticValues array
-	// The smali parser only includes static fields with explicit initializers,
-	// while the DEX format includes null entries for fields without initializers
-	if (
-		classDefinition
-		&& typeof classDefinition === 'object'
-		&& 'staticValues' in classDefinition
-		&& Array.isArray(classDefinition.staticValues)
-	) {
-		classDefinition.staticValues = classDefinition.staticValues.filter((value: any) => value !== null);
-	}
 }
 
 const parseDexAgainstSmaliMacro = test.macro({
