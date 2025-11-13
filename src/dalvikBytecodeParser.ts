@@ -2249,7 +2249,7 @@ const dalvikBytecodeOperationConstWide32Parser: Parser<DalvikBytecodeOperationCo
 	([ _opcode, { registers, value } ]) => ({
 		operation: 'const-wide/32',
 		registers,
-		value: BigInt(value),
+		value: BigInt(value) << 32n >> 32n,
 	}),
 );
 
@@ -2274,6 +2274,26 @@ const dalvikBytecodeOperationConstWideParser: Parser<DalvikBytecodeOperationCons
 );
 
 setParserName(dalvikBytecodeOperationConstWideParser, 'dalvikBytecodeOperationConstWideParser');
+
+type DalvikBytecodeOperationConstWideHigh16 = {
+	operation: 'const-wide/high16';
+	registers: number[];
+	value: bigint;
+};
+
+const dalvikBytecodeOperationConstWideHigh16Parser: Parser<DalvikBytecodeOperationConstWideHigh16, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x19),
+		createDalvikBytecodeFormat21sParser(),
+	]),
+	([ _opcode, { registers, value } ]) => ({
+		operation: 'const-wide/high16',
+		registers,
+		value: BigInt(value) << 48n,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationConstWideHigh16Parser, 'dalvikBytecodeOperationConstWideHigh16Parser');
 
 type DalvikBytecodeOperationConst = {
 	operation: 'const';
@@ -2421,6 +2441,7 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationConstWide16
 	| DalvikBytecodeOperationConstWide32
 	| DalvikBytecodeOperationConstWide
+	| DalvikBytecodeOperationConstWideHigh16
 	| DalvikBytecodeOperationConst
 
 	| DalvikBytecodeOperationConstString
@@ -2511,6 +2532,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 			dalvikBytecodeOperationConstWide16Parser,
 			dalvikBytecodeOperationConstWide32Parser,
 			dalvikBytecodeOperationConstWideParser,
+			dalvikBytecodeOperationConstWideHigh16Parser,
 			dalvikBytecodeOperationConstParser,
 
 			dalvikBytecodeOperationCompareParser,
