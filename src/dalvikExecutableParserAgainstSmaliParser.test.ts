@@ -256,7 +256,7 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 			failures.push(result);
 
-			if (failures.length >= 4) {
+			if (failures.length >= 2) {
 				for (const failure of failures) {
 					const [ error ] = failure.errors;
 
