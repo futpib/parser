@@ -600,6 +600,10 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 				() => null,
 			),
 			promiseCompose(
+				createExactSequenceParser('{}'),
+				() => [],
+			),
+			promiseCompose(
 				createTupleParser([
 					createExactSequenceParser('{\n'),
 					createSeparatedArrayParser(
