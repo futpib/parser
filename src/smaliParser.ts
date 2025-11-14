@@ -2600,6 +2600,63 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			synthetic: accessFlags.synthetic || allMembersAreSynthetic,
 		};
 
+		// Helper function to compare two prototypes in DEX order
+		// Prototypes are compared by: returnType, then parameter count, then each parameter
+		function comparePrototypes(a: DalvikExecutablePrototype, b: DalvikExecutablePrototype): number {
+			// First compare return types
+			if (a.returnType !== b.returnType) {
+				return a.returnType.localeCompare(b.returnType);
+			}
+
+			// Then compare parameter counts
+			if (a.parameters.length !== b.parameters.length) {
+				return a.parameters.length - b.parameters.length;
+			}
+
+			// Finally compare each parameter in order
+			for (let i = 0; i < a.parameters.length; i++) {
+				const cmp = a.parameters[i].localeCompare(b.parameters[i]);
+				if (cmp !== 0) {
+					return cmp;
+				}
+			}
+
+			return 0;
+		}
+
+		// Sort annotations to match DEX file ordering
+		// The DEX format requires annotations to be sorted by field/method signature
+		// to match the order in the global field/method ID lists
+		annotations.fieldAnnotations.sort((a, b) => {
+			// Sort by field name first
+			if (a.field.name !== b.field.name) {
+				return a.field.name.localeCompare(b.field.name);
+			}
+
+			// Then by field type
+			return a.field.type.localeCompare(b.field.type);
+		});
+
+		annotations.methodAnnotations.sort((a, b) => {
+			// Sort by method name first
+			if (a.method.name !== b.method.name) {
+				return a.method.name.localeCompare(b.method.name);
+			}
+
+			// Then by prototype
+			return comparePrototypes(a.method.prototype, b.method.prototype);
+		});
+
+		annotations.parameterAnnotations.sort((a, b) => {
+			// Sort by method name first
+			if (a.method.name !== b.method.name) {
+				return a.method.name.localeCompare(b.method.name);
+			}
+
+			// Then by prototype
+			return comparePrototypes(a.method.prototype, b.method.prototype);
+		});
+
 		return {
 			accessFlags: finalAccessFlags,
 			class: class_,

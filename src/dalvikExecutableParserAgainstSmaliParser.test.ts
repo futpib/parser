@@ -54,6 +54,9 @@ function normalizeSmaliFilePath(smaliFilePath: string | {
 	};
 }
 
+// Note: The smali parser now sorts annotations internally to match DEX ordering.
+// However, we still sort both DEX and Smali outputs here as a defensive measure
+// to handle edge cases and ensure test stability.
 function sortParameterAnnotations(classDefinition: any) {
 	if (
 		classDefinition
@@ -65,16 +68,30 @@ function sortParameterAnnotations(classDefinition: any) {
 		&& Array.isArray(classDefinition.annotations.parameterAnnotations)
 	) {
 		classDefinition.annotations.parameterAnnotations.sort((a: any, b: any) => {
-			// Sort by class name first
-			if (a.method.class !== b.method.class) {
-				return a.method.class.localeCompare(b.method.class);
-			}
-			// Then by method name
+			// Sort by method name
 			if (a.method.name !== b.method.name) {
 				return a.method.name.localeCompare(b.method.name);
 			}
-			// Then by shorty (prototype signature)
-			return a.method.prototype.shorty.localeCompare(b.method.prototype.shorty);
+
+			// Then by return type
+			if (a.method.prototype.returnType !== b.method.prototype.returnType) {
+				return a.method.prototype.returnType.localeCompare(b.method.prototype.returnType);
+			}
+
+			// Then by parameter count
+			if (a.method.prototype.parameters.length !== b.method.prototype.parameters.length) {
+				return a.method.prototype.parameters.length - b.method.prototype.parameters.length;
+			}
+
+			// Finally compare each parameter
+			for (let i = 0; i < a.method.prototype.parameters.length; i++) {
+				const cmp = a.method.prototype.parameters[i].localeCompare(b.method.prototype.parameters[i]);
+				if (cmp !== 0) {
+					return cmp;
+				}
+			}
+
+			return 0;
 		});
 	}
 }
@@ -90,14 +107,11 @@ function sortFieldAnnotations(classDefinition: any) {
 		&& Array.isArray(classDefinition.annotations.fieldAnnotations)
 	) {
 		classDefinition.annotations.fieldAnnotations.sort((a: any, b: any) => {
-			// Sort by class name first
-			if (a.field.class !== b.field.class) {
-				return a.field.class.localeCompare(b.field.class);
-			}
-			// Then by field name
+			// Sort by field name first
 			if (a.field.name !== b.field.name) {
 				return a.field.name.localeCompare(b.field.name);
 			}
+
 			// Then by field type
 			return a.field.type.localeCompare(b.field.type);
 		});
@@ -115,19 +129,34 @@ function sortMethodAnnotations(classDefinition: any) {
 		&& Array.isArray(classDefinition.annotations.methodAnnotations)
 	) {
 		classDefinition.annotations.methodAnnotations.sort((a: any, b: any) => {
-			// Sort by class name first
-			if (a.method.class !== b.method.class) {
-				return a.method.class.localeCompare(b.method.class);
-			}
-			// Then by method name
+			// Sort by method name
 			if (a.method.name !== b.method.name) {
 				return a.method.name.localeCompare(b.method.name);
 			}
-			// Then by shorty (prototype signature)
-			return a.method.prototype.shorty.localeCompare(b.method.prototype.shorty);
+
+			// Then by return type
+			if (a.method.prototype.returnType !== b.method.prototype.returnType) {
+				return a.method.prototype.returnType.localeCompare(b.method.prototype.returnType);
+			}
+
+			// Then by parameter count
+			if (a.method.prototype.parameters.length !== b.method.prototype.parameters.length) {
+				return a.method.prototype.parameters.length - b.method.prototype.parameters.length;
+			}
+
+			// Finally compare each parameter
+			for (let i = 0; i < a.method.prototype.parameters.length; i++) {
+				const cmp = a.method.prototype.parameters[i].localeCompare(b.method.prototype.parameters[i]);
+				if (cmp !== 0) {
+					return cmp;
+				}
+			}
+
+			return 0;
 		});
 	}
 }
+
 
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
@@ -190,15 +219,11 @@ const parseDexAgainstSmaliMacro = test.macro({
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
 
-		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
+		// Sort annotations to ensure consistent ordering between DEX and Smali
 		sortParameterAnnotations(classDefinitionFromDex);
 		sortParameterAnnotations(classDefinitionFromSmali);
-
-		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
 		sortFieldAnnotations(classDefinitionFromSmali);
-
-		// Sort method annotations to ensure consistent ordering between DEX and Smali
 		sortMethodAnnotations(classDefinitionFromDex);
 		sortMethodAnnotations(classDefinitionFromSmali);
 
@@ -422,15 +447,11 @@ test.serial(
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
 
-		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
+		// Sort annotations to ensure consistent ordering between DEX and Smali
 		sortParameterAnnotations(classDefinitionFromDex);
 		sortParameterAnnotations(classDefinitionFromSmali);
-
-		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
 		sortFieldAnnotations(classDefinitionFromSmali);
-
-		// Sort method annotations to ensure consistent ordering between DEX and Smali
 		sortMethodAnnotations(classDefinitionFromDex);
 		sortMethodAnnotations(classDefinitionFromSmali);
 
