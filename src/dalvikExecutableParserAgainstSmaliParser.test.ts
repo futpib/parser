@@ -114,11 +114,6 @@ function normalizeClassDefinition(classDefinition: any) {
 			value.debugInfo = undefined;
 		}
 	});
-
-	// Normalize synthetic flag at class level since baksmali doesn't always output it
-	if (classDefinition?.accessFlags) {
-		classDefinition.accessFlags.synthetic = false;
-	}
 }
 
 const parseDexAgainstSmaliMacro = test.macro({

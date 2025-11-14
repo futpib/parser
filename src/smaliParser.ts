@@ -2475,8 +2475,29 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			});
 		}
 
+		// Compute synthetic flag from members if not explicitly set
+		// This matches baksmali behavior where synthetic flag at class level is not output
+		// but can be inferred from all members being synthetic
+		const allMembers = [
+			...fields.staticFields,
+			...fields.instanceFields,
+			...methods.directMethods,
+			// Note: virtualMethods are not included, matching DEX parser behavior
+		];
+
+		const allMembersAreSynthetic = (
+			allMembers.every(member => member.accessFlags.synthetic)
+			&& allMembers.length > 0
+		);
+
+		const finalAccessFlags = {
+			...accessFlags,
+			// Use the synthetic flag from the class declaration, or compute it from members if not set
+			synthetic: accessFlags.synthetic || allMembersAreSynthetic,
+		};
+
 		return {
-			accessFlags,
+			accessFlags: finalAccessFlags,
 			class: class_,
 			superclass,
 			sourceFile,
