@@ -1230,15 +1230,19 @@ const smaliParametersIntegerParser: Parser<number | bigint, string> = promiseCom
 
 			return characters.join('');
 		},
-		createOptionalParser(createExactSequenceParser('L')),
+		createOptionalParser(createUnionParser([
+			createExactSequenceParser('L'),
+			createExactSequenceParser('t'),
+			createExactSequenceParser('s'),
+		])),
 	]),
 	([
 		optionalMinus,
 		_0x,
 		value,
-		optionalL,
+		optionalSuffix,
 	]) => {
-		if (optionalL) {
+		if (optionalSuffix === 'L') {
 			const sign = optionalMinus ? -1n : 1n;
 
 			return sign * BigInt('0x' + value);
