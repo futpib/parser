@@ -2494,13 +2494,26 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 				.slice(0, lastIndexWithInitializer + 1)
 				.map(smaliField => {
 					if (smaliField.initialValue === undefined) {
+						// For integer types without initializer, DEX stores 0
+						if (smaliField.field.field.type === 'I' || smaliField.field.field.type === 'B' || smaliField.field.field.type === 'S') {
+							return 0;
+						}
+						// For long types without initializer, DEX stores 0n
+						if (smaliField.field.field.type === 'J') {
+							return 0n;
+						}
+						// For float/double types without initializer, DEX stores 0
+						if (smaliField.field.field.type === 'F' || smaliField.field.field.type === 'D') {
+							return 0;
+						}
+						// For other types (reference types, etc.), return null
 						return null;
 					}
 
 					// Only numeric values are stored in static values array
 					// Boolean false, null, and other default values are not stored
 					if (typeof smaliField.initialValue === 'number') {
-						// Convert to BigInt for long (J) and double (D) types
+						// Convert to BigInt for long (J) types
 						if (smaliField.field.field.type === 'J') {
 							return BigInt(smaliField.initialValue);
 						}

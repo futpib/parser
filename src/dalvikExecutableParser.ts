@@ -1000,8 +1000,8 @@ const encodedValueLongParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Ar
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const firstByte = uint8Array[0];
-					const firstBit = (firstByte & 0b1000_0000) >> 7;
+					const lastByte = uint8Array[size - 1];
+					const firstBit = (lastByte & 0b1000_0000) >> 7;
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ ...uint8Array, extensionByte ]);
@@ -1024,8 +1024,8 @@ const encodedValueLongParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Ar
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const firstByte = uint8Array[0];
-					const firstBit = (firstByte & 0b1000_0000) >> 7;
+					const lastByte = uint8Array[size - 1];
+					const firstBit = (lastByte & 0b1000_0000) >> 7;
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
 					const buffer = Buffer.from([ ...uint8Array, extensionByte, extensionByte, extensionByte ]);
