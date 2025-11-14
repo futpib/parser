@@ -162,6 +162,9 @@ const parseDexAgainstSmaliMacro = test.macro({
 		const smali = (
 			smali_
 				.replaceAll(/^\s+\.line \d+\s*$/gm, '')
+				.replaceAll(/^\s+# getter for:.*$/gm, '')
+				.replaceAll(/^\s+# setter for:.*$/gm, '')
+				.replaceAll(/^\s+# invokes:.*$/gm, '')
 				.replaceAll(/\n{3,}/g, '\n\n')
 		);
 
@@ -306,6 +309,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/compose/ui/text/android/style/LineHeightSpan', isolate: true },
 		{ smaliFilePath: 'androidx/compose/ui/layout/LayoutIdElement', isolate: true },
 		{ smaliFilePath: 'androidx/compose/ui/text/EmojiSupportMatch', isolate: true },
+		{ smaliFilePath: 'androidx/compose/ui/focus/FocusTransactionsKt', isolate: true },
 	],
 	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
