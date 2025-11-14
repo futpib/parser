@@ -331,6 +331,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/appcompat/widget/m0', isolate: true },
 		{ smaliFilePath: 'androidx/appcompat/widget/r1', isolate: true },
 		{ smaliFilePath: 'androidx/recyclerview/widget/RecyclerView$a0', isolate: true },
+		{ smaliFilePath: 'androidx/constraintlayout/widget/ConstraintLayout$a', isolate: true },
 		{ smaliFilePath: 'l4/a', isolate: true },
 		{ smaliFilePath: 'n4/o', isolate: true },
 		{ smaliFilePath: 'a', isolate: true },

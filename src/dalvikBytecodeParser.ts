@@ -55,6 +55,7 @@ const dalvikBytecodeOperationUnusedParser: Parser<void, Uint8Array> = async pars
 			(opcode >= 0x3E && opcode <= 0x43)
 			|| (opcode === 0x73)
 			|| (opcode >= 0x79 && opcode <= 0x7A)
+			|| (opcode >= 0xC8 && opcode <= 0xCF)
 			|| (opcode >= 0xE3 && opcode <= 0xF9)
 		),
 		'Expected unused opcode',
