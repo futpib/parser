@@ -26,6 +26,7 @@ import { type IndexIntoMethodIds } from './dalvikExecutableParser/typedNumbers.j
 import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createDebugLogParser } from './debugLogParser.js';
 import { createElementParser } from './elementParser.js';
+import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 
 function shortyFromLongy(longy: string): string {
 	if (longy.startsWith('[')) {
@@ -209,11 +210,13 @@ const smaliHexNumberParser: Parser<number, string> = promiseCompose(
 				return character;
 			},
 		)()),
+		createOptionalParser(createExactSequenceParser('L')),
 	]),
 	([
 		optionalMinus,
 		_0x,
 		valueCharacters,
+		_optionalL,
 	]) => {
 		const sign = optionalMinus ? -1 : 1;
 
@@ -244,6 +247,36 @@ const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	jsonStringParser,
 	string => string.replaceAll(String.raw`\'`, '\''),
 );
+
+// Parser for smali character literals (e.g., 'a', ':', '\'', '\\')
+const smaliCharacterLiteralParser: Parser<number, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('\''),
+		createDisjunctionParser<string, string>([
+			// Handle escape sequences (must come before regular characters)
+			promiseCompose(createExactSequenceParser(String.raw`\\`), () => '\\'),
+			promiseCompose(createExactSequenceParser(String.raw`\'`), () => '\''),
+			promiseCompose(createExactSequenceParser(String.raw`\"`), () => '"'),
+			promiseCompose(createExactSequenceParser(String.raw`\n`), () => '\n'),
+			promiseCompose(createExactSequenceParser(String.raw`\r`), () => '\r'),
+			promiseCompose(createExactSequenceParser(String.raw`\t`), () => '\t'),
+			promiseCompose(createExactSequenceParser(String.raw`\b`), () => '\b'),
+			promiseCompose(createExactSequenceParser(String.raw`\f`), () => '\f'),
+			// Handle regular characters (not a single quote)
+			parserCreatorCompose(
+				() => createElementParser<string>(),
+				character => async parserContext => {
+					parserContext.invariant(character !== '\'', 'Unexpected single quote');
+					return character;
+				},
+			)(),
+		]),
+		createExactSequenceParser('\''),
+	]),
+	([, character]) => character.charCodeAt(0),
+);
+
+setParserName(smaliCharacterLiteralParser, 'smaliCharacterLiteralParser');
 
 // Parser that matches identifier continuation characters (letters, digits, $, -, _)
 const smaliIdentifierContinuationParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
@@ -674,6 +707,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 			createTupleParser([
 				createExactSequenceParser(' = '),
 				createUnionParser<number | string | boolean | null, string>([
+					smaliCharacterLiteralParser,
 					smaliNumberParser,
 					smaliQuotedStringParser,
 					promiseCompose(
@@ -2460,12 +2494,29 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 				.slice(0, lastIndexWithInitializer + 1)
 				.map(smaliField => {
 					if (smaliField.initialValue === undefined) {
+						// For integer types without initializer, DEX stores 0
+						if (smaliField.field.field.type === 'I' || smaliField.field.field.type === 'B' || smaliField.field.field.type === 'S') {
+							return 0;
+						}
+						// For long types without initializer, DEX stores 0n
+						if (smaliField.field.field.type === 'J') {
+							return 0n;
+						}
+						// For float/double types without initializer, DEX stores 0
+						if (smaliField.field.field.type === 'F' || smaliField.field.field.type === 'D') {
+							return 0;
+						}
+						// For other types (reference types, etc.), return null
 						return null;
 					}
 
 					// Only numeric values are stored in static values array
 					// Boolean false, null, and other default values are not stored
 					if (typeof smaliField.initialValue === 'number') {
+						// Convert to BigInt for long (J) types
+						if (smaliField.field.field.type === 'J') {
+							return BigInt(smaliField.initialValue);
+						}
 						return smaliField.initialValue;
 					}
 

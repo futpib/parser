@@ -898,7 +898,7 @@ const encodedValueCharParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Ar
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const buffer = Buffer.from([ 0, ...uint8Array ]);
+					const buffer = Buffer.from([ ...uint8Array, 0 ]);
 					return { type: 'char' as const, value: buffer.readUInt16LE(0) };
 				},
 			);
@@ -1000,11 +1000,11 @@ const encodedValueLongParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Ar
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const firstByte = uint8Array[0];
-					const firstBit = (firstByte & 0b1000_0000) >> 7;
+					const lastByte = uint8Array[size - 1];
+					const firstBit = (lastByte & 0b1000_0000) >> 7;
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
-					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
+					const buffer = Buffer.from([ ...uint8Array, extensionByte ]);
 					return { type: 'long' as const, value: BigInt(buffer.readInt32LE(0)) };
 				},
 			);
@@ -1024,11 +1024,11 @@ const encodedValueLongParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Ar
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const firstByte = uint8Array[0];
-					const firstBit = (firstByte & 0b1000_0000) >> 7;
+					const lastByte = uint8Array[size - 1];
+					const firstBit = (lastByte & 0b1000_0000) >> 7;
 					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
 
-					const buffer = Buffer.from([ extensionByte, extensionByte, extensionByte, ...uint8Array ]);
+					const buffer = Buffer.from([ ...uint8Array, extensionByte, extensionByte, extensionByte ]);
 					return { type: 'long' as const, value: BigInt(buffer.readBigInt64LE(0)) };
 				},
 			);
