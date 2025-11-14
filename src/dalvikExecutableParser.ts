@@ -3047,6 +3047,24 @@ const createDalvikExecutableParser = <Instructions>({
 				};
 			});
 
+		// Sort parameter annotations in each class by method index in classData
+		for (const classDef of classDefinitions) {
+			if (classDef.annotations?.parameterAnnotations && classDef.classData) {
+				const allMethods = [...(classDef.classData.directMethods ?? []), ...(classDef.classData.virtualMethods ?? [])];
+				classDef.annotations.parameterAnnotations.sort((a, b) => {
+					const indexA = allMethods.findIndex(m => 
+						m.method.name === a.method.name && 
+						m.method.prototype.shorty === a.method.prototype.shorty
+					);
+					const indexB = allMethods.findIndex(m => 
+						m.method.name === b.method.name && 
+						m.method.prototype.shorty === b.method.prototype.shorty
+					);
+					return indexA - indexB;
+				});
+			}
+		}
+
 			return {
 				classDefinitions,
 				link,

@@ -2519,6 +2519,15 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 			invariant(false, 'Expected method type');
 		}
 
+		// Sort parameter annotations by method index in the combined method list
+		// to match the order in the DEX file's annotations directory
+		const allMethods = [...directMethods, ...virtualMethods];
+		parameterAnnotations.sort((a, b) => {
+			const indexA = allMethods.findIndex(m => dalvikExecutableMethodEquals(m.method, a.method));
+			const indexB = allMethods.findIndex(m => dalvikExecutableMethodEquals(m.method, b.method));
+			return indexA - indexB;
+		});
+
 		return {
 			directMethods,
 			virtualMethods,

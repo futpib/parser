@@ -54,31 +54,6 @@ function normalizeSmaliFilePath(smaliFilePath: string | {
 	};
 }
 
-function sortParameterAnnotations(classDefinition: any) {
-	if (
-		classDefinition
-		&& typeof classDefinition === 'object'
-		&& 'annotations' in classDefinition
-		&& classDefinition.annotations
-		&& typeof classDefinition.annotations === 'object'
-		&& 'parameterAnnotations' in classDefinition.annotations
-		&& Array.isArray(classDefinition.annotations.parameterAnnotations)
-	) {
-		classDefinition.annotations.parameterAnnotations.sort((a: any, b: any) => {
-			// Sort by class name first
-			if (a.method.class !== b.method.class) {
-				return a.method.class.localeCompare(b.method.class);
-			}
-			// Then by method name
-			if (a.method.name !== b.method.name) {
-				return a.method.name.localeCompare(b.method.name);
-			}
-			// Then by shorty (prototype signature)
-			return a.method.prototype.shorty.localeCompare(b.method.prototype.shorty);
-		});
-	}
-}
-
 function sortFieldAnnotations(classDefinition: any) {
 	if (
 		classDefinition
@@ -164,10 +139,6 @@ const parseDexAgainstSmaliMacro = test.macro({
 		// Normalize both DEX and Smali by removing nop instructions and debug info
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
-
-		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
-		sortParameterAnnotations(classDefinitionFromDex);
-		sortParameterAnnotations(classDefinitionFromSmali);
 
 		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
@@ -400,10 +371,6 @@ test.serial(
 		// Normalize both DEX and Smali by removing nop instructions and debug info
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
-
-		// Sort parameter annotations to ensure consistent ordering between DEX and Smali
-		sortParameterAnnotations(classDefinitionFromDex);
-		sortParameterAnnotations(classDefinitionFromSmali);
 
 		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
