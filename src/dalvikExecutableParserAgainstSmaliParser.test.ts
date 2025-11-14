@@ -305,6 +305,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/core/content/FileProvider', isolate: true },
 		{ smaliFilePath: 'androidx/core/view/KeyEventDispatcher', isolate: true },
 		{ smaliFilePath: 'com/google/android/exoplayer2/audio/Sonic', isolate: true },
+		{ smaliFilePath: 'com/google/android/exoplayer2/ext/opus/OpusDecoder', isolate: true },
 		{ smaliFilePath: 'com/google/android/gms/internal/common/zzg', isolate: true },
 		{ smaliFilePath: 'com/google/android/play/core/integrity/model/StandardIntegrityErrorCode', isolate: true },
 		{ smaliFilePath: 'com/google/common/math/IntMath', isolate: true },
