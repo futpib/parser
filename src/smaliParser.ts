@@ -2160,6 +2160,7 @@ const reverseRegistersOperations = new Set<DalvikBytecodeOperation['operation']>
 	'sub-float/2addr',
 	'mul-float/2addr',
 	'div-float/2addr',
+	'rem-float/2addr',
 
 	'add-double/2addr',
 	'sub-double/2addr',
