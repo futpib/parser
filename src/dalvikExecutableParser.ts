@@ -947,11 +947,11 @@ const encodedValueIntParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Arr
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const firstByte = uint8Array[0];
-					const firstBit = (firstByte & 0b1000_0000) >> 7;
-					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
+					const lastByte = uint8Array[uint8Array.length - 1];
+					const signBit = (lastByte & 0b1000_0000) >> 7;
+					const extensionByte = signBit === 1 ? 0xFF : 0x00;
 
-					const buffer = Buffer.from([ extensionByte, ...uint8Array ]);
+					const buffer = Buffer.from([ ...uint8Array, extensionByte ]);
 					return { type: 'int' as const, value: buffer.readInt32LE(0) };
 				},
 			);
