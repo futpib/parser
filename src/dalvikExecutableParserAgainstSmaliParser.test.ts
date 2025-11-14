@@ -359,6 +359,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'a3/b', isolate: true },
 		{ smaliFilePath: 'a3/d', isolate: true },
 		{ smaliFilePath: 'a4/b', isolate: true },
+		{ smaliFilePath: 'b4/v', isolate: true },
 		{ smaliFilePath: 'q2/d$a', isolate: true },
 		{ smaliFilePath: 'y4/t1', isolate: true },
 		{ smaliFilePath: 'com/google/android/material/textfield/b', isolate: true },

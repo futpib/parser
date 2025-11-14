@@ -2496,13 +2496,19 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		for (let i = staticFieldsList.length - 1; i >= 0; i--) {
 			const initValue = staticFieldsList[i].initialValue;
 			// Only consider non-default values as initializers
-			// Numbers and strings are non-default, but false/null/true are defaults
+			// Numbers, strings, and true are non-default
+			// false and null are default values
 			if (initValue !== undefined && typeof initValue === 'number') {
 				lastIndexWithInitializer = i;
 				break;
 			}
 
 			if (initValue !== undefined && typeof initValue === 'string') {
+				lastIndexWithInitializer = i;
+				break;
+			}
+
+			if (initValue === true) {
 				lastIndexWithInitializer = i;
 				break;
 			}
@@ -2526,12 +2532,15 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 						if (smaliField.field.field.type === 'F' || smaliField.field.field.type === 'D') {
 							return 0;
 						}
+						// For boolean types without initializer, DEX stores false
+						if (smaliField.field.field.type === 'Z') {
+							return false;
+						}
 						// For other types (reference types, etc.), return null
 						return null;
 					}
 
-					// Only numeric values are stored in static values array
-					// Boolean false, null, and other default values are not stored
+					// Numeric values are stored in static values array
 					if (typeof smaliField.initialValue === 'number') {
 						// Convert to BigInt for long (J) types
 						if (smaliField.field.field.type === 'J') {
@@ -2545,8 +2554,18 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 						return undefined;
 					}
 
-					// Boolean and null values are default values and should not be in staticValues
-					// Return null to indicate no explicit value
+					// Boolean true is a non-default value and should be in staticValues
+					if (smaliField.initialValue === true) {
+						return true;
+					}
+
+					// Boolean false and null are default values
+					// For boolean fields with explicit false, return false
+					if (smaliField.initialValue === false && smaliField.field.field.type === 'Z') {
+						return false;
+					}
+
+					// For null or other default values, return null
 					return null;
 				});
 		const fields = {
