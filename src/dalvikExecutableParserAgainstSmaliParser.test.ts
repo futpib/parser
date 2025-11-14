@@ -139,16 +139,6 @@ function normalizeClassDefinition(classDefinition: any) {
 			value.debugInfo = undefined;
 		}
 	});
-
-	// Normalize staticValues - baksmali may not preserve all static field initial values
-	// so we remove them from comparison
-	if (
-		classDefinition
-		&& typeof classDefinition === 'object'
-		&& 'staticValues' in classDefinition
-	) {
-		classDefinition.staticValues = undefined;
-	}
 }
 
 const parseDexAgainstSmaliMacro = test.macro({
