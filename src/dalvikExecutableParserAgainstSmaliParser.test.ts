@@ -79,35 +79,6 @@ function sortFieldAnnotations(classDefinition: any) {
 	}
 }
 
-function sortMethodAnnotations(classDefinition: any) {
-	if (
-		classDefinition
-		&& typeof classDefinition === 'object'
-		&& 'annotations' in classDefinition
-		&& classDefinition.annotations
-		&& typeof classDefinition.annotations === 'object'
-		&& 'methodAnnotations' in classDefinition.annotations
-		&& Array.isArray(classDefinition.annotations.methodAnnotations)
-	) {
-		classDefinition.annotations.methodAnnotations.sort((a: any, b: any) => {
-			// Sort by class name first
-			if (a.method.class !== b.method.class) {
-				return a.method.class.localeCompare(b.method.class);
-			}
-			// Then by method name
-			if (a.method.name !== b.method.name) {
-				return a.method.name.localeCompare(b.method.name);
-			}
-			// Then by prototype shorty
-			if (a.method.prototype.shorty !== b.method.prototype.shorty) {
-				return a.method.prototype.shorty.localeCompare(b.method.prototype.shorty);
-			}
-			// Then by return type
-			return a.method.prototype.returnType.localeCompare(b.method.prototype.returnType);
-		});
-	}
-}
-
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
 		if (
@@ -172,10 +143,6 @@ const parseDexAgainstSmaliMacro = test.macro({
 		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
 		sortFieldAnnotations(classDefinitionFromSmali);
-
-		// Sort method annotations to ensure consistent ordering between DEX and Smali
-		sortMethodAnnotations(classDefinitionFromDex);
-		sortMethodAnnotations(classDefinitionFromSmali);
 
 		// Console.dir({
 		// 	classDefinitionFromSmali,
@@ -409,10 +376,6 @@ test.serial(
 		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
 		sortFieldAnnotations(classDefinitionFromSmali);
-
-		// Sort method annotations to ensure consistent ordering between DEX and Smali
-		sortMethodAnnotations(classDefinitionFromDex);
-		sortMethodAnnotations(classDefinitionFromSmali);
 
 		t.deepEqual(
 			classDefinitionFromDex,
