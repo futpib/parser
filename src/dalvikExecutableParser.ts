@@ -2842,7 +2842,24 @@ const createDalvikExecutableParser = <Instructions>({
 
 				// For annotations
 				if (type === 'annotation') {
-					return value as any;
+					// Resolve the encoded annotation (subannotation)
+					const annotationType = types.at(value.typeIndex);
+					invariant(annotationType, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(value.typeIndex));
+
+					const resolvedElements = value.elements.map(element => {
+						const name = strings.at(element.nameIndex);
+						invariant(name, 'Name string must be there. String offset: %s', element.nameIndex);
+
+						return {
+							name,
+							value: resolveTaggedEncodedValueForAnnotations(element.value),
+						};
+					});
+
+					return {
+						type: annotationType,
+						elements: resolvedElements,
+					} as any;
 				}
 
 				// Fallback: return value as number

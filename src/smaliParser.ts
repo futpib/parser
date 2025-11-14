@@ -27,6 +27,7 @@ import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createDebugLogParser } from './debugLogParser.js';
 import { createElementParser } from './elementParser.js';
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
+import { createParserAccessorParser } from './parserAccessorParser.js';
 
 function shortyFromLongy(longy: string): string {
 	if (longy.startsWith('[')) {
@@ -522,12 +523,21 @@ const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = prom
 
 setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
 
+type SmaliSubannotation = {
+	type: string;
+	elements: SmaliAnnotationElement[];
+};
+
+// Forward declaration to handle circular reference
+let smaliSubannotationParser: Parser<SmaliSubannotation, string>;
+
 const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = promiseCompose(
 	createTupleParser([
 		smaliIndentationParser,
 		smaliIdentifierParser,
 		createExactSequenceParser(' = '),
 		createDisjunctionParser([
+			createParserAccessorParser(() => smaliSubannotationParser),
 			smaliEnumValueParser,
 			smaliQuotedStringParser,
 			smaliParametersMethodParser,
@@ -657,6 +667,31 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 );
 
 setParserName(smaliAnnotationElementParser, 'smaliAnnotationElementParser');
+
+// Now define the subannotation parser
+smaliSubannotationParser = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('.subannotation '),
+		smaliTypeDescriptorParser,
+		smaliLineEndPraser,
+		createArrayParser(smaliAnnotationElementParser),
+		smaliIndentationParser,
+		createExactSequenceParser('.end subannotation'),
+	]),
+	([
+		_subannotation,
+		type,
+		_newline,
+		elements,
+		_indentation,
+		_endSubannotation,
+	]) => ({
+		type,
+		elements,
+	}),
+);
+
+setParserName(smaliSubannotationParser, 'smaliSubannotationParser');
 
 type SmaliAnnotation = {
 	type: string;
