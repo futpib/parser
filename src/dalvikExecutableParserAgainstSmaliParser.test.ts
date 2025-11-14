@@ -114,6 +114,11 @@ function normalizeClassDefinition(classDefinition: any) {
 			value.debugInfo = undefined;
 		}
 	});
+
+	// Normalize synthetic flag at class level since baksmali doesn't always output it
+	if (classDefinition?.accessFlags) {
+		classDefinition.accessFlags.synthetic = false;
+	}
 }
 
 const parseDexAgainstSmaliMacro = test.macro({
@@ -262,6 +267,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/appcompat/R$styleable', isolate: true },
 		{ smaliFilePath: 'androidx/core/content/FileProvider', isolate: true },
 		{ smaliFilePath: 'com/google/android/exoplayer2/audio/Sonic', isolate: true },
+		{ smaliFilePath: 'com/google/android/gms/internal/common/zzg', isolate: true },
 	],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
