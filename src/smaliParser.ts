@@ -191,7 +191,7 @@ setParserName(smaliIdentifierParser, 'smaliIdentifierParser');
 
 const elementParser = createElementParser<string>();
 
-const smaliHexNumberParser: Parser<number, string> = promiseCompose(
+const smaliHexNumberParser: Parser<number | bigint, string> = promiseCompose(
 	createTupleParser([
 		createOptionalParser(createExactSequenceParser('-')),
 		createExactSequenceParser('0x'),
@@ -217,11 +217,18 @@ const smaliHexNumberParser: Parser<number, string> = promiseCompose(
 		optionalMinus,
 		_0x,
 		valueCharacters,
-		_optionalL,
+		optionalL,
 	]) => {
+		const value = valueCharacters.join('');
+		
+		// If the 'L' suffix is present, use BigInt for long values
+		if (optionalL) {
+			const sign = optionalMinus ? -1n : 1n;
+			return sign * BigInt('0x' + value);
+		}
+		
 		const sign = optionalMinus ? -1 : 1;
-
-		return sign * Number.parseInt(valueCharacters.join(''), 16);
+		return sign * Number.parseInt(value, 16);
 	},
 );
 
@@ -254,10 +261,55 @@ const smaliNumberParser = createUnionParser<number, string>([
 			return number;
 		},
 	),
-	smaliHexNumberParser,
+	promiseCompose(
+		smaliHexNumberParser,
+		value => {
+			// For smaliNumberParser, we need to ensure we return a number
+			// BigInt values from hex parser should be converted if they fit in number range
+			if (typeof value === 'bigint') {
+				// This shouldn't happen in contexts where smaliNumberParser is used
+				// (registers, line numbers, etc) but if it does, convert to number
+				return Number(value);
+			}
+			return value;
+		},
+	),
 ]);
 
 setParserName(smaliNumberParser, 'smaliNumberParser');
+
+// Parser for field initial values that can include BigInt
+const smaliFieldValueParser = createUnionParser<number | bigint, string>([
+	promiseCompose(
+		createTupleParser([
+			createNegativeLookaheadParser(createUnionParser([
+				createExactSequenceParser('0x'),
+				createExactSequenceParser('-0x'),
+			])),
+			jsonNumberParser,
+			createOptionalParser(createUnionParser([
+				createExactSequenceParser('f'),
+				createExactSequenceParser('F'),
+			])),
+		]),
+		([
+			_not0x,
+			number,
+			optionalFloatSuffix,
+		]) => {
+			// If there's an 'f' or 'F' suffix, convert to 32-bit float precision
+			// to match what would be stored in a DEX file
+			if (optionalFloatSuffix) {
+				const float32Array = new Float32Array(1);
+				float32Array[0] = number;
+				return float32Array[0];
+			}
+
+			return number;
+		},
+	),
+	smaliHexNumberParser,
+]);
 
 const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 	jsonStringParser,
@@ -737,7 +789,7 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
 	annotations: SmaliAnnotation[];
-	initialValue?: number | string | boolean | null;
+	initialValue?: number | bigint | string | boolean | null;
 };
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
@@ -756,9 +808,9 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		createOptionalParser(promiseCompose(
 			createTupleParser([
 				createExactSequenceParser(' = '),
-				createUnionParser<number | string | boolean | null, string>([
+				createUnionParser<number | bigint | string | boolean | null, string>([
 					smaliCharacterLiteralParser,
-					smaliNumberParser,
+					smaliFieldValueParser,
 					smaliQuotedStringParser,
 					promiseCompose(
 						createExactSequenceParser('true'),
@@ -2531,9 +2583,14 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		for (let i = staticFieldsList.length - 1; i >= 0; i--) {
 			const initValue = staticFieldsList[i].initialValue;
 			// Only consider non-default values as initializers
-			// Numbers, strings, and true are non-default
+			// Numbers, bigints, strings, and true are non-default
 			// false and null are default values
 			if (initValue !== undefined && typeof initValue === 'number') {
+				lastIndexWithInitializer = i;
+				break;
+			}
+
+			if (initValue !== undefined && typeof initValue === 'bigint') {
 				lastIndexWithInitializer = i;
 				break;
 			}
@@ -2581,6 +2638,11 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 						if (smaliField.field.field.type === 'J') {
 							return BigInt(smaliField.initialValue);
 						}
+						return smaliField.initialValue;
+					}
+
+					// BigInt values for long (J) types
+					if (typeof smaliField.initialValue === 'bigint') {
 						return smaliField.initialValue;
 					}
 
