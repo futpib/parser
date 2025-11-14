@@ -224,7 +224,10 @@ const smaliHexNumberParser: Parser<number, string> = promiseCompose(
 const smaliNumberParser = createUnionParser<number, string>([
 	promiseCompose(
 		createTupleParser([
-			createNegativeLookaheadParser(createExactSequenceParser('0x')),
+			createNegativeLookaheadParser(createUnionParser([
+				createExactSequenceParser('0x'),
+				createExactSequenceParser('-0x'),
+			])),
 			jsonNumberParser,
 		]),
 		([
