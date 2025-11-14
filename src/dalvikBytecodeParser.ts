@@ -909,7 +909,7 @@ const dalvikBytecodeOperationAddIntLiteral16Parser = createDalvikBytecodeOperati
 
 type DalvikBytecodeOperationAddIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationAddIntLiteral16Parser>>;
 
-const dalvikBytecodeOperationReverseSubtractIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('rsub-int/lit16', 0xD1);
+const dalvikBytecodeOperationReverseSubtractIntLiteral16Parser = createDalvikBytecodeOperationBinaryOperationLiteral16('rsub-int', 0xD1);
 
 type DalvikBytecodeOperationReverseSubtractIntLiteral16 = Awaited<ReturnType<typeof dalvikBytecodeOperationReverseSubtractIntLiteral16Parser>>;
 
