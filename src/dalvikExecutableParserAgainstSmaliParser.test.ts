@@ -261,15 +261,20 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 				continue;
 			}
 
+			function consoleLogFailure(failure: TryResult) {
+				const [ error ] = failure.errors;
+
+				console.log((error as any).formattedDetails.at(0).formatted ?? error);
+			}
+
 			console.log(smaliFilePath);
+			consoleLogFailure(result);
 
 			failures.push(result);
 
 			if (failures.length >= 2) {
 				for (const failure of failures) {
-					const [ error ] = failure.errors;
-
-					console.log((error as any).formattedDetails.at(0).formatted ?? error);
+					consoleLogFailure(failure);
 				}
 
 				for (const failure of failures) {
