@@ -232,11 +232,26 @@ const smaliNumberParser = createUnionParser<number, string>([
 				createExactSequenceParser('-0x'),
 			])),
 			jsonNumberParser,
+			createOptionalParser(createUnionParser([
+				createExactSequenceParser('f'),
+				createExactSequenceParser('F'),
+			])),
 		]),
 		([
 			_not0x,
 			number,
-		]) => number,
+			optionalFloatSuffix,
+		]) => {
+			// If there's an 'f' or 'F' suffix, convert to 32-bit float precision
+			// to match what would be stored in a DEX file
+			if (optionalFloatSuffix) {
+				const float32Array = new Float32Array(1);
+				float32Array[0] = number;
+				return float32Array[0];
+			}
+
+			return number;
+		},
 	),
 	smaliHexNumberParser,
 ]);
