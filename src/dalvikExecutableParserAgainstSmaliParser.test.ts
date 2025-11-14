@@ -230,7 +230,12 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 		const dexStream: Uint8Array | AsyncIterable<Uint8Array> = await fetchCid(dexCid);
 
-		const classes = (await baksmaliListClasses(dexStream)).sort(() => Math.random() - 0.5);
+		const classes = (
+			(await baksmaliListClasses(dexStream))
+				.map(smaliFilePath => ({ smaliFilePath, sort: Math.random() }))
+				.sort((a, b) => a.sort - b.sort)
+				.map(({ smaliFilePath }) => smaliFilePath)
+		);
 
 		const failures: TryResult[] = [];
 
