@@ -1079,6 +1079,10 @@ const dalvikBytecodeOperationDivideFloatInPlaceParser = createDalvikBytecodeOper
 
 type DalvikBytecodeOperationDivideFloatInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideFloatInPlaceParser>>;
 
+const dalvikBytecodeOperationRemainderFloatInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('rem-float/2addr', 0xCA);
+
+type DalvikBytecodeOperationRemainderFloatInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderFloatInPlaceParser>>;
+
 const dalvikBytecodeOperationAddDoubleInPlaceParser = createDalvikBytecodeOperationBinaryOperationInPlace('add-double/2addr', 0xCB);
 
 type DalvikBytecodeOperationAddDoubleInPlace = Awaited<ReturnType<typeof dalvikBytecodeOperationAddDoubleInPlaceParser>>;
@@ -1126,6 +1130,7 @@ type DalvikBytecodeOperationBinaryOperationInPlace =
 	| DalvikBytecodeOperationSubtractFloatInPlace
 	| DalvikBytecodeOperationMultiplyFloatInPlace
 	| DalvikBytecodeOperationDivideFloatInPlace
+	| DalvikBytecodeOperationRemainderFloatInPlace
 	| DalvikBytecodeOperationAddDoubleInPlace
 	| DalvikBytecodeOperationSubtractDoubleInPlace
 	| DalvikBytecodeOperationMultiplyDoubleInPlace
@@ -1160,6 +1165,7 @@ const dalvikBytecodeOperationBinaryOperationInPlaceParser: Parser<DalvikBytecode
 	dalvikBytecodeOperationSubtractFloatInPlaceParser,
 	dalvikBytecodeOperationMultiplyFloatInPlaceParser,
 	dalvikBytecodeOperationDivideFloatInPlaceParser,
+	dalvikBytecodeOperationRemainderFloatInPlaceParser,
 	dalvikBytecodeOperationAddDoubleInPlaceParser,
 	dalvikBytecodeOperationSubtractDoubleInPlaceParser,
 	dalvikBytecodeOperationMultiplyDoubleInPlaceParser,
