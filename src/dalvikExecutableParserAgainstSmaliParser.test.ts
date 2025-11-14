@@ -325,6 +325,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/compose/ui/focus/FocusTransactionsKt', isolate: true },
 		{ smaliFilePath: 'androidx/compose/animation/core/SpringSimulationKt', isolate: true },
 		{ smaliFilePath: 'ch/qos/logback/core/CoreConstants', isolate: true },
+		{ smaliFilePath: 'ch/qos/logback/classic/spi/ClassPackagingData', isolate: true },
 	],
 	bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq: [
 		{ smaliFilePath: 'androidx/viewpager2/adapter/FragmentStateAdapter$5', isolate: true },
