@@ -2745,13 +2745,24 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 								class: class_,
 							},
 						})),
-						methodAnnotations: annotations.methodAnnotations.map(methodAnnotation => ({
-							...methodAnnotation,
-							method: {
-								...methodAnnotation.method,
-								class: class_,
-							},
-						})),
+						methodAnnotations: annotations.methodAnnotations
+							.map(methodAnnotation => ({
+								...methodAnnotation,
+								method: {
+									...methodAnnotation.method,
+									class: class_,
+								},
+							}))
+							// Sort method annotations to match DEX file order (lexicographic by method name, then prototype shorty)
+							// This matches the method_idx order in the DEX file's method_id table
+							.sort((a, b) => {
+								// Sort by method name first
+								if (a.method.name !== b.method.name) {
+									return a.method.name.localeCompare(b.method.name);
+								}
+								// Then by shorty (prototype signature)
+								return a.method.prototype.shorty.localeCompare(b.method.prototype.shorty);
+							}),
 						parameterAnnotations: annotations.parameterAnnotations.map(parameterAnnotation => ({
 							...parameterAnnotation,
 							method: {
