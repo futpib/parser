@@ -104,6 +104,31 @@ function sortFieldAnnotations(classDefinition: any) {
 	}
 }
 
+function sortMethodAnnotations(classDefinition: any) {
+	if (
+		classDefinition
+		&& typeof classDefinition === 'object'
+		&& 'annotations' in classDefinition
+		&& classDefinition.annotations
+		&& typeof classDefinition.annotations === 'object'
+		&& 'methodAnnotations' in classDefinition.annotations
+		&& Array.isArray(classDefinition.annotations.methodAnnotations)
+	) {
+		classDefinition.annotations.methodAnnotations.sort((a: any, b: any) => {
+			// Sort by class name first
+			if (a.method.class !== b.method.class) {
+				return a.method.class.localeCompare(b.method.class);
+			}
+			// Then by method name
+			if (a.method.name !== b.method.name) {
+				return a.method.name.localeCompare(b.method.name);
+			}
+			// Then by shorty (prototype signature)
+			return a.method.prototype.shorty.localeCompare(b.method.prototype.shorty);
+		});
+	}
+}
+
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
 		if (
@@ -169,6 +194,10 @@ const parseDexAgainstSmaliMacro = test.macro({
 		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
 		sortFieldAnnotations(classDefinitionFromSmali);
+
+		// Sort method annotations to ensure consistent ordering between DEX and Smali
+		sortMethodAnnotations(classDefinitionFromDex);
+		sortMethodAnnotations(classDefinitionFromSmali);
 
 		// Console.dir({
 		// 	classDefinitionFromSmali,
@@ -312,6 +341,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'q2/d$a', isolate: true },
 		{ smaliFilePath: 'y4/t1', isolate: true },
 		{ smaliFilePath: 'com/google/android/material/textfield/b', isolate: true },
+		{ smaliFilePath: 'm/g', isolate: true },
 	],
 };
 
@@ -381,6 +411,10 @@ test.serial(
 		// Sort field annotations to ensure consistent ordering between DEX and Smali
 		sortFieldAnnotations(classDefinitionFromDex);
 		sortFieldAnnotations(classDefinitionFromSmali);
+
+		// Sort method annotations to ensure consistent ordering between DEX and Smali
+		sortMethodAnnotations(classDefinitionFromDex);
+		sortMethodAnnotations(classDefinitionFromSmali);
 
 		t.deepEqual(
 			classDefinitionFromDex,
