@@ -596,6 +596,14 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 			smaliTypeDescriptorParser,
 			smaliNumberParser,
 			promiseCompose(
+				createExactSequenceParser('true'),
+				() => true,
+			),
+			promiseCompose(
+				createExactSequenceParser('false'),
+				() => false,
+			),
+			promiseCompose(
 				createExactSequenceParser('null'),
 				() => null,
 			),
