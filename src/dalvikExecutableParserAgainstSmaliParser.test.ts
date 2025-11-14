@@ -290,6 +290,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$NonConfigurationInstances', isolate: true },
 		{ smaliFilePath: 'androidx/appcompat/R$styleable', isolate: true },
 		{ smaliFilePath: 'androidx/core/content/FileProvider', isolate: true },
+		{ smaliFilePath: 'androidx/core/view/KeyEventDispatcher', isolate: true },
 		{ smaliFilePath: 'com/google/android/exoplayer2/audio/Sonic', isolate: true },
 	],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
@@ -350,8 +351,6 @@ for (const [ dexCid, smaliFilePaths ] of Object.entries(testCasesByCid)) {
 		test.serial(parseDexAgainstSmaliMacro, dexCid, smaliFilePath);
 	}
 }
-
-test.serial.skip(parseDexAgainstSmaliMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', '');
 
 for (const dexCid of Object.keys(testCasesByCid)) {
 	test.serial.skip(parseAllClassesInDexAgainstSmaliMacro, dexCid);

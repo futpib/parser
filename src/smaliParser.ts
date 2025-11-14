@@ -651,7 +651,7 @@ setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 type SmaliField = {
 	field: DalvikExecutableFieldWithAccess;
 	annotations: SmaliAnnotation[];
-	initialValue?: number | string;
+	initialValue?: number | string | boolean | null;
 };
 
 export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
@@ -670,9 +670,21 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		createOptionalParser(promiseCompose(
 			createTupleParser([
 				createExactSequenceParser(' = '),
-				createUnionParser<number | string, string>([
+				createUnionParser<number | string | boolean | null, string>([
 					smaliNumberParser,
 					smaliQuotedStringParser,
+					promiseCompose(
+						createExactSequenceParser('true'),
+						() => true,
+					),
+					promiseCompose(
+						createExactSequenceParser('false'),
+						() => false,
+					),
+					promiseCompose(
+						createExactSequenceParser('null'),
+						() => null,
+					),
 				]),
 			]),
 			([
@@ -2418,13 +2430,22 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 	]) => {
 		const sourceFile = sourceFileObject?.sourceFile;
 		// Create staticValues array matching DEX format:
-		// - Find the last static field with an initializer
+		// - Find the last static field with a non-default initializer
 		// - Create array up to that index with values/nulls
 		// - Fields after the last initializer are not included
+		// - Default values (false, null) are not considered initializers
 		const staticFieldsList = smaliFields?.staticFields ?? [];
 		let lastIndexWithInitializer = -1;
 		for (let i = staticFieldsList.length - 1; i >= 0; i--) {
-			if (staticFieldsList[i].initialValue !== undefined) {
+			const initValue = staticFieldsList[i].initialValue;
+			// Only consider non-default values as initializers
+			// Numbers and strings are non-default, but false/null/true are defaults
+			if (initValue !== undefined && typeof initValue === 'number') {
+				lastIndexWithInitializer = i;
+				break;
+			}
+
+			if (initValue !== undefined && typeof initValue === 'string') {
 				lastIndexWithInitializer = i;
 				break;
 			}
@@ -2439,7 +2460,20 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 						return null;
 					}
 
-					return typeof smaliField.initialValue === 'number' ? smaliField.initialValue : undefined;
+					// Only numeric values are stored in static values array
+					// Boolean false, null, and other default values are not stored
+					if (typeof smaliField.initialValue === 'number') {
+						return smaliField.initialValue;
+					}
+
+					// String values should be stored as undefined (they're handled differently in DEX)
+					if (typeof smaliField.initialValue === 'string') {
+						return undefined;
+					}
+
+					// Boolean and null values are default values and should not be in staticValues
+					// Return null to indicate no explicit value
+					return null;
 				});
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],
