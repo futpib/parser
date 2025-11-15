@@ -1,5 +1,6 @@
+import { LazyMessageError } from "./lazyMessageError.js";
 
-export class UnparserError extends Error {
+export class UnparserError extends LazyMessageError {
 	name = 'UnparserError';
 }
 

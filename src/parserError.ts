@@ -1,6 +1,7 @@
 import { type InputReaderState } from './inputReaderState.js';
+import { LazyMessage, LazyMessageError } from './lazyMessageError.js';
 
-export class ParserError extends Error {
+export class ParserError extends LazyMessageError {
 	name = 'ParserError';
 
 	public position: undefined | number = undefined;
@@ -18,7 +19,7 @@ export class ParserParsingFailedError extends ParserError {
 	name = 'ParserParsingFailedError';
 
 	constructor(
-		message: string,
+		message: LazyMessage,
 		public readonly depth: number,
 		public readonly position: number,
 	) {
@@ -40,7 +41,7 @@ export class ParserParsingJoinAllError extends ParserParsingJoinError {
 	name = 'ParserParsingJoinAllError';
 
 	constructor(
-		message: string,
+		message: LazyMessage,
 		depth: number,
 		position: number,
 		public readonly childErrors: ParserParsingFailedError[],
@@ -53,7 +54,7 @@ export class ParserParsingJoinDeepestError extends ParserParsingJoinError {
 	name = 'ParserParsingJoinDeepestError';
 
 	constructor(
-		message: string,
+		message: LazyMessage,
 		depth: number,
 		position: number,
 		public readonly childErrors: ParserParsingFailedError[],
@@ -66,7 +67,7 @@ export class ParserParsingJoinFurthestError extends ParserParsingJoinError {
 	name = 'ParserParsingJoinFurthestError';
 
 	constructor(
-		message: string,
+		message: LazyMessage,
 		depth: number,
 		position: number,
 		public readonly childErrors: ParserParsingFailedError[],

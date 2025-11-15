@@ -6,6 +6,7 @@ import { type DeriveSequenceElement } from './sequence.js';
 import { ParserError, ParserUnexpectedRemainingInputError } from './parserError.js';
 import { toAsyncIterator } from './toAsyncIterator.js';
 import { inputReaderStateCompanion } from './inputReaderState.js';
+import { LazyMessageError } from './lazyMessageError.js';
 
 export type Parser<
 	Output,
@@ -78,6 +79,10 @@ async function withEnrichedParserError<
 	try {
 		return await f();
 	} catch (error) {
+		if (error instanceof LazyMessageError) {
+			error.computeMessage();
+		}
+
 		if (error instanceof ParserError) {
 			if (error.position === undefined) {
 				error.position = parserContext.position;
