@@ -252,6 +252,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'com/google/android/gms/internal/mlkit_vision_label/zzcm', isolate: true },
 		{ smaliFilePath: 'com/google/android/play/core/integrity/model/StandardIntegrityErrorCode', isolate: true },
 		{ smaliFilePath: 'com/google/common/math/IntMath', isolate: true },
+		{ smaliFilePath: 'com/google/gson/internal/bind/CollectionTypeAdapterFactory', isolate: true },
 	],
 	bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4: [
 		'pl/czak/minimal/MainActivity',
