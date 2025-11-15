@@ -20,7 +20,6 @@ import {
 	dalvikBytecodeFormat12xParser,
 	dalvikBytecodeFormat20tParser,
 	dalvikBytecodeFormat22xParser,
-	nibblesParser,
 	dalvikBytecodeFormat32xParser,
 	dalvikBytecodeFormat30tParser,
 	dalvikBytecodeFormat51lParser,
@@ -38,12 +37,12 @@ import { createExactElementParser } from './exactElementParser.js';
 import { type Parser, setParserName } from './parser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createSliceBoundedParser } from './sliceBoundedParser.js';
-import { createTupleParser } from './tupleParser.js';
-import { createUnionParser } from './unionParser.js';
+import { createDisjunctionParser } from './disjunctionParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { createQuantifierParser } from './quantifierParser.js';
 import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
+import { createTupleParser } from './tupleParser.js';
 
 // https://source.android.com/docs/core/runtime/dalvik-bytecode
 
@@ -127,7 +126,7 @@ type DalvikBytecodeOperationInvoke =
 	| DalvikBytecodeOperationInvokeInterface
 ;
 
-const dalvikBytecodeOperationInvokeParser: Parser<DalvikBytecodeOperationInvoke, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationInvokeParser: Parser<DalvikBytecodeOperationInvoke, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationInvokeVirtualParser,
 	dalvikBytecodeOperationInvokeSuperParser,
 	dalvikBytecodeOperationInvokeDirectParser,
@@ -186,7 +185,7 @@ type DalvikBytecodeOperationInvokeRange =
 	| DalvikBytecodeOperationInvokeInterfaceRange
 ;
 
-const dalvikBytecodeOperationInvokeRangeParser: Parser<DalvikBytecodeOperationInvokeRange, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationInvokeRangeParser: Parser<DalvikBytecodeOperationInvokeRange, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationInvokeVirtualRangeParser,
 	dalvikBytecodeOperationInvokeSuperRangeParser,
 	dalvikBytecodeOperationInvokeDirectRangeParser,
@@ -560,7 +559,7 @@ type DalvikBytecodeOperationArrayElement =
 	| DalvikBytecodeOperationArrayElementPutShort
 ;
 
-const dalvikBytecodeOperationArrayElementParser: Parser<DalvikBytecodeOperationArrayElement, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationArrayElementParser: Parser<DalvikBytecodeOperationArrayElement, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationArrayElementGetParser,
 	dalvikBytecodeOperationArrayElementGetWideParser,
 	dalvikBytecodeOperationArrayElementGetObjectParser,
@@ -670,7 +669,7 @@ type DalvikBytecodeOperationInstanceField =
 	| DalvikBytecodeOperationInstanceFieldPutShort
 ;
 
-const dalvikBytecodeOperationInstanceFieldParser: Parser<DalvikBytecodeOperationInstanceField, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationInstanceFieldParser: Parser<DalvikBytecodeOperationInstanceField, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationInstanceFieldGetParser,
 	dalvikBytecodeOperationInstanceFieldGetWideParser,
 	dalvikBytecodeOperationInstanceFieldGetObjectParser,
@@ -780,7 +779,7 @@ type DalvikBytecodeOperationStaticField =
 	| DalvikBytecodeOperationStaticFieldPutShort
 ;
 
-const dalvikBytecodeOperationStaticFieldParser: Parser<DalvikBytecodeOperationStaticField, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationStaticFieldParser: Parser<DalvikBytecodeOperationStaticField, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationStaticFieldGetParser,
 	dalvikBytecodeOperationStaticFieldGetWideParser,
 	dalvikBytecodeOperationStaticFieldGetObjectParser,
@@ -873,7 +872,7 @@ type DalvikBytecodeOperationBinaryOperationLiteral8 =
 	| DalvikBytecodeOperationUnsignedShiftRightIntLiteral8
 ;
 
-const dalvikBytecodeOperationBinaryOperationLiteral8Parser: Parser<DalvikBytecodeOperationBinaryOperationLiteral8, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationBinaryOperationLiteral8Parser: Parser<DalvikBytecodeOperationBinaryOperationLiteral8, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationAddIntLiteral8Parser,
 	dalvikBytecodeOperationReverseSubtractIntLiteral8Parser,
 	dalvikBytecodeOperationMultiplyIntLiteral8Parser,
@@ -948,7 +947,7 @@ type DalvikBytecodeOperationBinaryOperationLiteral16 =
 	| DalvikBytecodeOperationXorIntLiteral16
 ;
 
-const dalvikBytecodeOperationBinaryOperationLiteral16Parser: Parser<DalvikBytecodeOperationBinaryOperationLiteral16, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationBinaryOperationLiteral16Parser: Parser<DalvikBytecodeOperationBinaryOperationLiteral16, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationAddIntLiteral16Parser,
 	dalvikBytecodeOperationReverseSubtractIntLiteral16Parser,
 	dalvikBytecodeOperationMultiplyIntLiteral16Parser,
@@ -1138,7 +1137,7 @@ type DalvikBytecodeOperationBinaryOperationInPlace =
 	| DalvikBytecodeOperationRemainderDoubleInPlace
 ;
 
-const dalvikBytecodeOperationBinaryOperationInPlaceParser: Parser<DalvikBytecodeOperationBinaryOperationInPlace, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationBinaryOperationInPlaceParser: Parser<DalvikBytecodeOperationBinaryOperationInPlace, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationAddIntInPlaceParser,
 	dalvikBytecodeOperationReverseSubtractIntInPlaceParser,
 	dalvikBytecodeOperationMultiplyIntInPlaceParser,
@@ -1347,7 +1346,7 @@ type DalvikBytecodeOperationBinaryOperation =
 	| DalvikBytecodeOperationRemainderDouble
 ;
 
-const dalvikBytecodeOperationBinaryOperationParser: Parser<DalvikBytecodeOperationBinaryOperation, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationBinaryOperationParser: Parser<DalvikBytecodeOperationBinaryOperation, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationAddIntParser,
 	dalvikBytecodeOperationSubtractIntParser,
 	dalvikBytecodeOperationMultiplyIntParser,
@@ -1505,7 +1504,7 @@ type DalvikBytecodeOperationUnaryOperation =
 	| DalvikBytecodeOperationIntToShort
 ;
 
-const dalvikBytecodeOperationUnaryOperationParser: Parser<DalvikBytecodeOperationUnaryOperation, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationUnaryOperationParser: Parser<DalvikBytecodeOperationUnaryOperation, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationNegateIntParser,
 	dalvikBytecodeOperationNotIntParser,
 	dalvikBytecodeOperationNegateLongParser,
@@ -1598,7 +1597,7 @@ type DalvikBytecodeOperationIfTest =
 	| DalvikBytecodeOperationIfLessThanOrEqualTo
 ;
 
-const dalvikBytecodeOperationIfTestParser: Parser<DalvikBytecodeOperationIfTest, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationIfTestParser: Parser<DalvikBytecodeOperationIfTest, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeIfEqualParser,
 	dalvikBytecodeIfNotEqualParser,
 	dalvikBytecodeIfLessThanParser,
@@ -1658,7 +1657,7 @@ type DalvikBytecodeOperationIfTestZero =
 	| DalvikBytecodeOperationIfLessThanOrEqualToZero
 ;
 
-const dalvikBytecodeOperationIfTestZeroParser: Parser<DalvikBytecodeOperationIfTestZero, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationIfTestZeroParser: Parser<DalvikBytecodeOperationIfTestZero, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeIfEqualZeroParser,
 	dalvikBytecodeIfNotEqualZeroParser,
 	dalvikBytecodeIfLessThanZeroParser,
@@ -1994,7 +1993,7 @@ type DalvikBytecodeOperationMoveResult1 =
 	| DalvikBytecodeOperationMoveException
 ;
 
-const dalvikBytecodeOperationMoveResult1Parser: Parser<DalvikBytecodeOperationMoveResult1, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationMoveResult1Parser: Parser<DalvikBytecodeOperationMoveResult1, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeMoveResultParser,
 	dalvikBytecodeMoveResultWideParser,
 	dalvikBytecodeMoveResultObjectParser,
@@ -2143,7 +2142,7 @@ type DalvikBytecodeOperationReturn1 =
 	| DalvikBytecodeOperationReturnObject
 ;
 
-const dalvikBytecodeOperationReturn1Parser: Parser<DalvikBytecodeOperationReturn1, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationReturn1Parser: Parser<DalvikBytecodeOperationReturn1, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationReturnParser,
 	dalvikBytecodeOperationReturnWideParser,
 	dalvikBytecodeOperationReturnObjectParser,
@@ -2374,7 +2373,7 @@ type DalvikBytecodeOperationCompare =
 	| DalvikBytecodeOperationCompareLong
 ;
 
-const dalvikBytecodeOperationCompareParser: Parser<DalvikBytecodeOperationCompare, Uint8Array> = createUnionParser([
+const dalvikBytecodeOperationCompareParser: Parser<DalvikBytecodeOperationCompare, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationCompareFloatWithLessThanBiasParser,
 	dalvikBytecodeOperationCompareFloatWithGreaterThanBiasParser,
 	dalvikBytecodeOperationCompareDoubleWithLessThanBiasParser,
@@ -2471,7 +2470,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 	createTupleParser([
 		() => {},
 		// CreateDebugLogInputParser(),
-		createUnionParser<DalvikBytecodeOperation, Uint8Array>([
+		createDisjunctionParser<DalvikBytecodeOperation, Uint8Array>([
 			dalvikBytecodeOperationUnusedParser,
 
 			dalvikBytecodeOperationNoOperationParser,
