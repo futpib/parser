@@ -1695,11 +1695,12 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				const data: number[] = [];
 
 				for (const value of values) {
-					const numberValue = typeof value === 'bigint' ? Number(value) : value;
+					// Use BigInt for bitwise operations to preserve full precision
+					const bigIntValue = typeof value === 'bigint' ? value : BigInt(value);
 
 					// Convert to bytes based on elementWidth (little-endian)
 					for (let i = 0; i < elementWidth; i++) {
-						data.push((numberValue >> (i * 8)) & 0xFF);
+						data.push(Number((bigIntValue >> BigInt(i * 8)) & 0xFFn));
 					}
 				}
 
