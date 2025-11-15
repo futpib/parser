@@ -4,9 +4,10 @@ import { createUnionParser } from './unionParser.js';
 import { type Parser, runParser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import {
-    isParserParsingJoinError,
-	ParserError,
-	ParserParsingJoinError,
+	isParserError,
+	isParserParsingJoinError,
+	type ParserError,
+	type ParserParsingJoinError,
 } from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -191,8 +192,10 @@ test('throws on parserInputCompanion type mismatch', async t => {
 });
 
 test('thrown error has input reader state', async t => {
-	const error = await t.throwsAsync(
-		runParser(
+	let caughtError: ParserError | undefined;
+
+	try {
+		await runParser(
 			createTupleParser([
 				createExactSequenceNaiveParser('foo'),
 				createExactSequenceNaiveParser('bar'),
@@ -203,15 +206,17 @@ test('thrown error has input reader state', async t => {
 				yield 'bar';
 			})(),
 			stringParserInputCompanion,
-		),
-		{
-			name: 'ParserError',
-		},
-	) as ParserError;
+		);
+		t.fail('Expected runParser to throw');
+	} catch (error) {
+		caughtError = error as ParserError;
+	}
 
-	t.is(error.position, 4);
+	t.truthy(caughtError);
+	t.truthy(isParserError(caughtError!));
+	t.is(caughtError!.position, 4);
 
-	invariant(error.inputReaderSate, 'error.inputReaderSate');
+	invariant(caughtError!.inputReaderSate, 'error.inputReaderSate');
 
 	const {
 		consumedBufferedSequences,
@@ -219,7 +224,11 @@ test('thrown error has input reader state', async t => {
 		unbufferedSequences,
 		position,
 		...inputReaderStateRest
-	} = error.inputReaderSate;
+	} = caughtError!.inputReaderSate;
+
+	// Clear the async iterator immediately to prevent AVA from trying to serialize it
+	// which would cause a DataCloneError
+	caughtError!.inputReaderSate.unbufferedSequences = undefined;
 
 	t.is(position, 4);
 	t.deepEqual(inputReaderStateRest, {});
@@ -260,6 +269,12 @@ test('runParser throws with remaining input', async t => {
 	t.deepEqual(consumedBufferedSequences, [ 'foo' ]);
 	t.deepEqual(unconsumedBufferedSequences, [ 'bar' ]);
 	t.truthy(unbufferedSequences);
+
+	// Clear the async iterator to prevent AVA from trying to serialize it
+	// which would cause a DataCloneError
+	if (error.inputReaderSate) {
+		error.inputReaderSate.unbufferedSequences = undefined;
+	}
 });
 
 test('runParser does not throw without remaining input', async t => {
