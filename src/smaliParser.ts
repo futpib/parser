@@ -2720,6 +2720,17 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			});
 		}
 
+		// Sort field annotations to match DEX file order (by field name, then type)
+		// This matches the annotations_directory_item field_annotations order in DEX files
+		annotations.fieldAnnotations.sort((a, b) => {
+			// First by field name
+			if (a.field.name !== b.field.name) {
+				return a.field.name.localeCompare(b.field.name);
+			}
+			// Then by field type
+			return a.field.type.localeCompare(b.field.type);
+		});
+
 		// Compute synthetic flag from members if not explicitly set
 		// This matches baksmali behavior where synthetic flag at class level is not output
 		// but can be inferred from all members being synthetic

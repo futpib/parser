@@ -54,30 +54,7 @@ function normalizeSmaliFilePath(smaliFilePath: string | {
 	};
 }
 
-function sortFieldAnnotations(classDefinition: any) {
-	if (
-		classDefinition
-		&& typeof classDefinition === 'object'
-		&& 'annotations' in classDefinition
-		&& classDefinition.annotations
-		&& typeof classDefinition.annotations === 'object'
-		&& 'fieldAnnotations' in classDefinition.annotations
-		&& Array.isArray(classDefinition.annotations.fieldAnnotations)
-	) {
-		classDefinition.annotations.fieldAnnotations.sort((a: any, b: any) => {
-			// Sort by class name first
-			if (a.field.class !== b.field.class) {
-				return a.field.class.localeCompare(b.field.class);
-			}
-			// Then by field name
-			if (a.field.name !== b.field.name) {
-				return a.field.name.localeCompare(b.field.name);
-			}
-			// Then by field type
-			return a.field.type.localeCompare(b.field.type);
-		});
-	}
-}
+
 
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
@@ -139,10 +116,6 @@ const parseDexAgainstSmaliMacro = test.macro({
 		// Normalize both DEX and Smali by removing nop instructions and debug info
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
-
-		// Sort field annotations to ensure consistent ordering between DEX and Smali
-		sortFieldAnnotations(classDefinitionFromDex);
-		sortFieldAnnotations(classDefinitionFromSmali);
 
 		// Console.dir({
 		// 	classDefinitionFromSmali,
@@ -372,10 +345,6 @@ test.serial(
 		// Normalize both DEX and Smali by removing nop instructions and debug info
 		normalizeClassDefinition(classDefinitionFromDex);
 		normalizeClassDefinition(classDefinitionFromSmali);
-
-		// Sort field annotations to ensure consistent ordering between DEX and Smali
-		sortFieldAnnotations(classDefinitionFromDex);
-		sortFieldAnnotations(classDefinitionFromSmali);
 
 		t.deepEqual(
 			classDefinitionFromDex,
