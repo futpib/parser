@@ -1,3 +1,5 @@
+import { NoStackCaptureOverheadError } from "./noStackCaptureOverheadError.js";
+
 type ValueOrAccessor<T> = T | (() => T);
 
 export type LazyMessage =
@@ -39,7 +41,7 @@ export function formatLazyMessage(lazyMessage: LazyMessage): string {
 	}
 }
 
-export class LazyMessageError extends Error {
+export class LazyMessageError extends NoStackCaptureOverheadError {
 	name = 'LazyMessageError';
 
 	private _lazyMessage: undefined | LazyMessage;

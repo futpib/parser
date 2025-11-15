@@ -239,10 +239,10 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 				'this: %s',
 				'parent: %s',
 				'parent.exclusiveChild: %s',
-			].join('\n'),
-			this.toString(),
-			parentParserContext.toString(),
-			parentParserContext._exclusiveChildParserContext?.toString(),
+			],
+			() => this.toString(),
+			() => parentParserContext.toString(),
+			() => parentParserContext._exclusiveChildParserContext?.toString(),
 		);
 		parserImplementationInvariant(
 			parentParserContext.position <= this.position,
@@ -285,10 +285,10 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 				'this: %s',
 				'parent: %s',
 				'parent.exclusiveChild: %s',
-			].join('\n'),
-			this.toString(),
-			parentParserContext.toString(),
-			parentParserContext._exclusiveChildParserContext?.toString(),
+			],
+			() => this.toString(),
+			() => parentParserContext.toString(),
+			() => parentParserContext._exclusiveChildParserContext?.toString(),
 		);
 
 		parentParserContext._exclusiveChildParserContext = undefined;

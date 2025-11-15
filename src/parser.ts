@@ -7,6 +7,7 @@ import { ParserError, ParserUnexpectedRemainingInputError } from './parserError.
 import { toAsyncIterator } from './toAsyncIterator.js';
 import { inputReaderStateCompanion } from './inputReaderState.js';
 import { LazyMessageError } from './lazyMessageError.js';
+import { NoStackCaptureOverheadError } from './noStackCaptureOverheadError.js';
 
 export type Parser<
 	Output,

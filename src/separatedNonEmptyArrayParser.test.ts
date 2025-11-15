@@ -13,6 +13,7 @@ test('empty input throws error', async t => {
 	);
 
 	await t.throwsAsync(async () => runParser(parser, '', stringParserInputCompanion), {
+		any: true,
 		message: /Expected .* to match at least once/,
 	});
 });
@@ -65,6 +66,7 @@ test('does not loop forever with a child parser that does not consume anything',
 	);
 
 	await t.throwsAsync(async () => runParser(parser, 'foo', stringParserInputCompanion), {
+		any: true,
 		message: /Expected .* to match at least once/,
 	});
 });
@@ -76,6 +78,7 @@ test('partial match throws error', async t => {
 	);
 
 	await t.throwsAsync(async () => runParser(parser, 'elem', stringParserInputCompanion), {
+		any: true,
 		message: /Expected .* to match at least once/,
 	});
 });
@@ -108,6 +111,7 @@ test('separatedNonEmptyArray throws on empty array', async t => {
 	);
 
 	await t.throwsAsync(async () => runParser(separatedNonEmptyArrayParser, '', stringParserInputCompanion), {
+		any: true,
 		message: /Expected .* to match at least once/,
 	});
 });

@@ -8,6 +8,7 @@ test('empty array does not match', async t => {
 	const parser: Parser<string[], string> = createNonEmptyArrayParser(createExactElementParser('0'));
 
 	await t.throwsAsync(async () => runParser(parser, '', stringParserInputCompanion), {
+		any: true,
 		message: /Expected .* to match at least once/,
 	});
 });

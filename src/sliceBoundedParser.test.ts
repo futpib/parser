@@ -37,6 +37,7 @@ test('sliceBoundedParser mustConsumeAll: true fail to cosume all', async t => {
 	]);
 
 	await t.throwsAsync(async () => runParser(parser, 'abcd', stringParserInputCompanion), {
+		any: true,
 		message: /child parser must consume all input in the slice/,
 	});
 });

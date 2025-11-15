@@ -26,6 +26,7 @@ test('parserContext.read', async t => {
 	t.is(await parserContext.read(5), 'h');
 
 	await t.throwsAsync(async () => parserContext.read(0), {
+		any: true,
 		instanceOf: ParserUnexpectedEndOfInputError,
 	});
 });
@@ -49,6 +50,7 @@ test('parserContext.readSequence', async t => {
 	t.is(await parserContext.readSequence(0, 0), '');
 
 	await t.throwsAsync(async () => parserContext.readSequence(0, 1), {
+		any: true,
 		instanceOf: ParserUnexpectedEndOfInputError,
 	});
 });

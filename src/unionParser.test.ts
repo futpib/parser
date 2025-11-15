@@ -68,8 +68,9 @@ test('multiple parsers succeeded error', async t => {
 	const error = await t.throwsAsync(runParser(parser, 'foo', stringParserInputCompanion, {
 		errorJoinMode: 'all',
 	}), {
+		any: true,
 		instanceOf: ParserError,
-	});
+	}) as ParserError;
 
 	t.true(error.message.includes('foo'));
 	t.true(error.message.includes('foo1'));

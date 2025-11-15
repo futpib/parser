@@ -39,6 +39,7 @@ testProp(
 			stringA + stringB,
 			stringParserInputCompanion,
 		), {
+			any: true,
 			instanceOf: ParserParsingFailedError,
 			message: /lookahead/,
 		});
