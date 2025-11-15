@@ -80,6 +80,6 @@ const dexWithParsedInstructionsMacro = test.macro({
 });
 
 test.serial(dexWithParsedInstructionsMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true);
-test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false);
+test.serial(dexWithParsedInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false);
 test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false);
 test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false);
