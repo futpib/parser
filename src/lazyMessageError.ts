@@ -41,25 +41,48 @@ export function formatLazyMessage(lazyMessage: LazyMessage): string {
 	}
 }
 
-export class LazyMessageError extends NoStackCaptureOverheadError {
-	name = 'LazyMessageError';
+export interface LazyMessageError extends Error {
+	computeMessage(): void;
+}
 
-	private _lazyMessage: undefined | LazyMessage;
+export function createLazyMessageErrorClass(
+	BaseError: typeof NoStackCaptureOverheadError | typeof Error,
+) {
+	return class LazyMessageError extends (BaseError as typeof Error) implements LazyMessageError {
+		name = 'LazyMessageError';
 
-	constructor(
-		lazyMessage: LazyMessage,
-	) {
-		super('LAZY_MESSAGE');
-		this._lazyMessage = lazyMessage;
-	}
+		_lazyMessage: undefined | LazyMessage;
 
-	computeMessage(): void {
-		if (this._lazyMessage === undefined) {
-			return;
+		constructor(
+			lazyMessage: LazyMessage,
+		) {
+			super('LAZY_MESSAGE');
+			this._lazyMessage = lazyMessage;
 		}
 
-		this.message = formatLazyMessage(this._lazyMessage);
-		this.stack = this.stack?.replace('LAZY_MESSAGE', this.message);
-		delete this._lazyMessage;
+		computeMessage(): void {
+			if (this._lazyMessage === undefined) {
+				return;
+			}
+
+			this.message = formatLazyMessage(this._lazyMessage);
+			this.stack = this.stack?.replace('LAZY_MESSAGE', this.message);
+			delete this._lazyMessage;
+		}
 	}
+}
+
+export const NormalLazyMessageError = createLazyMessageErrorClass(Error);
+export const NoStackCaptureOverheadLazyMessageError = createLazyMessageErrorClass(NoStackCaptureOverheadError);
+
+export function isLazyMessageError(
+	value: unknown,
+): value is LazyMessageError {
+	return (
+		typeof value === 'object'
+			&& value !== null
+			&& value instanceof Error
+			&& '_lazyMessage' in value
+			&& typeof (value as any).computeMessage === 'function'
+	);
 }

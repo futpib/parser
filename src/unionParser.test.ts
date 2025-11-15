@@ -69,7 +69,7 @@ test('multiple parsers succeeded error', async t => {
 		errorJoinMode: 'all',
 	}), {
 		any: true,
-		instanceOf: ParserError,
+		name: 'ParserImplementationInvariantError',
 	}) as ParserError;
 
 	t.true(error.message.includes('foo'));

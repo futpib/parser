@@ -5,7 +5,6 @@ import { createExactSequenceParser } from './exactSequenceParser.js';
 import { runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { createTupleParser } from './tupleParser.js';
-import { ParserParsingFailedError } from './parserError.js';
 
 testProp(
 	'negativeLookaheadParser',
@@ -40,7 +39,7 @@ testProp(
 			stringParserInputCompanion,
 		), {
 			any: true,
-			instanceOf: ParserParsingFailedError,
+			name: 'ParserParsingInvariantError',
 			message: /lookahead/,
 		});
 	},

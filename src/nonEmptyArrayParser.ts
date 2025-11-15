@@ -1,5 +1,5 @@
 import { getParserName, type Parser, setParserName } from './parser.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 
 export const createNonEmptyArrayParser = <ElementOutput, Sequence>(
 	elementParser: Parser<ElementOutput, Sequence>,
@@ -19,7 +19,7 @@ export const createNonEmptyArrayParser = <ElementOutput, Sequence>(
 				elements.push(element);
 				elementParserContext.unlookahead();
 			} catch (error) {
-				if (error instanceof ParserParsingFailedError) {
+				if (isParserParsingFailedError(error)) {
 					break;
 				}
 

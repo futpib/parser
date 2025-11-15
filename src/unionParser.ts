@@ -1,7 +1,7 @@
 import { allSettledStream } from './allSettledStream.js';
 import { getParserName, setParserName, type Parser } from './parser.js';
 import { type ParserContext } from './parserContext.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { type DeriveSequenceElement } from './sequence.js';
 
@@ -68,7 +68,7 @@ export const createUnionParser = <
 			} else {
 				const error = childParserResult.reason;
 
-				if (error instanceof ParserParsingFailedError) {
+				if (isParserParsingFailedError(error)) {
 					parserParsingFailedErrors.push(error);
 				} else {
 					throw error;

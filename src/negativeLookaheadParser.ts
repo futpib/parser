@@ -1,5 +1,5 @@
 import { getParserName, setParserName, type Parser } from './parser.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 
 export const createNegativeLookaheadParser = <Sequence>(
 	childParser: Parser<unknown, Sequence>,
@@ -14,7 +14,7 @@ export const createNegativeLookaheadParser = <Sequence>(
 
 			childParserSuccess = true;
 		} catch (error) {
-			if (!(error instanceof ParserParsingFailedError)) {
+			if (!isParserParsingFailedError(error)) {
 				throw error;
 			}
 

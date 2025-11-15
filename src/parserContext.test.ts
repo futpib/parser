@@ -2,13 +2,15 @@ import test from 'ava';
 import { ParserContextImplementation } from './parserContext.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
-import { ParserUnexpectedEndOfInputError } from './parserError.js';
+import { noStackCaptureOverheadParserErrorModule } from './parserError.js';
 
 const commonParserContextArguments = [
 	undefined,
 	{
 		debugName: 'root',
 		errorJoinMode: 'all',
+		errorStack: false,
+		errorsModule: noStackCaptureOverheadParserErrorModule,
 	},
 ] as const;
 
@@ -27,7 +29,7 @@ test('parserContext.read', async t => {
 
 	await t.throwsAsync(async () => parserContext.read(0), {
 		any: true,
-		instanceOf: ParserUnexpectedEndOfInputError,
+		name: 'ParserUnexpectedEndOfInputError',
 	});
 });
 
@@ -51,7 +53,7 @@ test('parserContext.readSequence', async t => {
 
 	await t.throwsAsync(async () => parserContext.readSequence(0, 1), {
 		any: true,
-		instanceOf: ParserUnexpectedEndOfInputError,
+		name: 'ParserUnexpectedEndOfInputError',
 	});
 });
 

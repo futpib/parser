@@ -1,5 +1,5 @@
 import { getParserName, type Parser, setParserName } from './parser.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { isParserParsingFailedError } from './parserError.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
 
@@ -34,7 +34,7 @@ export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 				elements.push(element);
 				elementParserContext.unlookahead();
 			} catch (error) {
-				if (error instanceof ParserParsingFailedError) {
+				if (isParserParsingFailedError(error)) {
 					break;
 				}
 

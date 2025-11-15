@@ -3,12 +3,14 @@
 import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { type InputReader } from './inputReader.js';
 import {
-	type ParserParsingFailedError, ParserUnexpectedEndOfInputError, ParserParsingInvariantError, ParserParsingJoinNoneError, ParserParsingJoinAllError, ParserParsingJoinDeepestError, ParserParsingJoinFurthestError,
+    normalParserErrorModule,
+    noStackCaptureOverheadParserErrorModule,
+    ParserParsingFailedError,
 } from './parserError.js';
 import { type RunParserOptions } from './parser.js';
 import { type Falsy, customInvariant, type ValueOrAccessor } from './customInvariant.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-import { formatLazyMessage, LazyMessage, LazyMessageError } from './lazyMessageError.js';
+import { formatLazyMessage, isLazyMessageError, LazyMessage } from './lazyMessageError.js';
 
 type LookaheadOptions = {
 	debugName?: string;
@@ -18,6 +20,9 @@ type LookaheadOptions = {
 type ParserContextOptions<Sequence, Element> =
 	& RunParserOptions<unknown, Sequence, Element>
 	& LookaheadOptions
+	& {
+		errorsModule: typeof normalParserErrorModule | typeof noStackCaptureOverheadParserErrorModule;
+	}
 ;
 
 export type ParserContext<Sequence, Element> = {
@@ -164,7 +169,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const element = await this.peek(offset);
 
 		if (element === undefined) {
-			throw new ParserUnexpectedEndOfInputError('', this._depth, this.position);
+			throw new this._options.errorsModule.ParserUnexpectedEndOfInputError('', this._depth, this.position);
 		}
 
 		this.skip(offset + 1);
@@ -176,7 +181,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const sequence = await this.peekSequence(start, end);
 
 		if (sequence === undefined) {
-			throw new ParserUnexpectedEndOfInputError('', this._depth, this.position);
+			throw new this._options.errorsModule.ParserUnexpectedEndOfInputError('', this._depth, this.position);
 		}
 
 		this.skip(end);
@@ -299,7 +304,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const parserContext = this;
 
 		return customInvariant(function (lazyMessage: LazyMessage) {
-			return new ParserParsingInvariantError(lazyMessage, parserContext._depth, parserContext.position);
+			return new parserContext._options.errorsModule.ParserParsingInvariantError(lazyMessage, parserContext._depth, parserContext.position);
 		}, value, format, ...formatArguments);
 	}
 
@@ -311,7 +316,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 		if (errorJoinMode === 'none') {
 			return customInvariant(function (lazyMessage: LazyMessage) {
-				return new ParserParsingJoinNoneError(lazyMessage, parserContext._depth, parserContext.position);
+				return new parserContext._options.errorsModule.ParserParsingJoinNoneError(lazyMessage, parserContext._depth, parserContext.position);
 			}, value, format, ...formatArguments);
 		}
 
@@ -334,7 +339,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 					furthestChildErrors.push(childError);
 				}
 
-				return new ParserParsingJoinFurthestError([
+				return new parserContext._options.errorsModule.ParserParsingJoinFurthestError([
 					[
 						'%s',
 						'Furthest child error stacks, indented:',
@@ -343,7 +348,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 					],
 					() => formatLazyMessage(userLazyMessage),
 					() => furthestChildErrors.flatMap(furthestChildError => {
-						if (furthestChildError instanceof LazyMessageError) {
+						if (isLazyMessageError(furthestChildError)) {
 							furthestChildError.computeMessage();
 						}
 
@@ -359,7 +364,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 				let deepestChildErrors: ParserParsingFailedError[] = [];
 
 				for (const childError of childErrors) {
-					if (childError instanceof LazyMessageError) {
+					if (isLazyMessageError(childError)) {
 						childError.computeMessage();
 					}
 
@@ -376,7 +381,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 					deepestChildErrors.push(childError);
 				}
 
-				return new ParserParsingJoinDeepestError([
+				return new parserContext._options.errorsModule.ParserParsingJoinDeepestError([
 					[
 						'%s',
 						'Deepest child error stacks, indented:',
@@ -385,7 +390,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 					],
 					() => formatLazyMessage(userLazyMessage),
 					() => deepestChildErrors.flatMap(deepestChildError => {
-						if (deepestChildError instanceof LazyMessageError) {
+						if (isLazyMessageError(deepestChildError)) {
 							deepestChildError.computeMessage();
 						}
 
@@ -397,7 +402,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 		if (errorJoinMode === 'all') {
 			return customInvariant(function (userLazyMessage: LazyMessage) {
-				return new ParserParsingJoinAllError([
+				return new parserContext._options.errorsModule.ParserParsingJoinAllError([
 					[
 						'%s',
 						'All child error stacks, indented:',
@@ -406,7 +411,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 					],
 					() => formatLazyMessage(userLazyMessage),
 					() => childErrors.flatMap(childError => {
-						if (childError instanceof LazyMessageError) {
+						if (isLazyMessageError(childError)) {
 							childError.computeMessage();
 						}
 

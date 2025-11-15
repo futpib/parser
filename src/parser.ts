@@ -3,11 +3,10 @@ import { type ParserInputCompanion } from './parserInputCompanion.js';
 import { InputReaderImplementation } from './inputReader.js';
 import { type ParserContext, ParserContextImplementation } from './parserContext.js';
 import { type DeriveSequenceElement } from './sequence.js';
-import { ParserError, ParserUnexpectedRemainingInputError } from './parserError.js';
 import { toAsyncIterator } from './toAsyncIterator.js';
 import { inputReaderStateCompanion } from './inputReaderState.js';
-import { LazyMessageError } from './lazyMessageError.js';
-import { NoStackCaptureOverheadError } from './noStackCaptureOverheadError.js';
+import { isLazyMessageError } from './lazyMessageError.js';
+import { isParserError, isParserParsingFailedError, normalParserErrorModule, noStackCaptureOverheadParserErrorModule } from './parserError.js';
 
 export type Parser<
 	Output,
@@ -55,6 +54,7 @@ export type RunParserOptions<
 	Element = DeriveSequenceElement<Sequence>,
 > = {
 	errorJoinMode?: 'none' | 'deepest' | 'furthest' | 'all';
+	errorStack?: boolean;
 	parserContextClass?: Class<ParserContext<Sequence, Element>>;
 };
 
@@ -80,11 +80,11 @@ async function withEnrichedParserError<
 	try {
 		return await f();
 	} catch (error) {
-		if (error instanceof LazyMessageError) {
+		if (isLazyMessageError(error)) {
 			error.computeMessage();
 		}
 
-		if (error instanceof ParserError) {
+		if (isParserError(error)) {
 			if (error.position === undefined) {
 				error.position = parserContext.position;
 			}
@@ -126,6 +126,7 @@ function runParserInternal<
 
 	const parserContext = new ParserContext<Sequence, Element>(parserInputCompanion, inputReader, undefined, {
 		...options,
+		errorsModule: options.errorStack ? normalParserErrorModule : noStackCaptureOverheadParserErrorModule,
 		debugName: 'root',
 	});
 
@@ -201,7 +202,7 @@ export async function runParser<
 		const inputReaderState = inputReader.toInputReaderState();
 
 		if (!inputReaderStateCompanion.isDone(inputReaderState)) {
-			throw new ParserUnexpectedRemainingInputError('Unexpected remaining input', 0, parserContext.position);
+			throw new normalParserErrorModule.ParserUnexpectedRemainingInputError('Unexpected remaining input', 0, parserContext.position);
 		}
 
 		return output;

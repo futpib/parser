@@ -1,5 +1,5 @@
 import { getParserName, type Parser, setParserName } from './parser.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 
 export const createOptionalParser = <Output, Sequence>(
 	childParser: Parser<Output, Sequence>,
@@ -12,7 +12,7 @@ export const createOptionalParser = <Output, Sequence>(
 			childParserContext.unlookahead();
 			return value;
 		} catch (error) {
-			if (error instanceof ParserParsingFailedError) {
+			if (isParserParsingFailedError(error)) {
 				return undefined;
 			}
 

@@ -1,5 +1,5 @@
 import { getParserName, type Parser, setParserName } from './parser.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createUnionParser } from './unionParser.js';
@@ -76,7 +76,7 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 						getParserName(terminatorParser, 'anonymousTerminator'),
 					);
 				} catch (error) {
-					if (!(error instanceof ParserParsingFailedError)) {
+					if (!(isParserParsingFailedError(error))) {
 						throw error;
 					}
 				} finally {
@@ -87,7 +87,7 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 
 				return [ elements, terminatorValue ];
 			} catch (error) {
-				if (!(error instanceof ParserParsingFailedError)) {
+				if (!(isParserParsingFailedError(error))) {
 					throw error;
 				}
 			} finally {
@@ -124,7 +124,7 @@ export const createTerminatedArrayParserUnsafe = <ElementOutput, TerminatorOutpu
 
 				return [ elements, terminatorValue ];
 			} catch (error) {
-				if (!(error instanceof ParserParsingFailedError)) {
+				if (!(isParserParsingFailedError(error))) {
 					throw error;
 				}
 			} finally {

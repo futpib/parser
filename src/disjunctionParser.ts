@@ -1,5 +1,5 @@
 import { getParserName, setParserName, type Parser } from './parser.js';
-import { ParserParsingFailedError } from './parserError.js';
+import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { promiseSettled } from './promiseSettled.js';
 import { type DeriveSequenceElement } from './sequence.js';
@@ -36,7 +36,7 @@ export const createDisjunctionParser = <
 
 			const error = childParserResult.reason;
 
-			if (error instanceof ParserParsingFailedError) {
+			if (isParserParsingFailedError(error)) {
 				parserParsingFailedErrors.push(error);
 			} else {
 				throw error;

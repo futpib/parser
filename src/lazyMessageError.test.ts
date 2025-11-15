@@ -1,8 +1,8 @@
 import test from 'ava';
-import { LazyMessageError } from './lazyMessageError.js';
+import { NormalLazyMessageError } from './lazyMessageError.js';
 
 test('LazyMessageError works', t => {
-	const error = new LazyMessageError([
+	const error = new NormalLazyMessageError([
 		() => [
 			'Line 1: %s',
 			'Line 2: %s and %s.',

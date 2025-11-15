@@ -1,7 +1,6 @@
 import test from 'ava';
 import { InputReaderImplementation } from './inputReader.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
-import { ParserImplementationError } from './parserError.js';
 import { toAsyncIterable } from './toAsyncIterable.js';
 import { type InputReaderState } from './inputReaderState.js';
 
@@ -248,8 +247,9 @@ test('inputReader.lookahead', async t => {
 
 	await t.throwsAsync(async () => lookahead0a.peek(0), {
 		any: true,
-		instanceOf: ParserImplementationError,
+		name: 'ParserImplementationInvariantError',
 	});
+
 	await t.throwsAsync(async () => lookahead0b.peek(0), {
 		any: true,
 	});

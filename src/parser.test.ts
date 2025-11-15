@@ -4,14 +4,9 @@ import { createUnionParser } from './unionParser.js';
 import { type Parser, runParser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import {
+    isParserParsingJoinError,
 	ParserError,
-	ParserParsingInvariantError,
-	ParserParsingJoinAllError,
-	ParserParsingJoinDeepestError,
 	ParserParsingJoinError,
-	ParserParsingJoinFurthestError,
-	ParserParsingJoinNoneError,
-	ParserUnexpectedRemainingInputError,
 } from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -55,11 +50,11 @@ async function * asyncIteratorFromString(string: string) {
 	yield string;
 }
 
-function sortChildErrors(error: ParserParsingJoinNoneError) {
+function sortChildErrors(error: ParserParsingJoinError) {
 	error.childErrors.sort((a, b) => a.message.localeCompare(b.message));
 
 	for (const childError of error.childErrors) {
-		if (childError instanceof ParserParsingJoinError) {
+		if (isParserParsingJoinError(childError)) {
 			sortChildErrors(childError);
 		}
 	}
@@ -72,10 +67,11 @@ function removeStackLocations(errorStack: string | undefined) {
 test('errorJoinMode: none', async t => {
 	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'none',
+		errorStack: true,
 	}), {
 		any: true,
-		instanceOf: ParserParsingJoinNoneError,
-	}) as ParserParsingJoinNoneError;
+		name: 'ParserParsingJoinNoneError',
+	}) as ParserParsingJoinError;
 
 	t.is(error.position, 12);
 	t.deepEqual(error.childErrors, []);
@@ -86,10 +82,11 @@ test('errorJoinMode: none', async t => {
 test('errorJoinMode: all', async t => {
 	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'all',
+		errorStack: true,
 	}), {
 		any: true,
-		instanceOf: ParserParsingJoinAllError,
-	}) as ParserParsingJoinAllError;
+		name: 'ParserParsingJoinAllError',
+	}) as ParserParsingJoinError;
 
 	sortChildErrors(error);
 
@@ -100,21 +97,21 @@ test('errorJoinMode: all', async t => {
 
 	const error1 = error.childErrors.at(-1)!;
 
-	invariant(error1 instanceof ParserParsingJoinAllError, 'error1 instanceof ParserParsingJoinAllError');
+	invariant(isParserParsingJoinError(error1), 'error1 instanceof ParserParsingJoinAllError');
 
 	t.is(error1.position, 3, 'error1.position');
 	t.is(error1.childErrors.length, 4);
 
 	const error2 = error1.childErrors.at(-1)!;
 
-	invariant(error2 instanceof ParserParsingJoinAllError, 'error2 instanceof ParserParsingJoinAllError');
+	invariant(isParserParsingJoinError(error2), 'error2 instanceof ParserParsingJoinAllError');
 
 	t.is(error2.position, 4, 'error2.position');
 	t.is(error2.childErrors.length, 3);
 
 	const error3 = error2.childErrors.at(-1)!;
 
-	invariant(error3 instanceof ParserParsingInvariantError, 'error3 instanceof ParserParsingInvariantError');
+	invariant(error3.name === 'ParserParsingInvariantError', 'error3 instanceof ParserParsingInvariantError');
 
 	t.is(error3.position, 4, 'error3.position');
 });
@@ -122,10 +119,11 @@ test('errorJoinMode: all', async t => {
 test('errorJoinMode: deepest', async t => {
 	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'deepest',
+		errorStack: true,
 	}), {
 		any: true,
-		instanceOf: ParserParsingJoinDeepestError,
-	}) as ParserParsingJoinDeepestError;
+		name: 'ParserParsingJoinDeepestError',
+	}) as ParserParsingJoinError;
 
 	sortChildErrors(error);
 
@@ -136,21 +134,21 @@ test('errorJoinMode: deepest', async t => {
 
 	const error1 = error.childErrors.at(-1)!;
 
-	invariant(error1 instanceof ParserParsingJoinDeepestError, 'error1 instanceof ParserParsingJoinDeepestError');
+	invariant(isParserParsingJoinError(error1), 'error1 instanceof ParserParsingJoinDeepestError');
 
 	t.is(error1.position, 3);
 	t.is(error1.childErrors.length, 1);
 
 	const error2 = error1.childErrors.at(-1)!;
 
-	invariant(error2 instanceof ParserParsingJoinDeepestError, 'error2 instanceof ParserParsingJoinDeepestError');
+	invariant(isParserParsingJoinError(error2), 'error2 instanceof ParserParsingJoinDeepestError');
 
 	t.is(error2.position, 4);
 	t.is(error2.childErrors.length, 3);
 
 	const error3 = error2.childErrors.at(-1)!;
 
-	invariant(error3 instanceof ParserParsingInvariantError, 'error3 instanceof ParserParsingInvariantError');
+	invariant(error3.name === 'ParserParsingInvariantError', 'error3 instanceof ParserParsingInvariantError');
 
 	t.is(error3.position, 4);
 });
@@ -158,10 +156,11 @@ test('errorJoinMode: deepest', async t => {
 test('errorJoinMode: furthest', async t => {
 	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
 		errorJoinMode: 'furthest',
+		errorStack: true,
 	}), {
 		any: true,
-		instanceOf: ParserParsingJoinFurthestError,
-	}) as ParserParsingJoinFurthestError;
+		name: 'ParserParsingJoinFurthestError',
+	}) as ParserParsingJoinError;
 
 	sortChildErrors(error);
 
@@ -172,7 +171,7 @@ test('errorJoinMode: furthest', async t => {
 
 	const error1 = error.childErrors.at(-1)!;
 
-	invariant(error1 instanceof ParserParsingInvariantError, 'error1 instanceof ParserParsingInvariantError');
+	invariant(error1.name === 'ParserParsingInvariantError', 'error1 instanceof ParserParsingInvariantError');
 
 	t.is(error1.position, 12);
 });
@@ -206,9 +205,9 @@ test('thrown error has input reader state', async t => {
 			stringParserInputCompanion,
 		),
 		{
-			instanceOf: ParserError,
+			name: 'ParserError',
 		},
-	);
+	) as ParserError;
 
 	t.is(error.position, 4);
 
@@ -242,9 +241,9 @@ test('runParser throws with remaining input', async t => {
 	const parser: Parser<string, string> = createExactSequenceNaiveParser('foo');
 	const error = await t.throwsAsync(async () => runParser(parser, 'foobar', stringParserInputCompanion), {
 		any: true,
-		instanceOf: ParserUnexpectedRemainingInputError,
+		name: 'ParserUnexpectedRemainingInputError',
 		message: /remaining input/,
-	}) as ParserUnexpectedRemainingInputError;
+	}) as ParserError;
 
 	t.is(error.position, 3);
 
