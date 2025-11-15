@@ -1057,7 +1057,7 @@ const encodedValueFloatParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8A
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0 ]);
+					const buffer = Buffer.from([ 0, 0, 0, ...uint8Array ]);
 					return { type: 'float' as const, value: buffer.readFloatLE(0) };
 				},
 			);
@@ -1067,7 +1067,7 @@ const encodedValueFloatParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8A
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const buffer = Buffer.from([ ...uint8Array, 0, 0 ]);
+					const buffer = Buffer.from([ 0, 0, ...uint8Array ]);
 					return { type: 'float' as const, value: buffer.readFloatLE(0) };
 				},
 			);
@@ -1096,7 +1096,7 @@ const encodedValueDoubleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0, 0 ]);
+					const buffer = Buffer.from([ 0, 0, 0, 0, 0, 0, 0, ...uint8Array ]);
 					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
@@ -1106,7 +1106,7 @@ const encodedValueDoubleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0, 0, 0 ]);
+					const buffer = Buffer.from([ 0, 0, 0, 0, 0, 0, ...uint8Array ]);
 					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);
@@ -1116,7 +1116,7 @@ const encodedValueDoubleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
-					const buffer = Buffer.from([ ...uint8Array, 0, 0, 0, 0 ]);
+					const buffer = Buffer.from([ 0, 0, 0, 0, ...uint8Array ]);
 					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);

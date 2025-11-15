@@ -241,6 +241,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/compose/ui/text/EmojiSupportMatch', isolate: true },
 		{ smaliFilePath: 'androidx/compose/ui/focus/FocusTransactionsKt', isolate: true },
 		{ smaliFilePath: 'androidx/compose/animation/core/SpringSimulationKt', isolate: true },
+		{ smaliFilePath: 'androidx/constraintlayout/core/widgets/ConstraintWidget', isolate: true },
 		{ smaliFilePath: 'ch/qos/logback/core/CoreConstants', isolate: true },
 		{ smaliFilePath: 'ch/qos/logback/classic/spi/ClassPackagingData', isolate: true },
 		{ smaliFilePath: 'kotlin/coroutines/jvm/internal/DebugMetadata', isolate: true },
