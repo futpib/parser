@@ -288,6 +288,7 @@ const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; iso
 		{ smaliFilePath: 'androidx/constraintlayout/widget/ConstraintLayout$a', isolate: true },
 		{ smaliFilePath: 'l4/a', isolate: true },
 		{ smaliFilePath: 'n4/o', isolate: true },
+		{ smaliFilePath: 'o6/f', isolate: true },
 		{ smaliFilePath: 'a', isolate: true },
 		{ smaliFilePath: 'a/b', isolate: true },
 		{ smaliFilePath: 'f/b', isolate: true },
