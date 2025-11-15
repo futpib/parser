@@ -1695,11 +1695,12 @@ export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = prom
 				const data: number[] = [];
 
 				for (const value of values) {
-					const numberValue = typeof value === 'bigint' ? Number(value) : value;
+					// Use BigInt for bitwise operations to preserve full precision
+					const bigIntValue = typeof value === 'bigint' ? value : BigInt(value);
 
 					// Convert to bytes based on elementWidth (little-endian)
 					for (let i = 0; i < elementWidth; i++) {
-						data.push((numberValue >> (i * 8)) & 0xFF);
+						data.push(Number((bigIntValue >> BigInt(i * 8)) & 0xFFn));
 					}
 				}
 
@@ -2691,6 +2692,23 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			instanceFields: smaliFields?.instanceFields.map(({ field }) => field) ?? [],
 		};
 
+		// Sort fields to match DEX file order (by field name, then type)
+		// This matches the field order in class_data_item in DEX files
+		// Use binary string comparison (case-sensitive) to match UTF-8 byte order
+		const sortFields = (fieldsList: DalvikExecutableFieldWithAccess[]) => {
+			fieldsList.sort((a, b) => {
+				// First by field name (case-sensitive comparison)
+				if (a.field.name !== b.field.name) {
+					return a.field.name < b.field.name ? -1 : 1;
+				}
+				// Then by field type (case-sensitive comparison)
+				return a.field.type < b.field.type ? -1 : 1;
+			});
+		};
+
+		sortFields(fields.staticFields);
+		sortFields(fields.instanceFields);
+
 		const annotations: DalvikExecutableClassAnnotations = {
 			classAnnotations: classAnnotations as any ?? [], // TODO
 			fieldAnnotations: [],
@@ -2722,13 +2740,14 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 
 		// Sort field annotations to match DEX file order (by field name, then type)
 		// This matches the annotations_directory_item field_annotations order in DEX files
+		// Use binary string comparison (case-sensitive) to match UTF-8 byte order
 		annotations.fieldAnnotations.sort((a, b) => {
-			// First by field name
+			// First by field name (case-sensitive comparison)
 			if (a.field.name !== b.field.name) {
-				return a.field.name.localeCompare(b.field.name);
+				return a.field.name < b.field.name ? -1 : 1;
 			}
-			// Then by field type
-			return a.field.type.localeCompare(b.field.type);
+			// Then by field type (case-sensitive comparison)
+			return a.field.type < b.field.type ? -1 : 1;
 		});
 
 		// Compute synthetic flag from members if not explicitly set

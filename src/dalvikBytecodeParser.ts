@@ -20,7 +20,6 @@ import {
 	dalvikBytecodeFormat12xParser,
 	dalvikBytecodeFormat20tParser,
 	dalvikBytecodeFormat22xParser,
-	nibblesParser,
 	dalvikBytecodeFormat32xParser,
 	dalvikBytecodeFormat30tParser,
 	dalvikBytecodeFormat51lParser,
@@ -44,6 +43,7 @@ import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { createQuantifierParser } from './quantifierParser.js';
 import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
+import { createTupleParser } from './tupleParser.js';
 
 // https://source.android.com/docs/core/runtime/dalvik-bytecode
 
