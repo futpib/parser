@@ -2305,9 +2305,32 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			const parameterNames: Array<undefined | string> = parameters ? parameters.map(p => p.name) : [];
 			
 			// Build debug bytecode from annotated instructions
+			// Use DEX format with special opcodes
 			const bytecode: DalvikExecutableDebugInfo['bytecode'] = [];
 			let currentLine = lineStart;
 			let currentAddress = 0;
+			
+			// Helper function to create special opcode if possible
+			const createSpecialOpcode = (lineDiff: number, addressDiff: number): { type: 'special'; value: number } | null => {
+				// DEX special opcode encoding:
+				// DBG_FIRST_SPECIAL = 0x0A, DBG_LINE_BASE = -4, DBG_LINE_RANGE = 15
+				const DBG_FIRST_SPECIAL = 0x0A;
+				const DBG_LINE_BASE = -4;
+				const DBG_LINE_RANGE = 15;
+				
+				// Check if line diff is in valid range [-4, 10]
+				const adjustedLineDiff = lineDiff - DBG_LINE_BASE;
+				if (adjustedLineDiff >= 0 && adjustedLineDiff < DBG_LINE_RANGE && addressDiff >= 0) {
+					const adjustedOpcode = addressDiff * DBG_LINE_RANGE + adjustedLineDiff;
+					const value = DBG_FIRST_SPECIAL + adjustedOpcode;
+					
+					// Valid special opcodes are 0x0A-0xFF
+					if (value >= DBG_FIRST_SPECIAL && value <= 0xFF) {
+						return { type: 'special', value };
+					}
+				}
+				return null;
+			};
 			
 			for (const annotated of annotatedInstructions) {
 				// Handle .prologue directive
@@ -2315,11 +2338,19 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 					bytecode.push({ type: 'setPrologueEnd' });
 				}
 				
-				// Handle .line directives
+				// Handle .line directives with special opcodes
 				for (const line of annotated.lines) {
 					if (line !== currentLine) {
 						const lineDiff = line - currentLine;
-						bytecode.push({ type: 'advanceLine', lineDiff });
+						
+						// Try to create a special opcode (with addressDiff = 0)
+						const specialOp = createSpecialOpcode(lineDiff, 0);
+						if (specialOp) {
+							bytecode.push(specialOp);
+						} else {
+							// Fallback to advanceLine if special opcode can't encode it
+							bytecode.push({ type: 'advanceLine', lineDiff });
+						}
 						currentLine = line;
 					}
 				}
@@ -2361,9 +2392,6 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 						registerNum,
 					});
 				}
-				
-				// Note: We don't track address advancement (advancePc) here since we don't have
-				// operation size information readily available at this point
 			}
 
 			debugInfo = {

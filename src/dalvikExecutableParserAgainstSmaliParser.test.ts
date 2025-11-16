@@ -57,65 +57,7 @@ function normalizeSmaliFilePath(smaliFilePath: string | {
 
 
 function normalizeClassDefinition(classDefinition: any) {
-	objectWalk(classDefinition, (_path, value) => {
-		// Normalize debug info to make DEX and smali formats comparable
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'debugInfo' in value
-			&& value.debugInfo
-			&& typeof value.debugInfo === 'object'
-			&& 'bytecode' in value.debugInfo
-			&& Array.isArray(value.debugInfo.bytecode)
-		) {
-			const expandedBytecode: any[] = [];
-			const currentLineStart = ('lineStart' in value.debugInfo && typeof value.debugInfo.lineStart === 'number') ? value.debugInfo.lineStart : 0;
-			let currentLine: number = currentLineStart;
-			
-			for (const op of value.debugInfo.bytecode) {
-				if (op.type === 'special') {
-					// DEX special opcodes (0x0A-0xFF) encode line and address advances
-					// Formula from DEX spec:
-					// DBG_FIRST_SPECIAL = 0x0A, DBG_LINE_BASE = -4, DBG_LINE_RANGE = 15
-					const DBG_FIRST_SPECIAL = 0x0A;
-					const DBG_LINE_BASE = -4;
-					const DBG_LINE_RANGE = 15;
-					
-					const adjustedOpcode = op.value - DBG_FIRST_SPECIAL;
-					const lineDiff = DBG_LINE_BASE + (adjustedOpcode % DBG_LINE_RANGE);
-					const addressDiff = Math.floor(adjustedOpcode / DBG_LINE_RANGE);
-					
-					// Skip advancePc - smali doesn't have this information
-					// Only add line advance if non-zero
-					if (lineDiff !== 0) {
-						expandedBytecode.push({
-							type: 'advanceLine',
-							lineDiff,
-						});
-						currentLine += lineDiff;
-					}
-				} else if (op.type === 'advancePc') {
-					// Skip advancePc operations - smali doesn't track program counter advances
-					continue;
-				} else if (op.type === 'startLocal' || op.type === 'startLocalExtended') {
-					// Normalize local variable names and types - baksmali may use different names than DEX
-					expandedBytecode.push({
-						...op,
-						name: undefined,
-						type_: undefined,
-						signature: undefined,
-					});
-				} else {
-					expandedBytecode.push(op);
-					if (op.type === 'advanceLine') {
-						currentLine += op.lineDiff;
-					}
-				}
-			}
-			
-			value.debugInfo.bytecode = expandedBytecode;
-		}
-	});
+	// No normalization needed - both parsers produce the same debugInfo format
 }
 
 const parseDexAgainstSmaliMacro = test.macro({
