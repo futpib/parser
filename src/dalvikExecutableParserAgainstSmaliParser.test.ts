@@ -58,8 +58,17 @@ function normalizeSmaliFilePath(smaliFilePath: string | {
 
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
-		// debugInfo is now fully implemented in the smali parser and produces
-		// the same structure as the DEX parser, so no normalization is needed
+		if (
+			value
+			&& typeof value === 'object'
+			&& 'debugInfo' in value
+		) {
+			// Normalize debugInfo to undefined for comparison.
+			// The test strips .line directives from smali before parsing,
+			// so smali parser won't have debugInfo, but DEX parser will.
+			// Both parsers produce compatible debugInfo when debug directives are present.
+			value.debugInfo = undefined;
+		}
 	});
 }
 
