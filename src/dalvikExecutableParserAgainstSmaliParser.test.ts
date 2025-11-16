@@ -132,10 +132,16 @@ const parseDexAgainstSmaliMacro = test.macro({
 });
 
 const parseAllClassesInDexAgainstSmaliMacro = test.macro({
-	title(providedTitle, dexCid: string, options?: { skipUntilClassPath?: string }) {
+	title(providedTitle, dexCid: string, options?: {
+		skipUntilClassPath?: string;
+		maxFailures?: number;
+	}) {
 		return providedTitle ?? `parse all classes from dex ${dexCid} against smali${options?.skipUntilClassPath ? ` (skip until ${options.skipUntilClassPath})` : ''}`;
 	},
-	async exec(t, dexCid: string, options?: { skipUntilClassPath?: string }) {
+	async exec(t, dexCid: string, options?: {
+		skipUntilClassPath?: string;
+		maxFailures?: number;
+	}) {
 		const hasBaksmali = await hasBaksmaliPromise;
 
 		if (!hasBaksmali) {
@@ -192,7 +198,7 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 
 			failures.push(result);
 
-			if (failures.length >= 2) {
+			if (failures.length >= (options?.maxFailures ?? 1)) {
 				for (const failure of failures) {
 					consoleLogFailure(failure);
 				}
