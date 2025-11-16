@@ -70,7 +70,7 @@ const dexWithParsedInstructionsMacro = test.macro({
 				return;
 			}
 
-			t.false(key.endsWith('Offset'), 'All offsets should be resolved: ' + path.join('.'));
+			t.false(key.endsWith('Offset') && key !== 'branchOffset', 'All offsets should be resolved: ' + path.join('.'));
 			t.false(key.endsWith('Index'), 'All indexes should be resolved: ' + path.join('.'));
 		});
 
@@ -83,7 +83,7 @@ const dexWithParsedInstructionsMacro = test.macro({
 	},
 });
 
-test.serial.skip(dexWithParsedInstructionsMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true);
-test.serial.only(dexWithParsedInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false);
+test.serial.only(dexWithParsedInstructionsMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true);
+test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false);
 test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false);
 test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false);

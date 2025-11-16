@@ -34,6 +34,7 @@ import {
 	type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds,
 } from './dalvikExecutableParser/typedNumbers.js';
 import { createExactElementParser } from './exactElementParser.js';
+import { createElementSwitchParser } from './exactElementSwitchParser.js';
 import { type Parser, setParserName } from './parser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createSliceBoundedParser } from './sliceBoundedParser.js';
@@ -2466,84 +2467,329 @@ export const dalvikBytecodeOperationCompanion = {
 	},
 };
 
+// Map of single-byte opcodes to their parsers for O(1) lookup
+const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<any, Uint8Array>>([
+	// Invoke operations
+	[ 0x6E, dalvikBytecodeOperationInvokeVirtualParser ],
+	[ 0x6F, dalvikBytecodeOperationInvokeSuperParser ],
+	[ 0x70, dalvikBytecodeOperationInvokeDirectParser ],
+	[ 0x71, dalvikBytecodeOperationInvokeStaticParser ],
+	[ 0x72, dalvikBytecodeOperationInvokeInterfaceParser ],
+
+	// Invoke range operations
+	[ 0x74, dalvikBytecodeOperationInvokeVirtualRangeParser ],
+	[ 0x75, dalvikBytecodeOperationInvokeSuperRangeParser ],
+	[ 0x76, dalvikBytecodeOperationInvokeDirectRangeParser ],
+	[ 0x77, dalvikBytecodeOperationInvokeStaticRangeParser ],
+	[ 0x78, dalvikBytecodeOperationInvokeInterfaceRangeParser ],
+
+	// Invoke polymorphic operations
+	[ 0xFA, dalvikBytecodeOperationInvokePolymorphicParser ],
+	[ 0xFB, dalvikBytecodeOperationInvokePolymorphicRangeParser ],
+
+	// New instance/array operations
+	[ 0x22, dalvikBytecodeOperationNewInstanceParser ],
+	[ 0x23, dalvikBytecodeOperationNewArrayParser ],
+	[ 0x24, dalvikBytecodeOperationFilledNewArrayParser ],
+	[ 0x25, dalvikBytecodeOperationFilledNewArrayRangeParser ],
+	[ 0x26, dalvikBytecodeOperationFillArrayDataParser ],
+	[ 0x1F, dalvikBytecodeOperationCheckCastParser ],
+	[ 0x20, dalvikBytecodeOperationInstanceOfParser ],
+	[ 0x21, dalvikBytecodeOperationArrayLengthParser ],
+
+	// Array element operations (aget/aput)
+	[ 0x44, dalvikBytecodeOperationArrayElementGetParser ],
+	[ 0x45, dalvikBytecodeOperationArrayElementGetWideParser ],
+	[ 0x46, dalvikBytecodeOperationArrayElementGetObjectParser ],
+	[ 0x47, dalvikBytecodeOperationArrayElementGetBooleanParser ],
+	[ 0x48, dalvikBytecodeOperationArrayElementGetByteParser ],
+	[ 0x49, dalvikBytecodeOperationArrayElementGetCharParser ],
+	[ 0x4A, dalvikBytecodeOperationArrayElementGetShortParser ],
+	[ 0x4B, dalvikBytecodeOperationArrayElementPutParser ],
+	[ 0x4C, dalvikBytecodeOperationArrayElementPutWideParser ],
+	[ 0x4D, dalvikBytecodeOperationArrayElementPutObjectParser ],
+	[ 0x4E, dalvikBytecodeOperationArrayElementPutBooleanParser ],
+	[ 0x4F, dalvikBytecodeOperationArrayElementPutByteParser ],
+	[ 0x50, dalvikBytecodeOperationArrayElementPutCharParser ],
+	[ 0x51, dalvikBytecodeOperationArrayElementPutShortParser ],
+
+	// Instance field operations (iget/iput)
+	[ 0x52, dalvikBytecodeOperationInstanceFieldGetParser ],
+	[ 0x53, dalvikBytecodeOperationInstanceFieldGetWideParser ],
+	[ 0x54, dalvikBytecodeOperationInstanceFieldGetObjectParser ],
+	[ 0x55, dalvikBytecodeOperationInstanceFieldGetBooleanParser ],
+	[ 0x56, dalvikBytecodeOperationInstanceFieldGetByteParser ],
+	[ 0x57, dalvikBytecodeOperationInstanceFieldGetCharParser ],
+	[ 0x58, dalvikBytecodeOperationInstanceFieldGetShortParser ],
+	[ 0x59, dalvikBytecodeOperationInstanceFieldPutParser ],
+	[ 0x5A, dalvikBytecodeOperationInstanceFieldPutWideParser ],
+	[ 0x5B, dalvikBytecodeOperationInstanceFieldPutObjectParser ],
+	[ 0x5C, dalvikBytecodeOperationInstanceFieldPutBooleanParser ],
+	[ 0x5D, dalvikBytecodeOperationInstanceFieldPutByteParser ],
+	[ 0x5E, dalvikBytecodeOperationInstanceFieldPutCharParser ],
+	[ 0x5F, dalvikBytecodeOperationInstanceFieldPutShortParser ],
+
+	// Static field operations (sget/sput)
+	[ 0x60, dalvikBytecodeOperationStaticFieldGetParser ],
+	[ 0x61, dalvikBytecodeOperationStaticFieldGetWideParser ],
+	[ 0x62, dalvikBytecodeOperationStaticFieldGetObjectParser ],
+	[ 0x63, dalvikBytecodeOperationStaticFieldGetBooleanParser ],
+	[ 0x64, dalvikBytecodeOperationStaticFieldGetByteParser ],
+	[ 0x65, dalvikBytecodeOperationStaticFieldGetCharParser ],
+	[ 0x66, dalvikBytecodeOperationStaticFieldGetShortParser ],
+	[ 0x67, dalvikBytecodeOperationStaticFieldPutParser ],
+	[ 0x68, dalvikBytecodeOperationStaticFieldPutWideParser ],
+	[ 0x69, dalvikBytecodeOperationStaticFieldPutObjectParser ],
+	[ 0x6A, dalvikBytecodeOperationStaticFieldPutBooleanParser ],
+	[ 0x6B, dalvikBytecodeOperationStaticFieldPutByteParser ],
+	[ 0x6C, dalvikBytecodeOperationStaticFieldPutCharParser ],
+	[ 0x6D, dalvikBytecodeOperationStaticFieldPutShortParser ],
+
+	// Const operations
+	[ 0x1A, dalvikBytecodeOperationConstStringParser ],
+	[ 0x1B, dalvikBytecodeOperationConstStringJumboParser ],
+	[ 0xFE, dalvikBytecodeOperationConstMethodHandleParser ],
+	[ 0x1C, dalvikBytecodeOperationConstClassParser ],
+
+	// Monitor operations
+	[ 0x1D, dalvikBytecodeOperationMonitorEnterParser ],
+	[ 0x1E, dalvikBytecodeOperationMonitorExitParser ],
+
+	// Return operations
+	[ 0x0E, dalvikBytecodeOperationReturnVoidParser ],
+	[ 0x0F, dalvikBytecodeOperationReturnParser ],
+	[ 0x10, dalvikBytecodeOperationReturnWideParser ],
+	[ 0x11, dalvikBytecodeOperationReturnObjectParser ],
+
+	// Throw operation
+	[ 0x27, dalvikBytecodeOperationThrowParser ],
+
+	// Goto operations
+	[ 0x28, dalvikBytecodeOperationGotoParser ],
+	[ 0x29, dalvikBytecodeOperationGoto16Parser ],
+	[ 0x2A, dalvikBytecodeOperationGoto32Parser ],
+	[ 0x2B, dalvikBytecodeOperationPackedSwitchParser ],
+	[ 0x2C, dalvikBytecodeOperationSparseSwitchParser ],
+
+	// Move result operations
+	[ 0x0A, dalvikBytecodeMoveResultParser ],
+	[ 0x0B, dalvikBytecodeMoveResultWideParser ],
+	[ 0x0C, dalvikBytecodeMoveResultObjectParser ],
+	[ 0x0D, dalvikBytecodeMoveExceptionParser ],
+
+	// Move operations
+	[ 0x01, dalvikBytecodeOperationMoveParser ],
+	[ 0x04, dalvikBytecodeOperationMoveWideParser ],
+	[ 0x07, dalvikBytecodeOperationMoveObjectParser ],
+	[ 0x02, dalvikBytecodeOperationMoveFrom16Parser ],
+	[ 0x05, dalvikBytecodeOperationMoveWideFrom16Parser ],
+	[ 0x08, dalvikBytecodeOperationMoveObjectFrom16Parser ],
+	[ 0x06, dalvikBytecodeOperationMoveWide16Parser ],
+
+	// Const value operations
+	[ 0x12, dalvikBytecodeOperationConst4Parser ],
+	[ 0x13, dalvikBytecodeOperationConst16Parser ],
+	[ 0x15, dalvikBytecodeOperationConstHigh16Parser ],
+	[ 0x16, dalvikBytecodeOperationConstWide16Parser ],
+	[ 0x17, dalvikBytecodeOperationConstWide32Parser ],
+	[ 0x18, dalvikBytecodeOperationConstWideParser ],
+	[ 0x19, dalvikBytecodeOperationConstWideHigh16Parser ],
+	[ 0x14, dalvikBytecodeOperationConstParser ],
+
+	// Compare operations
+	[ 0x2D, dalvikBytecodeOperationCompareFloatWithLessThanBiasParser ],
+	[ 0x2E, dalvikBytecodeOperationCompareFloatWithGreaterThanBiasParser ],
+	[ 0x2F, dalvikBytecodeOperationCompareDoubleWithLessThanBiasParser ],
+	[ 0x30, dalvikBytecodeOperationCompareDoubleWithGreaterThanBiasParser ],
+	[ 0x31, dalvikBytecodeOperationCompareLongParser ],
+
+	// If test operations
+	[ 0x32, dalvikBytecodeIfEqualParser ],
+	[ 0x33, dalvikBytecodeIfNotEqualParser ],
+	[ 0x34, dalvikBytecodeIfLessThanParser ],
+	[ 0x35, dalvikBytecodeIfGreaterThanOrEqualToParser ],
+	[ 0x36, dalvikBytecodeIfGreaterThanParser ],
+	[ 0x37, dalvikBytecodeIfLessThanOrEqualToParser ],
+
+	// If test zero operations
+	[ 0x38, dalvikBytecodeIfEqualZeroParser ],
+	[ 0x39, dalvikBytecodeIfNotEqualZeroParser ],
+	[ 0x3A, dalvikBytecodeIfLessThanZeroParser ],
+	[ 0x3B, dalvikBytecodeIfGreaterThanOrEqualToZeroParser ],
+	[ 0x3C, dalvikBytecodeIfGreaterThanZeroParser ],
+	[ 0x3D, dalvikBytecodeIfLessThanOrEqualToZeroParser ],
+
+	// Binary operations
+	[ 0x90, dalvikBytecodeOperationAddIntParser ],
+	[ 0x91, dalvikBytecodeOperationSubtractIntParser ],
+	[ 0x92, dalvikBytecodeOperationMultiplyIntParser ],
+	[ 0x93, dalvikBytecodeOperationDivideIntParser ],
+	[ 0x94, dalvikBytecodeOperationRemainderIntParser ],
+	[ 0x95, dalvikBytecodeOperationAndIntParser ],
+	[ 0x96, dalvikBytecodeOperationOrIntParser ],
+	[ 0x97, dalvikBytecodeOperationXorIntParser ],
+	[ 0x98, dalvikBytecodeOperationShiftLeftIntParser ],
+	[ 0x99, dalvikBytecodeOperationShiftRightIntParser ],
+	[ 0x9A, dalvikBytecodeOperationUnsignedShiftRightIntParser ],
+	[ 0x9B, dalvikBytecodeOperationAddLongParser ],
+	[ 0x9C, dalvikBytecodeOperationSubtractLongParser ],
+	[ 0x9D, dalvikBytecodeOperationMultiplyLongParser ],
+	[ 0x9E, dalvikBytecodeOperationDivideLongParser ],
+	[ 0x9F, dalvikBytecodeOperationRemainderLongParser ],
+	[ 0xA0, dalvikBytecodeOperationAndLongParser ],
+	[ 0xA1, dalvikBytecodeOperationOrLongParser ],
+	[ 0xA2, dalvikBytecodeOperationXorLongParser ],
+	[ 0xA3, dalvikBytecodeOperationShiftLeftLongParser ],
+	[ 0xA4, dalvikBytecodeOperationShiftRightLongParser ],
+	[ 0xA5, dalvikBytecodeOperationUnsignedShiftRightLongParser ],
+	[ 0xA6, dalvikBytecodeOperationAddFloatParser ],
+	[ 0xA7, dalvikBytecodeOperationSubtractFloatParser ],
+	[ 0xA8, dalvikBytecodeOperationMultiplyFloatParser ],
+	[ 0xA9, dalvikBytecodeOperationDivideFloatParser ],
+	// Note: 0xAA (rem-float) parser is missing in codebase
+	[ 0xAB, dalvikBytecodeOperationAddDoubleParser ],
+	[ 0xAC, dalvikBytecodeOperationSubtractDoubleParser ],
+	[ 0xAD, dalvikBytecodeOperationMultiplyDoubleParser ],
+	[ 0xAE, dalvikBytecodeOperationDivideDoubleParser ],
+	[ 0xAF, dalvikBytecodeOperationRemainderDoubleParser ],
+
+	// Binary operations in place (2addr)
+	[ 0xB0, dalvikBytecodeOperationAddIntInPlaceParser ],
+	[ 0xB1, dalvikBytecodeOperationReverseSubtractIntInPlaceParser ],
+	[ 0xB2, dalvikBytecodeOperationMultiplyIntInPlaceParser ],
+	[ 0xB3, dalvikBytecodeOperationDivideIntInPlaceParser ],
+	[ 0xB4, dalvikBytecodeOperationRemainderIntInPlaceParser ],
+	[ 0xB5, dalvikBytecodeOperationAndIntInPlaceParser ],
+	[ 0xB6, dalvikBytecodeOperationOrIntInPlaceParser ],
+	[ 0xB7, dalvikBytecodeOperationXorIntInPlaceParser ],
+	[ 0xB8, dalvikBytecodeOperationShiftLeftIntInPlaceParser ],
+	[ 0xB9, dalvikBytecodeOperationShiftRightIntInPlaceParser ],
+	[ 0xBA, dalvikBytecodeOperationUnsignedShiftRightIntInPlaceParser ],
+	[ 0xBB, dalvikBytecodeOperationAddLongInPlaceParser ],
+	[ 0xBC, dalvikBytecodeOperationSubtractLongInPlaceParser ],
+	[ 0xBD, dalvikBytecodeOperationMultiplyLongInPlaceParser ],
+	[ 0xBE, dalvikBytecodeOperationDivideLongInPlaceParser ],
+	[ 0xBF, dalvikBytecodeOperationRemainderLongInPlaceParser ],
+	[ 0xC0, dalvikBytecodeOperationAndLongInPlaceParser ],
+	[ 0xC1, dalvikBytecodeOperationOrLongInPlaceParser ],
+	[ 0xC2, dalvikBytecodeOperationXorLongInPlaceParser ],
+	[ 0xC3, dalvikBytecodeOperationShiftLeftLongInPlaceParser ],
+	[ 0xC4, dalvikBytecodeOperationShiftRightLongInPlaceParser ],
+	[ 0xC5, dalvikBytecodeOperationUnsignedShiftRightLongInPlaceParser ],
+	[ 0xC6, dalvikBytecodeOperationAddFloatInPlaceParser ],
+	[ 0xC7, dalvikBytecodeOperationSubtractFloatInPlaceParser ],
+	[ 0xC8, dalvikBytecodeOperationMultiplyFloatInPlaceParser ],
+	[ 0xC9, dalvikBytecodeOperationDivideFloatInPlaceParser ],
+	[ 0xCA, dalvikBytecodeOperationRemainderFloatInPlaceParser ],
+	[ 0xCB, dalvikBytecodeOperationAddDoubleInPlaceParser ],
+	[ 0xCC, dalvikBytecodeOperationSubtractDoubleInPlaceParser ],
+	[ 0xCD, dalvikBytecodeOperationMultiplyDoubleInPlaceParser ],
+	[ 0xCE, dalvikBytecodeOperationDivideDoubleInPlaceParser ],
+	[ 0xCF, dalvikBytecodeOperationRemainderDoubleInPlaceParser ],
+
+	// Binary operations with literal16
+	[ 0xD0, dalvikBytecodeOperationAddIntLiteral16Parser ],
+	[ 0xD1, dalvikBytecodeOperationReverseSubtractIntLiteral16Parser ],
+	[ 0xD2, dalvikBytecodeOperationMultiplyIntLiteral16Parser ],
+	[ 0xD3, dalvikBytecodeOperationDivideIntLiteral16Parser ],
+	[ 0xD4, dalvikBytecodeOperationRemainderIntLiteral16Parser ],
+	[ 0xD5, dalvikBytecodeOperationAndIntLiteral16Parser ],
+	[ 0xD6, dalvikBytecodeOperationOrIntLiteral16Parser ],
+	[ 0xD7, dalvikBytecodeOperationXorIntLiteral16Parser ],
+
+	// Binary operations with literal8
+	[ 0xD8, dalvikBytecodeOperationAddIntLiteral8Parser ],
+	[ 0xD9, dalvikBytecodeOperationReverseSubtractIntLiteral8Parser ],
+	[ 0xDA, dalvikBytecodeOperationMultiplyIntLiteral8Parser ],
+	[ 0xDB, dalvikBytecodeOperationDivideIntLiteral8Parser ],
+	[ 0xDC, dalvikBytecodeOperationRemainderIntLiteral8Parser ],
+	[ 0xDD, dalvikBytecodeOperationAndIntLiteral8Parser ],
+	[ 0xDE, dalvikBytecodeOperationOrIntLiteral8Parser ],
+	[ 0xDF, dalvikBytecodeOperationXorIntLiteral8Parser ],
+	[ 0xE0, dalvikBytecodeOperationShiftLeftIntLiteral8Parser ],
+	[ 0xE1, dalvikBytecodeOperationShiftRightIntLiteral8Parser ],
+	[ 0xE2, dalvikBytecodeOperationUnsignedShiftRightIntLiteral8Parser ],
+
+	// Unary operations
+	[ 0x7B, dalvikBytecodeOperationNegateIntParser ],
+	[ 0x7C, dalvikBytecodeOperationNotIntParser ],
+	[ 0x7D, dalvikBytecodeOperationNegateLongParser ],
+	[ 0x7E, dalvikBytecodeOperationNotLongParser ],
+	[ 0x7F, dalvikBytecodeOperationNegateFloatParser ],
+	[ 0x80, dalvikBytecodeOperationNegateDoubleParser ],
+	[ 0x81, dalvikBytecodeOperationIntToLongParser ],
+	[ 0x82, dalvikBytecodeOperationIntToFloatParser ],
+	[ 0x83, dalvikBytecodeOperationIntToDoubleParser ],
+	[ 0x84, dalvikBytecodeOperationLongToIntParser ],
+	[ 0x85, dalvikBytecodeOperationLongToFloatParser ],
+	[ 0x86, dalvikBytecodeOperationLongToDoubleParser ],
+	[ 0x87, dalvikBytecodeOperationFloatToIntParser ],
+	[ 0x88, dalvikBytecodeOperationFloatToLongParser ],
+	[ 0x89, dalvikBytecodeOperationFloatToDoubleParser ],
+	[ 0x8A, dalvikBytecodeOperationDoubleToIntParser ],
+	[ 0x8B, dalvikBytecodeOperationDoubleToLongParser ],
+	[ 0x8C, dalvikBytecodeOperationDoubleToFloatParser ],
+	[ 0x8D, dalvikBytecodeOperationIntToByteParser ],
+	[ 0x8E, dalvikBytecodeOperationIntToCharParser ],
+	[ 0x8F, dalvikBytecodeOperationIntToShortParser ],
+
+	// Unused opcodes
+	// Range 0x3E-0x43
+	[ 0x3E, dalvikBytecodeOperationUnusedParser ],
+	[ 0x3F, dalvikBytecodeOperationUnusedParser ],
+	[ 0x40, dalvikBytecodeOperationUnusedParser ],
+	[ 0x41, dalvikBytecodeOperationUnusedParser ],
+	[ 0x42, dalvikBytecodeOperationUnusedParser ],
+	[ 0x43, dalvikBytecodeOperationUnusedParser ],
+	// 0x73
+	[ 0x73, dalvikBytecodeOperationUnusedParser ],
+	// Range 0x79-0x7A
+	[ 0x79, dalvikBytecodeOperationUnusedParser ],
+	[ 0x7A, dalvikBytecodeOperationUnusedParser ],
+	// Range 0xE3-0xF9
+	[ 0xE3, dalvikBytecodeOperationUnusedParser ],
+	[ 0xE4, dalvikBytecodeOperationUnusedParser ],
+	[ 0xE5, dalvikBytecodeOperationUnusedParser ],
+	[ 0xE6, dalvikBytecodeOperationUnusedParser ],
+	[ 0xE7, dalvikBytecodeOperationUnusedParser ],
+	[ 0xE8, dalvikBytecodeOperationUnusedParser ],
+	[ 0xE9, dalvikBytecodeOperationUnusedParser ],
+	[ 0xEA, dalvikBytecodeOperationUnusedParser ],
+	[ 0xEB, dalvikBytecodeOperationUnusedParser ],
+	[ 0xEC, dalvikBytecodeOperationUnusedParser ],
+	[ 0xED, dalvikBytecodeOperationUnusedParser ],
+	[ 0xEE, dalvikBytecodeOperationUnusedParser ],
+	[ 0xEF, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF0, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF1, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF2, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF3, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF4, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF5, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF6, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF7, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF8, dalvikBytecodeOperationUnusedParser ],
+	[ 0xF9, dalvikBytecodeOperationUnusedParser ],
+]);
+
+// Fallback parser for multi-byte opcodes (nop and payload instructions)
+const dalvikBytecodeOperationMultiByteParser: Parser<DalvikBytecodeOperation, Uint8Array> = createDisjunctionParser([
+	dalvikBytecodeOperationNoOperationParser,
+	dalvikBytecodeOperationPackedSwitchPayloadParser,
+	dalvikBytecodeOperationSparseSwitchPayloadParser,
+	dalvikBytecodeOperationFillArrayDataPayloadParser,
+]);
+
+setParserName(dalvikBytecodeOperationMultiByteParser, 'dalvikBytecodeOperationMultiByteParser');
+
 const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined, Uint8Array> = promiseCompose(
 	createTupleParser([
 		() => {},
 		// CreateDebugLogInputParser(),
-		createDisjunctionParser<DalvikBytecodeOperation, Uint8Array>([
-			dalvikBytecodeOperationUnusedParser,
-
-			dalvikBytecodeOperationNoOperationParser,
-
-			dalvikBytecodeOperationInvokeParser,
-			dalvikBytecodeOperationInvokeRangeParser,
-			dalvikBytecodeOperationInvokePolymorphicParser,
-			dalvikBytecodeOperationInvokePolymorphicRangeParser,
-
-			dalvikBytecodeOperationNewInstanceParser,
-			dalvikBytecodeOperationNewArrayParser,
-			dalvikBytecodeOperationFilledNewArrayParser,
-			dalvikBytecodeOperationFilledNewArrayRangeParser,
-			dalvikBytecodeOperationFillArrayDataParser,
-			dalvikBytecodeOperationCheckCastParser,
-			dalvikBytecodeOperationInstanceOfParser,
-			dalvikBytecodeOperationArrayLengthParser,
-
-			dalvikBytecodeOperationArrayElementParser,
-			dalvikBytecodeOperationInstanceFieldParser,
-			dalvikBytecodeOperationStaticFieldParser,
-
-			dalvikBytecodeOperationConstStringParser,
-			dalvikBytecodeOperationConstStringJumboParser,
-			dalvikBytecodeOperationConstMethodHandleParser,
-			dalvikBytecodeOperationConstClassParser,
-
-			dalvikBytecodeOperationMonitorEnterParser,
-			dalvikBytecodeOperationMonitorExitParser,
-
-			dalvikBytecodeOperationReturnVoidParser,
-			dalvikBytecodeOperationReturn1Parser,
-
-			dalvikBytecodeOperationThrowParser,
-
-			dalvikBytecodeOperationGotoParser,
-			dalvikBytecodeOperationGoto16Parser,
-			dalvikBytecodeOperationGoto32Parser,
-			dalvikBytecodeOperationPackedSwitchParser,
-			dalvikBytecodeOperationPackedSwitchPayloadParser,
-			dalvikBytecodeOperationSparseSwitchParser,
-			dalvikBytecodeOperationSparseSwitchPayloadParser,
-			dalvikBytecodeOperationFillArrayDataPayloadParser,
-
-			dalvikBytecodeOperationMoveResult1Parser,
-			dalvikBytecodeOperationMoveParser,
-			dalvikBytecodeOperationMoveWideParser,
-			dalvikBytecodeOperationMoveObjectParser,
-			dalvikBytecodeOperationMoveFrom16Parser,
-			dalvikBytecodeOperationMoveWideFrom16Parser,
-			dalvikBytecodeOperationMoveObjectFrom16Parser,
-			dalvikBytecodeOperationMoveWide16Parser,
-
-			dalvikBytecodeOperationConst4Parser,
-			dalvikBytecodeOperationConst16Parser,
-			dalvikBytecodeOperationConstHigh16Parser,
-			dalvikBytecodeOperationConstWide16Parser,
-			dalvikBytecodeOperationConstWide32Parser,
-			dalvikBytecodeOperationConstWideParser,
-			dalvikBytecodeOperationConstWideHigh16Parser,
-			dalvikBytecodeOperationConstParser,
-
-			dalvikBytecodeOperationCompareParser,
-
-			dalvikBytecodeOperationIfTestParser,
-			dalvikBytecodeOperationIfTestZeroParser,
-
-			dalvikBytecodeOperationBinaryOperationParser,
-			dalvikBytecodeOperationBinaryOperationLiteral8Parser,
-			dalvikBytecodeOperationBinaryOperationLiteral16Parser,
-			dalvikBytecodeOperationBinaryOperationInPlaceParser,
-			dalvikBytecodeOperationUnaryOperationParser,
-		]),
+		createElementSwitchParser<DalvikBytecodeOperation, Uint8Array>(
+			dalvikBytecodeOperationOpcodeMap,
+			dalvikBytecodeOperationMultiByteParser,
+		),
 	]),
 	([
 		_debug,
