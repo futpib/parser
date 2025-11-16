@@ -1115,6 +1115,65 @@ export const smaliCodeParameterParser: Parser<SmaliCodeParameter, string> = prom
 
 setParserName(smaliCodeParameterParser, 'smaliCodeParameterParser');
 
+// Parser for .prologue directive
+const smaliCodePrologueParser: Parser<void, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('    .prologue'),
+		smaliLineEndPraser,
+	]),
+	() => undefined,
+);
+
+setParserName(smaliCodePrologueParser, 'smaliCodePrologueParser');
+
+// Parser for .end local directive
+type SmaliCodeEndLocal = {
+	type: 'endLocal';
+	register: SmaliRegister;
+};
+
+const smaliCodeEndLocalParser: Parser<SmaliCodeEndLocal, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('    .end local '),
+		smaliParametersRegisterParser,
+		smaliLineEndPraser,
+	]),
+	([
+		_endLocal,
+		register,
+		_newline,
+	]) => ({
+		type: 'endLocal' as const,
+		register,
+	}),
+);
+
+setParserName(smaliCodeEndLocalParser, 'smaliCodeEndLocalParser');
+
+// Parser for .restart local directive
+type SmaliCodeRestartLocal = {
+	type: 'restartLocal';
+	register: SmaliRegister;
+};
+
+const smaliCodeRestartLocalParser: Parser<SmaliCodeRestartLocal, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('    .restart local '),
+		smaliParametersRegisterParser,
+		smaliLineEndPraser,
+	]),
+	([
+		_restartLocal,
+		register,
+		_newline,
+	]) => ({
+		type: 'restartLocal' as const,
+		register,
+	}),
+);
+
+setParserName(smaliCodeRestartLocalParser, 'smaliCodeRestartLocalParser');
+
 const smaliCodeLabelParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser(':'),
@@ -1833,16 +1892,31 @@ function isOperationWithLabels(value: unknown): value is DalvikBytecodeOperation
 	);
 }
 
-const smaliAnnotatedCodeOperationParser: Parser<SmaliCodeOperation, string> = promiseCompose(
+type SmaliAnnotatedCodeOperation = {
+	operation: SmaliCodeOperation;
+	lines: number[];
+	local?: SmaliRegister;
+	prologue?: boolean;
+	endLocal?: SmaliRegister;
+	restartLocal?: SmaliRegister;
+};
+
+const smaliAnnotatedCodeOperationParser: Parser<SmaliAnnotatedCodeOperation, string> = promiseCompose(
 	createTupleParser([
 		createArrayParser(smaliCodeLineParser),
+		createOptionalParser(smaliCodePrologueParser),
 		createOptionalParser(smaliCodeLocalParser),
+		createOptionalParser(smaliCodeEndLocalParser),
+		createOptionalParser(smaliCodeRestartLocalParser),
 		createArrayParser(smaliCodeLabelLineParser),
 		smaliCodeOperationParser,
 	]),
 	([
-		_lines,
-		_local,
+		lines,
+		prologue,
+		local,
+		endLocal,
+		restartLocal,
 		labels,
 		operation,
 	]) => {
@@ -1850,11 +1924,18 @@ const smaliAnnotatedCodeOperationParser: Parser<SmaliCodeOperation, string> = pr
 			(operation as any).labels = new Set(labels);
 		}
 
-		return operation;
+		return {
+			operation,
+			lines,
+			local,
+			prologue: prologue !== undefined,
+			endLocal: endLocal?.register,
+			restartLocal: restartLocal?.register,
+		};
 	},
 );
 
-setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
+setParserName(smaliAnnotatedCodeOperationParser, 'smaliAnnotatedCodeOperationParser');
 
 type SmaliExecutableCode<DalvikBytecode> = {
 	dalvikExecutableCode: DalvikExecutableCode<DalvikBytecode>;
@@ -1899,6 +1980,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		const instructions: SmaliCodeOperation[] = [];
 		const catchDirectives: SmaliCatchDirective[] = [];
 		const catchDirectiveLabels: Map<SmaliCatchDirective, string[]> = new Map();
+		const annotatedInstructions: SmaliAnnotatedCodeOperation[] = [];
 
 		for (const item of instructionsAndCatchDirectives) {
 			if (item && typeof item === 'object') {
@@ -1910,8 +1992,13 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				} else if ('type' in item && 'startLabel' in item && 'endLabel' in item && 'handlerLabel' in item) {
 					// This is a bare SmaliCatchDirective (shouldn't happen with current parser structure)
 					catchDirectives.push(item as SmaliCatchDirective);
+				} else if ('operation' in item) {
+					// This is a SmaliAnnotatedCodeOperation
+					const annotatedOp = item as SmaliAnnotatedCodeOperation;
+					annotatedInstructions.push(annotatedOp);
+					instructions.push(annotatedOp.operation);
 				} else if (item !== undefined) {
-					// This is a SmaliCodeOperation
+					// This is a SmaliCodeOperation (shouldn't happen with new parser)
 					instructions.push(item as SmaliCodeOperation);
 				}
 			}
