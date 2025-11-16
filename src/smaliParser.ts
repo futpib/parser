@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
 import {
-	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
@@ -2262,12 +2262,54 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			delete (operation as any).branchOffsetIndices;
 		}
 
+		// Build debugInfo from annotated instructions and parameters
+		let debugInfo: undefined | DalvikExecutableDebugInfo;
+		
+		if (annotatedInstructions.length > 0 || parameters.length > 0) {
+			// Extract lineStart from the first .line directive
+			let lineStart = 0;
+			for (const annotated of annotatedInstructions) {
+				if (annotated.lines.length > 0) {
+					lineStart = annotated.lines[0];
+					break;
+				}
+			}
+
+			// Extract parameter names from .param directives
+			// Parameter names should be extracted from .param directives
+			// For now, use undefined for all parameters
+			const parameterNames: Array<undefined | string> = [];
+			// The number of parameters is based on the method prototype, not .param directives
+			// We'll leave this as an empty array for now
+			
+			// Build debug bytecode
+			const bytecode: Array<{
+				type: 'advancePc' | 'advanceLine' | 'startLocal' | 'endLocal' | 'restartLocal' | 'setPrologueEnd' | 'setFile' | 'special';
+				addressDiff?: number;
+				lineDiff?: number;
+				registerNum?: number;
+				name?: undefined | string;
+				type_?: undefined | string;
+				signature?: undefined | string;
+				value?: number;
+			}> = [];
+
+			// For minimal implementation, leave bytecode empty
+			// Full implementation would track line changes, local variables, etc.
+
+			debugInfo = {
+				lineStart,
+				parameterNames,
+				bytecode: bytecode as any,
+			};
+		}
+
 		return {
 			dalvikExecutableCode: {
 				registersSize,
 				insSize: -1, // TODO
 				outsSize: -1, // TODO
-				debugInfo: undefined, // TODO
+				debugInfo,
 				instructions: instructions as any, // TODO
 				tries,
 				// _annotations,

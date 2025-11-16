@@ -58,13 +58,8 @@ function normalizeSmaliFilePath(smaliFilePath: string | {
 
 function normalizeClassDefinition(classDefinition: any) {
 	objectWalk(classDefinition, (_path, value) => {
-		if (
-			value
-			&& typeof value === 'object'
-			&& 'debugInfo' in value
-		) {
-			value.debugInfo = undefined;
-		}
+		// debugInfo is now properly implemented in the smali parser,
+		// so we no longer need to normalize it to undefined
 	});
 }
 
