@@ -5,6 +5,7 @@ import { type Parser, runParser, runParserWithRemainingInput } from './parser.js
 import { stringParserInputCompanion, uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import {
     isParserParsingJoinError,
+    normalParserErrorModule,
 	ParserError,
 	ParserParsingJoinError,
 } from './parserError.js';
@@ -69,9 +70,8 @@ test('errorJoinMode: none', async t => {
 		errorJoinMode: 'none',
 		errorStack: true,
 	}), {
-		any: true,
-		name: 'ParserParsingJoinNoneError',
-	}) as ParserParsingJoinError;
+		instanceOf: normalParserErrorModule.ParserParsingJoinNoneError,
+	});
 
 	t.is(error.position, 12);
 	t.deepEqual(error.childErrors, []);
@@ -84,9 +84,8 @@ test('errorJoinMode: all', async t => {
 		errorJoinMode: 'all',
 		errorStack: true,
 	}), {
-		any: true,
-		name: 'ParserParsingJoinAllError',
-	}) as ParserParsingJoinError;
+		instanceOf: normalParserErrorModule.ParserParsingJoinAllError,
+	});
 
 	sortChildErrors(error);
 
@@ -121,9 +120,8 @@ test('errorJoinMode: deepest', async t => {
 		errorJoinMode: 'deepest',
 		errorStack: true,
 	}), {
-		any: true,
-		name: 'ParserParsingJoinDeepestError',
-	}) as ParserParsingJoinError;
+		instanceOf: normalParserErrorModule.ParserParsingJoinDeepestError,
+	});
 
 	sortChildErrors(error);
 
@@ -158,9 +156,8 @@ test('errorJoinMode: furthest', async t => {
 		errorJoinMode: 'furthest',
 		errorStack: true,
 	}), {
-		any: true,
-		name: 'ParserParsingJoinFurthestError',
-	}) as ParserParsingJoinError;
+		instanceOf: normalParserErrorModule.ParserParsingJoinFurthestError,
+	});
 
 	sortChildErrors(error);
 
@@ -176,6 +173,28 @@ test('errorJoinMode: furthest', async t => {
 	t.is(error1.position, 12);
 });
 
+test('errorStack: false', async t => {
+	const error = await t.throwsAsync(runParser(sampleParser, 'nothing like what sampleParser expects', stringParserInputCompanion, {
+		errorJoinMode: 'all',
+	}), {
+		instanceOf: normalParserErrorModule.ParserParsingJoinAllError,
+	});
+
+	t.regex(error.stack!, /intentionally left blank/);
+	t.regex(error.stack!, /errorStack: true/);
+});
+
+test('errorStack: true', async t => {
+	const error = await t.throwsAsync(runParser(sampleParser, 'nothing like what sampleParser expects', stringParserInputCompanion, {
+		errorJoinMode: 'all',
+		errorStack: true,
+	}), {
+		instanceOf: normalParserErrorModule.ParserParsingJoinAllError,
+	});
+
+	t.regex(error.stack!, /exactSequenceParser/);
+});
+
 test('throws on parserInputCompanion type mismatch', async t => {
 	const anythingParser: Parser<any, any> = createArrayParser(createElementParser());
 
@@ -185,7 +204,6 @@ test('throws on parserInputCompanion type mismatch', async t => {
 	await runParser(anythingParser, new Uint8Array([ 1, 2, 3 ]), uint8ArrayParserInputCompanion);
 
 	await t.throwsAsync(runParser(anythingParser, asyncIteratorFromString('anything'), uint8ArrayParserInputCompanion), {
-		any: true,
 		message: /input companion/,
 	});
 });
@@ -203,11 +221,14 @@ test('thrown error has input reader state', async t => {
 				yield 'bar';
 			})(),
 			stringParserInputCompanion,
+			{
+				errorStack: true,
+			},
 		),
 		{
-			name: 'ParserError',
+			instanceOf: normalParserErrorModule.ParserParsingInvariantError,
 		},
-	) as ParserError;
+	);
 
 	t.is(error.position, 4);
 

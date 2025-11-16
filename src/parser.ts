@@ -6,7 +6,9 @@ import { type DeriveSequenceElement } from './sequence.js';
 import { toAsyncIterator } from './toAsyncIterator.js';
 import { inputReaderStateCompanion } from './inputReaderState.js';
 import { isLazyMessageError } from './lazyMessageError.js';
-import { isParserError, isParserParsingFailedError, normalParserErrorModule, noStackCaptureOverheadParserErrorModule } from './parserError.js';
+import { isParserError, isParserParsingFailedError, normalParserErrorModule, noStackCaptureOverheadParserErrorModule, ParserError } from './parserError.js';
+import { NoStackCaptureOverheadError } from './noStackCaptureOverheadError.js';
+import invariant from 'invariant';
 
 export type Parser<
 	Output,
@@ -80,6 +82,21 @@ async function withEnrichedParserError<
 	try {
 		return await f();
 	} catch (error) {
+		if (error instanceof NoStackCaptureOverheadError) {
+			invariant(
+				error.name in normalParserErrorModule,
+				'NoStackCaptureOverheadError with unknown name encountered during parser execution: %s',
+				error.name,
+			);
+
+			const normalError: ParserError = new ((normalParserErrorModule as any)[error.name])(error.message);
+			Object.assign(normalError, error);
+
+			normalError.stack = normalError.stack + '\nIf you need a useful stack trace, pass `errorStack: true` to `runParser`, trading off some performance.';
+
+			error = normalError;
+		}
+
 		if (isLazyMessageError(error)) {
 			error.computeMessage();
 		}
