@@ -1081,6 +1081,7 @@ setParserName(smaliCodeLocalParser, 'smaliCodeLocalParser');
 
 type SmaliCodeParameter = {
 	register: SmaliRegister;
+	name: undefined | string;
 	annotation: SmaliAnnotation | undefined;
 };
 
@@ -1105,19 +1106,25 @@ export const smaliCodeParameterParser: Parser<SmaliCodeParameter, string> = prom
 	([
 		_parameter,
 		register,
-		_optionalCommaAndString,
+		optionalCommaAndString,
 		_whitespace,
 		_commentOrNewline,
 		optionalAnnotation,
 	]) => {
 		let annotation: undefined | SmaliAnnotation;
+		let name: undefined | string;
 
 		if (optionalAnnotation) {
 			annotation = optionalAnnotation[0];
 		}
+		
+		if (optionalCommaAndString) {
+			name = optionalCommaAndString[2];
+		}
 
 		return {
 			register,
+			name,
 			annotation,
 		};
 	},
@@ -2295,9 +2302,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			}
 
 			// Extract parameter names from .param directives
-			const parameterNames: Array<undefined | string> = [];
-			// Parameters are based on method signature, not .param directives
-			// Leave as empty array for now since we don't have full method signature context here
+			const parameterNames: Array<undefined | string> = parameters ? parameters.map(p => p.name) : [];
 			
 			// Build debug bytecode from annotated instructions
 			const bytecode: DalvikExecutableDebugInfo['bytecode'] = [];
