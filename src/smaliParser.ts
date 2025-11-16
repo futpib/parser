@@ -1047,7 +1047,13 @@ const smaliParametersRegisterParser: Parser<SmaliRegister, string> = promiseComp
 
 setParserName(smaliParametersRegisterParser, 'smaliParametersRegisterParser');
 
-const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
+type SmaliCodeLocal = {
+	register: SmaliRegister;
+	name: undefined | string;
+	type: undefined | string;
+};
+
+const smaliCodeLocalParser: Parser<SmaliCodeLocal, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .local '),
 		smaliParametersRegisterParser,
@@ -1062,9 +1068,13 @@ const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
 	]),
 	([
 		_local,
-		local,
-		_newlocal,
-	]) => local,
+		register,
+		nameAndType,
+	]) => ({
+		register,
+		name: nameAndType ? nameAndType[2] : undefined,
+		type: nameAndType ? nameAndType[4] : undefined,
+	}),
 );
 
 setParserName(smaliCodeLocalParser, 'smaliCodeLocalParser');
@@ -1895,7 +1905,7 @@ function isOperationWithLabels(value: unknown): value is DalvikBytecodeOperation
 type SmaliAnnotatedCodeOperation = {
 	operation: SmaliCodeOperation;
 	lines: number[];
-	local?: SmaliRegister;
+	local?: SmaliCodeLocal;
 	prologue?: boolean;
 	endLocal?: SmaliRegister;
 	restartLocal?: SmaliRegister;
@@ -2265,7 +2275,16 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		// Build debugInfo from annotated instructions and parameters
 		let debugInfo: undefined | DalvikExecutableDebugInfo;
 		
-		if (annotatedInstructions.length > 0 || parameters.length > 0) {
+		// Check if there are any actual debug directives
+		const hasDebugInfo = annotatedInstructions.some(annotated => 
+			annotated.lines.length > 0 
+			|| annotated.local 
+			|| annotated.prologue 
+			|| annotated.endLocal 
+			|| annotated.restartLocal
+		);
+		
+		if (hasDebugInfo) {
 			// Extract lineStart from the first .line directive
 			let lineStart = 0;
 			for (const annotated of annotatedInstructions) {
@@ -2276,31 +2295,76 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			}
 
 			// Extract parameter names from .param directives
-			// Parameter names should be extracted from .param directives
-			// For now, use undefined for all parameters
 			const parameterNames: Array<undefined | string> = [];
-			// The number of parameters is based on the method prototype, not .param directives
-			// We'll leave this as an empty array for now
+			// Parameters are based on method signature, not .param directives
+			// Leave as empty array for now since we don't have full method signature context here
 			
-			// Build debug bytecode
-			const bytecode: Array<{
-				type: 'advancePc' | 'advanceLine' | 'startLocal' | 'endLocal' | 'restartLocal' | 'setPrologueEnd' | 'setFile' | 'special';
-				addressDiff?: number;
-				lineDiff?: number;
-				registerNum?: number;
-				name?: undefined | string;
-				type_?: undefined | string;
-				signature?: undefined | string;
-				value?: number;
-			}> = [];
-
-			// For minimal implementation, leave bytecode empty
-			// Full implementation would track line changes, local variables, etc.
+			// Build debug bytecode from annotated instructions
+			const bytecode: DalvikExecutableDebugInfo['bytecode'] = [];
+			let currentLine = lineStart;
+			let currentAddress = 0;
+			
+			for (const annotated of annotatedInstructions) {
+				// Handle .prologue directive
+				if (annotated.prologue) {
+					bytecode.push({ type: 'setPrologueEnd' });
+				}
+				
+				// Handle .line directives
+				for (const line of annotated.lines) {
+					if (line !== currentLine) {
+						const lineDiff = line - currentLine;
+						bytecode.push({ type: 'advanceLine', lineDiff });
+						currentLine = line;
+					}
+				}
+				
+				// Handle .local directive (start local variable)
+				if (annotated.local) {
+					const registerNum = annotated.local.register.prefix === 'v' 
+						? annotated.local.register.index 
+						: annotated.local.register.index; // For 'p' registers, might need adjustment
+					
+					bytecode.push({
+						type: 'startLocal',
+						registerNum,
+						name: annotated.local.name,
+						type_: annotated.local.type,
+					});
+				}
+				
+				// Handle .end local directive
+				if (annotated.endLocal) {
+					const registerNum = annotated.endLocal.prefix === 'v'
+						? annotated.endLocal.index
+						: annotated.endLocal.index;
+					
+					bytecode.push({
+						type: 'endLocal',
+						registerNum,
+					});
+				}
+				
+				// Handle .restart local directive
+				if (annotated.restartLocal) {
+					const registerNum = annotated.restartLocal.prefix === 'v'
+						? annotated.restartLocal.index
+						: annotated.restartLocal.index;
+					
+					bytecode.push({
+						type: 'restartLocal',
+						registerNum,
+					});
+				}
+				
+				// Note: We don't track address advancement (advancePc) here since we don't have
+				// operation size information readily available at this point
+			}
 
 			debugInfo = {
 				lineStart,
 				parameterNames,
-				bytecode: bytecode as any,
+				bytecode,
 			};
 		}
 
