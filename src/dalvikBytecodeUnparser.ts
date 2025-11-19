@@ -489,7 +489,11 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 		if (!hasValue(operation) || !hasRegisters(operation)) {
 			throw new Error(`Operation ${operationName} missing value or registers field`);
 		}
-		yield * dalvikBytecodeFormat31iUnparser({ value: operation.value as number, registers: operation.registers }, unparserContext);
+		// For const-wide/32, value is bigint but we need to convert to signed 32-bit number
+		const value = typeof operation.value === 'bigint'
+			? Number(BigInt.asIntN(32, operation.value))
+			: operation.value as number;
+		yield * dalvikBytecodeFormat31iUnparser({ value, registers: operation.registers }, unparserContext);
 		return;
 	}
 
@@ -671,6 +675,38 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 		return;
 	}
 
+	// Format 45cc (invoke-polymorphic)
+	// Must be checked before generic invoke-* handler
+	if (operationName === 'invoke-polymorphic') {
+		if (!hasRegisters(operation)) {
+			throw new Error(`Operation ${operationName} missing registers field`);
+		}
+		const methodIndex = 'methodIndex' in operation ? isoIndexIntoMethodIds.unwrap(operation.methodIndex) : 0;
+		const protoIndex = 'protoIndex' in operation ? isoIndexIntoPrototypeIds.unwrap(operation.protoIndex) : 0;
+		yield * dalvikBytecodeFormat45ccUnparser({
+			methodIndex,
+			protoIndex,
+			registers: operation.registers
+		}, unparserContext);
+		return;
+	}
+
+	// Format 4rcc (invoke-polymorphic/range)
+	// Must be checked before generic /range handler
+	if (operationName === 'invoke-polymorphic/range') {
+		if (!hasRegisters(operation)) {
+			throw new Error(`Operation ${operationName} missing registers field`);
+		}
+		const methodIndex = 'methodIndex' in operation ? isoIndexIntoMethodIds.unwrap(operation.methodIndex) : 0;
+		const protoIndex = 'protoIndex' in operation ? isoIndexIntoPrototypeIds.unwrap(operation.protoIndex) : 0;
+		yield * dalvikBytecodeFormat4rccUnparser({
+			methodIndex,
+			protoIndex,
+			registers: operation.registers
+		}, unparserContext);
+		return;
+	}
+
 	// Format 35c (invoke-*, filled-new-array)
 	if ((operationName.startsWith('invoke-') && !operationName.endsWith('/range')) ||
 	    operationName === 'filled-new-array') {
@@ -715,36 +751,6 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 		// Extract and unwrap the index from methodIndex field
 		const index = 'methodIndex' in operation ? isoIndexIntoMethodIds.unwrap(operation.methodIndex) : 0;
 		yield * dalvikBytecodeFormat21cUnparser({ index, registers: operation.registers }, unparserContext);
-		return;
-	}
-
-	// Format 45cc (invoke-polymorphic)
-	if (operationName === 'invoke-polymorphic') {
-		if (!hasRegisters(operation)) {
-			throw new Error(`Operation ${operationName} missing registers field`);
-		}
-		const methodIndex = 'methodIndex' in operation ? isoIndexIntoMethodIds.unwrap(operation.methodIndex) : 0;
-		const protoIndex = 'protoIndex' in operation ? isoIndexIntoPrototypeIds.unwrap(operation.protoIndex) : 0;
-		yield * dalvikBytecodeFormat45ccUnparser({
-			methodIndex,
-			protoIndex,
-			registers: operation.registers
-		}, unparserContext);
-		return;
-	}
-
-	// Format 4rcc (invoke-polymorphic/range)
-	if (operationName === 'invoke-polymorphic/range') {
-		if (!hasRegisters(operation)) {
-			throw new Error(`Operation ${operationName} missing registers field`);
-		}
-		const methodIndex = 'methodIndex' in operation ? isoIndexIntoMethodIds.unwrap(operation.methodIndex) : 0;
-		const protoIndex = 'protoIndex' in operation ? isoIndexIntoPrototypeIds.unwrap(operation.protoIndex) : 0;
-		yield * dalvikBytecodeFormat4rccUnparser({
-			methodIndex,
-			protoIndex,
-			registers: operation.registers
-		}, unparserContext);
 		return;
 	}
 
