@@ -15,6 +15,7 @@ import {
 	dalvikBytecodeFormat11xUnparser,
 	dalvikBytecodeFormat11nUnparser,
 	dalvikBytecodeFormat12xUnparser,
+	dalvikBytecodeFormat12xReversedUnparser,
 	dalvikBytecodeFormat20tUnparser,
 	dalvikBytecodeFormat21cUnparser,
 	dalvikBytecodeFormat21hUnparser,
@@ -24,6 +25,7 @@ import {
 	dalvikBytecodeFormat22cUnparser,
 	dalvikBytecodeFormat22sUnparser,
 	dalvikBytecodeFormat22tUnparser,
+	dalvikBytecodeFormat22tCommutativeUnparser,
 	dalvikBytecodeFormat22xUnparser,
 	dalvikBytecodeFormat23xUnparser,
 	dalvikBytecodeFormat30tUnparser,
@@ -413,9 +415,17 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 		return;
 	}
 
+	// array-length uses format 12x but reverses registers in parser
+	if (operationName === 'array-length') {
+		if (!hasRegisters(operation)) {
+			throw new Error(`Operation ${operationName} missing registers field`);
+		}
+		yield * dalvikBytecodeFormat12xReversedUnparser({ registers: operation.registers }, unparserContext);
+		return;
+	}
+
 	// Format 12x operations (two registers in nibbles)
 	if (operationName === 'move' || operationName === 'move-wide' || operationName === 'move-object' ||
-	    operationName === 'array-length' ||
 	    operationName === 'neg-int' || operationName === 'not-int' ||
 	    operationName === 'neg-long' || operationName === 'not-long' ||
 	    operationName === 'neg-float' || operationName === 'neg-double' ||
@@ -453,11 +463,24 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 	}
 
 	// Format 21s (const/16, const-wide/16)
-	if (operationName === 'const/16' || operationName === 'const-wide/16') {
+	if (operationName === 'const/16') {
 		if (!hasValue(operation) || !hasRegisters(operation)) {
 			throw new Error(`Operation ${operationName} missing value or registers field`);
 		}
 		yield * dalvikBytecodeFormat21sUnparser({ registers: operation.registers, value: operation.value as number }, unparserContext);
+		return;
+	}
+
+	if (operationName === 'const-wide/16') {
+		if (!hasValue(operation) || !hasRegisters(operation)) {
+			throw new Error(`Operation ${operationName} missing value or registers field`);
+		}
+		// Value is bigint, but format 21s expects a signed 16-bit number
+		// The parser sign-extends the 16-bit value to 64 bits, so we need to extract the low 16 bits
+		const value = Number((operation.value as bigint) & 0xFFFFn);
+		// Convert unsigned 16-bit to signed 16-bit
+		const signedValue = value > 32767 ? value - 65536 : value;
+		yield * dalvikBytecodeFormat21sUnparser({ registers: operation.registers, value: signedValue }, unparserContext);
 		return;
 	}
 
@@ -476,10 +499,10 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 			throw new Error(`Operation ${operationName} missing value or registers field`);
 		}
 		// The value is stored shifted left (16 bits for const/high16, 48 bits for const-wide/high16)
-		// Shift it back for unparsing
+		// Shift it back for unparsing. Use unsigned shift to handle negative values correctly.
 		const value = operationName === 'const-wide/high16'
-			? Number((operation.value as bigint) >> 48n)
-			: (operation.value as number) >> 16;
+			? Number((operation.value as bigint) >> 48n) & 0xFFFF
+			: ((operation.value as number) >>> 16) & 0xFFFF;
 		yield * dalvikBytecodeFormat21hUnparser({ value, registers: operation.registers }, unparserContext);
 		return;
 	}
@@ -604,7 +627,10 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 		if (!hasBranchOffset(operation) || !hasRegisters(operation)) {
 			throw new Error(`Operation ${operationName} missing branchOffset or registers field`);
 		}
-		yield * dalvikBytecodeFormat22tUnparser({ branchOffset: operation.branchOffset, registers: operation.registers }, unparserContext);
+		// Commutative operations (if-eq, if-ne) have sorted registers, so don't reverse
+		const isCommutative = operationName === 'if-eq' || operationName === 'if-ne';
+		const unparser = isCommutative ? dalvikBytecodeFormat22tCommutativeUnparser : dalvikBytecodeFormat22tUnparser;
+		yield * unparser({ branchOffset: operation.branchOffset, registers: operation.registers }, unparserContext);
 		return;
 	}
 
