@@ -99,6 +99,11 @@ export const dalvikBytecodeFormat12xUnparser: Unparser<DalvikBytecodeFormat12x, 
 	yield * nibblesUnparser([ input.registers[0], input.registers[1] ], unparserContext);
 };
 
+// Format 12x with reversed registers (for operations like array-length that reverse in parser)
+export const dalvikBytecodeFormat12xReversedUnparser: Unparser<DalvikBytecodeFormat12x, Uint8Array> = async function * (input, unparserContext) {
+	yield * nibblesUnparser([ input.registers[1], input.registers[0] ], unparserContext);
+};
+
 // Format 20t: zero byte + branchOffset (2 bytes signed)
 type DalvikBytecodeFormat20t = {
 	branchOffset: number;
@@ -195,6 +200,13 @@ type DalvikBytecodeFormat22t = {
 
 export const dalvikBytecodeFormat22tUnparser: Unparser<DalvikBytecodeFormat22t, Uint8Array> = async function * (input, unparserContext) {
 	yield * nibblesUnparser([ input.registers[1], input.registers[0] ], unparserContext);
+	yield * shortUnparser(input.branchOffset, unparserContext);
+};
+
+// Format 22t for commutative operations (if-eq, if-ne): registers are already in sorted/canonical order
+// so we don't reverse them
+export const dalvikBytecodeFormat22tCommutativeUnparser: Unparser<DalvikBytecodeFormat22t, Uint8Array> = async function * (input, unparserContext) {
+	yield * nibblesUnparser([ input.registers[0], input.registers[1] ], unparserContext);
 	yield * shortUnparser(input.branchOffset, unparserContext);
 };
 
@@ -412,31 +424,17 @@ export const dalvikBytecodeOperationFillArrayDataPayloadUnparser: Unparser<Dalvi
 	yield * ushortUnparser(0x03_00, unparserContext);
 	// Element width
 	yield * ushortUnparser(input.elementWidth, unparserContext);
-	// Size (number of elements)
-	yield * uintUnparser(input.data.length, unparserContext);
+	// Size (number of elements) - data array contains bytes, so divide by elementWidth
+	const numElements = Math.floor(input.data.length / input.elementWidth);
+	yield * uintUnparser(numElements, unparserContext);
 
-	// Data (size * elementWidth bytes)
-	for (const element of input.data) {
-		switch (input.elementWidth) {
-			case 1:
-				yield * ubyteUnparser(element, unparserContext);
-				break;
-			case 2:
-				yield * ushortUnparser(element, unparserContext);
-				break;
-			case 4:
-				yield * uintUnparser(element, unparserContext);
-				break;
-			case 8:
-				yield * ulongUnparser(BigInt(element), unparserContext);
-				break;
-			default:
-				throw new Error(`Unsupported element width: ${input.elementWidth}`);
-		}
+	// Data (each byte from the data array)
+	for (const byte of input.data) {
+		yield * ubyteUnparser(byte, unparserContext);
 	}
 
 	// Padding if needed (align to 2-byte boundary)
-	const dataSize = input.data.length * input.elementWidth;
+	const dataSize = input.data.length;
 	const paddingSize = dataSize % 2;
 	if (paddingSize === 1) {
 		yield * ubyteUnparser(0, unparserContext);

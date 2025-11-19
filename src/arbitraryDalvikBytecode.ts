@@ -160,7 +160,8 @@ const arbitraryConst = fc.record({
 const arbitraryConstHigh16 = fc.record({
 	operation: fc.constant('const/high16' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	value: arbitraryShortValue,
+	// Parser shifts left by 16, so value is stored pre-shifted
+	value: arbitraryShortValue.map(v => v << 16),
 });
 
 const arbitraryConstWide16 = fc.record({
@@ -318,25 +319,30 @@ const arbitrarySparseSwitchPayload = fc
 	);
 
 const arbitraryFillArrayDataPayload = fc
-	.nat({ max: 100 })
-	.chain(size =>
+	.record({
+		elementWidth: fc.constantFrom(1, 2, 4, 8),
+		size: fc.nat({ max: 100 }),
+	})
+	.chain(({ elementWidth, size }) =>
 		fc.record({
 			operation: fc.constant('fill-array-data-payload' as const),
-			elementWidth: fc.constantFrom(1, 2, 4, 8),
-			data: fc.array(fc.nat({ max: 255 }), { minLength: size, maxLength: size }),
+			elementWidth: fc.constant(elementWidth),
+			// Data array contains bytes, so length must be size * elementWidth
+			data: fc.array(fc.nat({ max: 255 }), { minLength: size * elementWidth, maxLength: size * elementWidth }),
 		})
 	);
 
 // If-test operations (Format 22t)
+// Commutative operations (if-eq, if-ne) generate sorted registers to match parser behavior
 const arbitraryIfEqual = fc.record({
 	operation: fc.constant('if-eq' as const),
-	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4),
+	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4).map(([a, b]) => [a, b].sort((x, y) => x - y)),
 	branchOffset: arbitraryBranchOffset16,
 });
 
 const arbitraryIfNotEqual = fc.record({
 	operation: fc.constant('if-ne' as const),
-	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4),
+	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4).map(([a, b]) => [a, b].sort((x, y) => x - y)),
 	branchOffset: arbitraryBranchOffset16,
 });
 
