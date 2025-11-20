@@ -2633,59 +2633,89 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 			: staticFieldsList
 				.slice(0, lastIndexWithInitializer + 1)
 				.map(smaliField => {
+					const fieldType = smaliField.field.field.type;
+
 					if (smaliField.initialValue === undefined) {
 						// For integer types without initializer, DEX stores 0
-						if (smaliField.field.field.type === 'I' || smaliField.field.field.type === 'B' || smaliField.field.field.type === 'S') {
-							return 0;
+						if (fieldType === 'I') {
+							return { type: 'int' as const, value: 0 };
+						}
+						if (fieldType === 'B') {
+							return { type: 'byte' as const, value: 0 };
+						}
+						if (fieldType === 'S') {
+							return { type: 'short' as const, value: 0 };
+						}
+						if (fieldType === 'C') {
+							return { type: 'char' as const, value: 0 };
 						}
 						// For long types without initializer, DEX stores 0n
-						if (smaliField.field.field.type === 'J') {
-							return 0n;
+						if (fieldType === 'J') {
+							return { type: 'long' as const, value: 0n };
 						}
 						// For float/double types without initializer, DEX stores 0
-						if (smaliField.field.field.type === 'F' || smaliField.field.field.type === 'D') {
-							return 0;
+						if (fieldType === 'F') {
+							return { type: 'float' as const, value: 0 };
+						}
+						if (fieldType === 'D') {
+							return { type: 'double' as const, value: 0 };
 						}
 						// For boolean types without initializer, DEX stores false
-						if (smaliField.field.field.type === 'Z') {
-							return false;
+						if (fieldType === 'Z') {
+							return { type: 'boolean' as const, value: false };
 						}
 						// For other types (reference types, etc.), return null
-						return null;
+						return { type: 'null' as const, value: null };
 					}
 
 					// Numeric values are stored in static values array
 					if (typeof smaliField.initialValue === 'number') {
 						// Convert to BigInt for long (J) types
-						if (smaliField.field.field.type === 'J') {
-							return BigInt(smaliField.initialValue);
+						if (fieldType === 'J') {
+							return { type: 'long' as const, value: BigInt(smaliField.initialValue) };
 						}
-						return smaliField.initialValue;
+						if (fieldType === 'B') {
+							return { type: 'byte' as const, value: smaliField.initialValue };
+						}
+						if (fieldType === 'S') {
+							return { type: 'short' as const, value: smaliField.initialValue };
+						}
+						if (fieldType === 'C') {
+							return { type: 'char' as const, value: smaliField.initialValue };
+						}
+						if (fieldType === 'F') {
+							return { type: 'float' as const, value: smaliField.initialValue };
+						}
+						if (fieldType === 'D') {
+							return { type: 'double' as const, value: smaliField.initialValue };
+						}
+						// Default to int for other numeric types
+						return { type: 'int' as const, value: smaliField.initialValue };
 					}
 
 					// BigInt values for long (J) types
 					if (typeof smaliField.initialValue === 'bigint') {
-						return smaliField.initialValue;
+						return { type: 'long' as const, value: smaliField.initialValue };
 					}
 
-					// String values should be stored as undefined (they're handled differently in DEX)
+					// String values should be stored as string type
 					if (typeof smaliField.initialValue === 'string') {
-						return undefined;
+						return { type: 'string' as const, value: smaliField.initialValue };
 					}
 
 					// Boolean true is a non-default value and should be in staticValues
 					if (smaliField.initialValue === true) {
-						return true;
+						return { type: 'boolean' as const, value: true };
 					}
 
 					// Boolean false and null are default values
 					// For boolean fields with explicit false, return false
-					if (smaliField.initialValue === false && smaliField.field.field.type === 'Z') {
-						return false;
+					if (smaliField.initialValue === false && fieldType === 'Z') {
+						return { type: 'boolean' as const, value: false };
 					}
 
 					// For null or other default values, return null
-					return null;
+					return { type: 'null' as const, value: null };
 				});
 		const fields = {
 			staticFields: smaliFields?.staticFields.map(({ field }) => field) ?? [],

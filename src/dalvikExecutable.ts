@@ -45,7 +45,26 @@ export function dalvikExecutableAccessFlagsDefault(): DalvikExecutableAccessFlag
 	};
 }
 
-export type DalvikExecutableEncodedValue = number | bigint | boolean | null | DalvikExecutableEncodedValue[] | undefined;
+export type DalvikExecutableEncodedValue =
+	| { type: 'byte'; value: number }
+	| { type: 'short'; value: number }
+	| { type: 'char'; value: number }
+	| { type: 'int'; value: number }
+	| { type: 'long'; value: bigint }
+	| { type: 'float'; value: number }
+	| { type: 'double'; value: number }
+	| { type: 'methodType'; value: DalvikExecutablePrototype }
+	| { type: 'methodHandle'; value: number }
+	| { type: 'string'; value: string }
+	| { type: 'type'; value: string }
+	| { type: 'field'; value: DalvikExecutableField }
+	| { type: 'method'; value: DalvikExecutableMethod }
+	| { type: 'enum'; value: DalvikExecutableField }
+	| { type: 'array'; value: DalvikExecutableEncodedValue[] }
+	| { type: 'annotation'; value: DalvikExecutableAnnotation }
+	// eslint-disable-next-line @typescript-eslint/no-restricted-types
+	| { type: 'null'; value: null }
+	| { type: 'boolean'; value: boolean };
 
 type DalvikExecutableTry = {
 	startAddress: number;
@@ -134,7 +153,7 @@ type DalvikExecutableAnnotationItemVisibility =
 
 type DalvikExecutableAnnotationElement = {
 	name: string;
-	value: DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string>;
+	value: DalvikExecutableEncodedValue;
 };
 
 export type DalvikExecutableAnnotation = {
