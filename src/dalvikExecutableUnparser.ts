@@ -326,6 +326,21 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	let annotationItemsOffset = 0;
 	let annotationItemsCount = 0;
 
+	// Collect all annotation set items and annotation items to write them in separate passes
+	type AnnotationSetToWrite = {
+		setOffsetWriteLater: any;
+		annotations: DalvikExecutableAnnotation[];
+		itemOffsetWriteLaters: any[];
+	};
+	type AnnotationSetRefListToWrite = {
+		refListOffset: number;
+		setOffsetWriteLaters: any[];
+		annotationSets: AnnotationSetToWrite[];
+	};
+	const annotationSetsToWrite: AnnotationSetToWrite[] = [];
+	const annotationSetRefListsToWrite: AnnotationSetRefListToWrite[] = [];
+
+	// First pass: write annotations directories and annotation set ref lists, collect annotation sets and items
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
 		const classDefItem = classDefItems[classIdx];
@@ -344,90 +359,40 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 			const annotationOffsetWriteLaters: any = {};
 			yield * annotationUnparsers.annotationsDirectoryItemUnparser(annotationOffsetWriteLaters)(classDef.annotations, unparserContext);
 
+			// Collect class annotations set
 			if (classDef.annotations.classAnnotations.length > 0 && annotationOffsetWriteLaters.classAnnotationsOffsetWriteLater) {
-				yield * alignmentUnparser(4)(undefined, unparserContext);
-
-				if (annotationSetItemsCount === 0) {
-					annotationSetItemsOffset = unparserContext.position;
-				}
-				annotationSetItemsCount++;
-
-				const classAnnotationsOffset = unparserContext.position;
-				yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.classAnnotationsOffsetWriteLater, uintUnparser, classAnnotationsOffset);
-
-				const annotationItemOffsetWriteLaters: any[] = [];
-				yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(classDef.annotations.classAnnotations, unparserContext);
-
-				for (let i = 0; i < classDef.annotations.classAnnotations.length; i++) {
-					if (annotationItemsCount === 0) {
-						annotationItemsOffset = unparserContext.position;
-					}
-					annotationItemsCount++;
-
-					const annotationItemOffset = unparserContext.position;
-					yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[i], uintUnparser, annotationItemOffset);
-					yield * annotationUnparsers.annotationItemUnparser(classDef.annotations.classAnnotations[i], unparserContext);
-				}
+				annotationSetsToWrite.push({
+					setOffsetWriteLater: annotationOffsetWriteLaters.classAnnotationsOffsetWriteLater,
+					annotations: classDef.annotations.classAnnotations,
+					itemOffsetWriteLaters: [],
+				});
 			}
 
+			// Collect field annotations sets
 			for (let i = 0; i < classDef.annotations.fieldAnnotations.length; i++) {
 				const fieldAnnotation = classDef.annotations.fieldAnnotations[i];
 				if (fieldAnnotation.annotations && fieldAnnotation.annotations.length > 0 && annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters?.[i]) {
-					yield * alignmentUnparser(4)(undefined, unparserContext);
-
-					if (annotationSetItemsCount === 0) {
-						annotationSetItemsOffset = unparserContext.position;
-					}
-					annotationSetItemsCount++;
-
-					const fieldAnnotationsOffset = unparserContext.position;
-					yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters[i], uintUnparser, fieldAnnotationsOffset);
-
-					const annotationItemOffsetWriteLaters: any[] = [];
-					yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(fieldAnnotation.annotations, unparserContext);
-
-					for (let j = 0; j < fieldAnnotation.annotations.length; j++) {
-						if (annotationItemsCount === 0) {
-							annotationItemsOffset = unparserContext.position;
-						}
-						annotationItemsCount++;
-
-						const annotationItemOffset = unparserContext.position;
-						yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[j], uintUnparser, annotationItemOffset);
-						yield * annotationUnparsers.annotationItemUnparser(fieldAnnotation.annotations[j], unparserContext);
-					}
+					annotationSetsToWrite.push({
+						setOffsetWriteLater: annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters[i],
+						annotations: fieldAnnotation.annotations,
+						itemOffsetWriteLaters: [],
+					});
 				}
 			}
 
+			// Collect method annotations sets
 			for (let i = 0; i < classDef.annotations.methodAnnotations.length; i++) {
 				const methodAnnotation = classDef.annotations.methodAnnotations[i];
 				if (methodAnnotation.annotations.length > 0 && annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters?.[i]) {
-					yield * alignmentUnparser(4)(undefined, unparserContext);
-
-					if (annotationSetItemsCount === 0) {
-						annotationSetItemsOffset = unparserContext.position;
-					}
-					annotationSetItemsCount++;
-
-					const methodAnnotationsOffset = unparserContext.position;
-					yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters[i], uintUnparser, methodAnnotationsOffset);
-
-					const annotationItemOffsetWriteLaters: any[] = [];
-					yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(methodAnnotation.annotations, unparserContext);
-
-					for (let j = 0; j < methodAnnotation.annotations.length; j++) {
-						if (annotationItemsCount === 0) {
-							annotationItemsOffset = unparserContext.position;
-						}
-						annotationItemsCount++;
-
-						const annotationItemOffset = unparserContext.position;
-						yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[j], uintUnparser, annotationItemOffset);
-						yield * annotationUnparsers.annotationItemUnparser(methodAnnotation.annotations[j], unparserContext);
-					}
+					annotationSetsToWrite.push({
+						setOffsetWriteLater: annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters[i],
+						annotations: methodAnnotation.annotations,
+						itemOffsetWriteLaters: [],
+					});
 				}
 			}
 
+			// Collect parameter annotations sets
 			for (let i = 0; i < classDef.annotations.parameterAnnotations.length; i++) {
 				const paramAnnotation = classDef.annotations.parameterAnnotations[i];
 				if (annotationOffsetWriteLaters.parameterAnnotationsOffsetWriteLaters?.[i]) {
@@ -444,36 +409,50 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 					const annotationSetOffsetWriteLaters: any[] = [];
 					yield * annotationUnparsers.annotationSetRefListUnparser(annotationSetOffsetWriteLaters)(paramAnnotation.annotations, unparserContext);
 
+					const setsForThisRefList: AnnotationSetToWrite[] = [];
 					for (let j = 0; j < paramAnnotation.annotations.length; j++) {
 						const paramSet = paramAnnotation.annotations[j];
 						if (paramSet.length > 0 && annotationSetOffsetWriteLaters[j]) {
-							yield * alignmentUnparser(4)(undefined, unparserContext);
-
-							if (annotationSetItemsCount === 0) {
-								annotationSetItemsOffset = unparserContext.position;
-							}
-							annotationSetItemsCount++;
-
-							const paramSetOffset = unparserContext.position;
-							yield * unparserContext.writeEarlier(annotationSetOffsetWriteLaters[j], uintUnparser, paramSetOffset);
-
-							const annotationItemOffsetWriteLaters: any[] = [];
-							yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(paramSet, unparserContext);
-
-							for (let k = 0; k < paramSet.length; k++) {
-								if (annotationItemsCount === 0) {
-									annotationItemsOffset = unparserContext.position;
-								}
-								annotationItemsCount++;
-
-								const annotationItemOffset = unparserContext.position;
-								yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[k], uintUnparser, annotationItemOffset);
-								yield * annotationUnparsers.annotationItemUnparser(paramSet[k], unparserContext);
-							}
+							const annotationSet: AnnotationSetToWrite = {
+								setOffsetWriteLater: annotationSetOffsetWriteLaters[j],
+								annotations: paramSet,
+								itemOffsetWriteLaters: [],
+							};
+							setsForThisRefList.push(annotationSet);
+							annotationSetsToWrite.push(annotationSet);
 						}
 					}
 				}
 			}
+		}
+	}
+
+	// Second pass: write all annotation set items
+	for (const annotationSet of annotationSetsToWrite) {
+		yield * alignmentUnparser(4)(undefined, unparserContext);
+
+		if (annotationSetItemsCount === 0) {
+			annotationSetItemsOffset = unparserContext.position;
+		}
+		annotationSetItemsCount++;
+
+		const setOffset = unparserContext.position;
+		yield * unparserContext.writeEarlier(annotationSet.setOffsetWriteLater, uintUnparser, setOffset);
+
+		yield * annotationUnparsers.annotationSetItemUnparser(annotationSet.itemOffsetWriteLaters)(annotationSet.annotations, unparserContext);
+	}
+
+	// Third pass: write all annotation items
+	for (const annotationSet of annotationSetsToWrite) {
+		for (let i = 0; i < annotationSet.annotations.length; i++) {
+			if (annotationItemsCount === 0) {
+				annotationItemsOffset = unparserContext.position;
+			}
+			annotationItemsCount++;
+
+			const annotationItemOffset = unparserContext.position;
+			yield * unparserContext.writeEarlier(annotationSet.itemOffsetWriteLaters[i], uintUnparser, annotationItemOffset);
+			yield * annotationUnparsers.annotationItemUnparser(annotationSet.annotations[i], unparserContext);
 		}
 	}
 
