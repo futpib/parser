@@ -8,4 +8,4 @@ export const createEndOfInputParser = <Sequence, Element = DeriveSequenceElement
 	);
 };
 
-export const endOfInputParser = createEndOfInputParser<any, any>();
+export const endOfInputParser = createEndOfInputParser<unknown, unknown>();

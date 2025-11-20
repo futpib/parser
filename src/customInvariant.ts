@@ -12,7 +12,7 @@ export function customInvariant<T>(
 	...formatArguments: Array<unknown | (() => unknown)>
 ): Exclude<T, Falsy> {
 	if (value) {
-		return value as any;
+		return value as Exclude<T, Falsy>;
 	}
 
 	throw new (ErrorConstructor as Constructor<LazyMessageError, [LazyMessage]>)([

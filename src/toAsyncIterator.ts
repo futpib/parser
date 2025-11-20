@@ -1,15 +1,15 @@
 import invariant from 'invariant';
 
-function isAsyncIterable<T>(value: any): value is AsyncIterable<T> {
-	return value && typeof value[Symbol.asyncIterator] === 'function';
+function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
+	return typeof value === 'object' && value !== null && Symbol.asyncIterator in value && typeof (value as Record<symbol, unknown>)[Symbol.asyncIterator] === 'function';
 }
 
-function isIterable<T>(value: any): value is Iterable<T> {
-	return value && typeof value[Symbol.iterator] === 'function';
+function isIterable<T>(value: unknown): value is Iterable<T> {
+	return typeof value === 'object' && value !== null && Symbol.iterator in value && typeof (value as Record<symbol, unknown>)[Symbol.iterator] === 'function';
 }
 
-function isIterator<T>(value: any): value is Iterator<T> {
-	return value && typeof value.next === 'function';
+function isIterator<T>(value: unknown): value is Iterator<T> {
+	return typeof value === 'object' && value !== null && 'next' in value && typeof (value as Record<string, unknown>).next === 'function';
 }
 
 function iteratorToAsyncIterator<T>(iterator: Iterator<T>): AsyncIterator<T> {
