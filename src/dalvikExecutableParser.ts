@@ -2268,8 +2268,18 @@ const createDalvikExecutableDataParser = <Instructions>({
 		let encodedArrayItemByOffset: DalvikExecutableEncodedArrayItemByOffset = new Map();
 		let annotationsDirectoryItemByOffset: DalvikExecutableAnnotationsDirectoryItemByOffset = new Map();
 		const hiddenApiClassDataItems: DalvikExecutableHiddenApiClassDataItem[] = [];
+		
+		// Track if link has been parsed
+		let link: undefined | Uint8Array = undefined;
+		let linkParsed = false;
 
 		for (const dexMapItem of mapList) {
+			// Parse link data before any map item that comes after it in the file
+			// Link data is not included in the map items, but is referenced in the header
+			if (!linkParsed && headerItem.link.size > 0 && headerItem.link.offset < dexMapItem.offset) {
+				link = await createRawDataParser(headerItem.link)(parserContext);
+				linkParsed = true;
+			}
 			if (dexMapItem.type === 'headerItem') {
 				continue;
 			}
@@ -2313,41 +2323,9 @@ const createDalvikExecutableDataParser = <Instructions>({
 			}
 
 			if (dexMapItem.type === 'mapList') {
-				// Before reading the map, check if there's link data to read first
-				// Link data is not in the map items, but is referenced in the header
-				// and located before the map in the file
-				const link = headerItem.link.size > 0
-					? await createRawDataParser(headerItem.link)(parserContext)
-					: undefined;
-				
-				// Now read the map itself to consume it from the input
+				// Re-parse the map itself to consume it from the input
 				await createDalvikExecutableMapListParser(dexMapItem.offset)(parserContext);
-				
-				// Return early with the link data included
-				return {
-					headerItem,
-					stringIdItems,
-					typeIdItems,
-					prototypeIdItems,
-					fieldIdItems,
-					methodIdItems,
-					classDefinitionItems,
-					callSiteIdItems,
-					methodHandleItems,
-					mapList,
-					typeListByOffset,
-					annotationSetRefListItemByOffset,
-					annotationSetItemByOffset,
-					classDataItemByOffset,
-					codeItemByOffset,
-					stringDataItemStringByOffset,
-					debugInfoItemByOffset,
-					annotationItemByOffset,
-					encodedArrayItemByOffset,
-					annotationsDirectoryItemByOffset,
-					hiddenApiClassDataItems,
-					link,
-				};
+				continue;
 			}
 
 			if (dexMapItem.type === 'typeList') {
@@ -2410,8 +2388,12 @@ const createDalvikExecutableDataParser = <Instructions>({
 			invariant(false, 'Unexpected map item type: %s', dexMapItem.type);
 		}
 
-		// If we get here, the mapList item was not found in the map
-		// This shouldn't happen in a valid DEX file, but handle it gracefully
+		// Parse link data after the loop if it hasn't been parsed yet
+		// This handles the case where link comes after all map items
+		if (!linkParsed && headerItem.link.size > 0) {
+			link = await createRawDataParser(headerItem.link)(parserContext);
+		}
+
 		return {
 			headerItem,
 			stringIdItems,
@@ -2434,7 +2416,7 @@ const createDalvikExecutableDataParser = <Instructions>({
 			encodedArrayItemByOffset,
 			annotationsDirectoryItemByOffset,
 			hiddenApiClassDataItems,
-			link: undefined,
+			link,
 		};
 	};
 
