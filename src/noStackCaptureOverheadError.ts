@@ -7,6 +7,6 @@ function NoStackCaptureOverheadErrorConstructor(this: Error, message: string) {
 	this.stack = 'This stack is intentionally left blank to avoid capture overhead.';
 }
 
-NoStackCaptureOverheadErrorConstructor.prototype = Error.prototype
+NoStackCaptureOverheadErrorConstructor.prototype = Object.create(Error.prototype);
 
 export const NoStackCaptureOverheadError = NoStackCaptureOverheadErrorConstructor as unknown as typeof NoStackCaptureOverheadErrorClass

@@ -9,6 +9,7 @@ test('NoStackCaptureOverheadError works', t => {
 	t.is(error.message, 'Test message');
 	t.true(error instanceof Error, 'error is instance of Error');
 	t.true(error instanceof NoStackCaptureOverheadError, 'error is instance of NoStackCaptureOverheadError');
+	t.false(new Error() instanceof NoStackCaptureOverheadError, 'regular Error is not instance of NoStackCaptureOverheadError');
 	if (typeof (Error as any).isError === 'function') {
 		t.false((Error as any).isError(error), 'Error.isError does not identify error as Error');
 	}

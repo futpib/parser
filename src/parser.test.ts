@@ -195,6 +195,42 @@ test('errorStack: true', async t => {
 	t.regex(error.stack!, /exactSequenceParser/);
 });
 
+test('errorJoinMode: none, errorStack: false', async t => {
+	const error = await t.throwsAsync(runParser(sampleParser, asyncIteratorFromString('1bbfinal_CC!'), stringParserInputCompanion, {
+		errorJoinMode: 'none',
+		errorStack: false,
+	}), {
+		instanceOf: normalParserErrorModule.ParserParsingJoinNoneError,
+	});
+
+	t.is(error.position, 12);
+	t.deepEqual(error.childErrors, []);
+
+	t.snapshot(removeStackLocations(error.stack));
+});
+
+test('retrows normal errors untouched', async t => {
+	class CustomError extends Error {};
+	const originalCustomError1 = new CustomError('This is a custom error');
+	const originalCustomError2 = new Error('This is a normal error');
+
+	const error1 = await t.throwsAsync(runParser(() => {
+		throw originalCustomError1;
+	}, 'foo', stringParserInputCompanion), {
+		instanceOf: CustomError,
+	});
+
+	t.is(error1, originalCustomError1);
+
+	const error2 = await t.throwsAsync(runParser(() => {
+		throw originalCustomError2;
+	}, 'foo', stringParserInputCompanion), {
+		instanceOf: Error,
+	});
+
+	t.is(error2, originalCustomError2);
+});
+
 test('throws on parserInputCompanion type mismatch', async t => {
 	const anythingParser: Parser<any, any> = createArrayParser(createElementParser());
 
