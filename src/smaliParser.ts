@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
 import {
-	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableEncodedValue, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
@@ -61,6 +61,100 @@ function getOperationFormatSize(operation: SmaliCodeOperation): number {
 
 	return operationSize;
 }
+
+// Helper function to convert raw annotation element values to tagged encoded values
+function convertToTaggedEncodedValue(wrappedValue: SmaliAnnotationElementValue): DalvikExecutableEncodedValue {
+	const { kind, value } = wrappedValue;
+
+	// Handle type descriptors
+	if (kind === 'type') {
+		if (Array.isArray(value)) {
+			// Array of type descriptors
+			return { type: 'array', value: value.map(v => ({ type: 'type', value: v })) };
+		}
+		// Single type descriptor
+		return { type: 'type', value };
+	}
+
+	// Handle string literals
+	if (kind === 'string') {
+		if (Array.isArray(value)) {
+			// Array of strings
+			return { type: 'array', value: value.map(v => ({ type: 'string', value: v })) };
+		}
+		// Single string
+		return { type: 'string', value };
+	}
+
+	// Handle raw values (everything else)
+	// Handle null
+	if (value === null) {
+		return { type: 'null', value: null };
+	}
+
+	// Handle boolean
+	if (typeof value === 'boolean') {
+		return { type: 'boolean', value };
+	}
+
+	// Handle numbers - we need to determine the type based on context
+	// For annotation elements from smali, we'll use 'int' as the default
+	if (typeof value === 'number') {
+		// Check if it's a float or integer
+		if (!Number.isInteger(value)) {
+			return { type: 'float', value };
+		}
+		// For integers, default to 'int' type
+		// The actual byte/short/int distinction would need more context
+		return { type: 'int', value };
+	}
+
+	// Handle bigint
+	if (typeof value === 'bigint') {
+		return { type: 'long', value };
+	}
+
+	// Handle DalvikExecutableField (including enums)
+	if (isDalvikExecutableField(value)) {
+		// Note: We can't distinguish between 'field' and 'enum' without more context
+		// Default to 'field' type - the context in smali might help distinguish later
+		return { type: 'field', value };
+	}
+
+	// Handle DalvikExecutableMethod
+	if (isDalvikExecutableMethod(value)) {
+		return { type: 'method', value };
+	}
+
+	// Handle DalvikExecutablePrototype (method type)
+	if (typeof value === 'object' && value !== null && 'returnType' in value && 'parameters' in value && 'shorty' in value) {
+		return { type: 'methodType', value: value as DalvikExecutablePrototype };
+	}
+
+	// Handle annotations (subannotations)
+	if (typeof value === 'object' && value !== null && 'type' in value && 'elements' in value) {
+		const subannotation = value as SmaliSubannotation;
+		// Convert subannotation to DalvikExecutableAnnotation
+		const annotation: DalvikExecutableAnnotation = {
+			type: subannotation.type,
+			visibility: 'build', // Subannotations default to 'build' visibility
+			elements: subannotation.elements.map(element => ({
+				name: element.name,
+				value: convertToTaggedEncodedValue(element.value),
+			})),
+		};
+		return { type: 'annotation', value: annotation };
+	}
+
+	// Handle arrays
+	if (Array.isArray(value)) {
+		return { type: 'array', value: value.map(v => convertToTaggedEncodedValue({ kind: 'raw', value: v })) };
+	}
+
+	// Fallback - this shouldn't happen in well-formed smali
+	throw new Error(`Cannot convert value to tagged encoded value: ${JSON.stringify(value)}`);
+}
+
 
 const smaliNewlinesParser: Parser<void, string> = promiseCompose(
 	createNonEmptyArrayParser(createExactSequenceParser('\n')),
@@ -497,9 +591,15 @@ const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<
 	}),
 );
 
+// Wrapper type to distinguish different value types in smali annotation elements
+type SmaliAnnotationElementValue =
+	| { kind: 'type'; value: string | string[] }
+	| { kind: 'string'; value: string | string[] }
+	| { kind: 'raw'; value: unknown };
+
 type SmaliAnnotationElement = {
 	name: string;
-	value: unknown; // TODO
+	value: SmaliAnnotationElementValue;
 };
 
 const smaliEnumValueParser: Parser<DalvikExecutableField, string> = promiseCompose(
@@ -589,27 +689,45 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		smaliIdentifierParser,
 		createExactSequenceParser(' = '),
 		createDisjunctionParser([
-			createParserAccessorParser(() => smaliSubannotationParser),
-			smaliEnumValueParser,
-			smaliQuotedStringParser,
-			smaliParametersMethodParser,
-			smaliTypeDescriptorParser,
-			smaliNumberParser,
+			promiseCompose(
+				createParserAccessorParser(() => smaliSubannotationParser),
+				value => ({ kind: 'raw' as const, value }),
+			),
+			promiseCompose(
+				smaliEnumValueParser,
+				value => ({ kind: 'raw' as const, value }),
+			),
+			promiseCompose(
+				smaliQuotedStringParser,
+				value => ({ kind: 'string' as const, value }),
+			),
+			promiseCompose(
+				smaliParametersMethodParser,
+				value => ({ kind: 'raw' as const, value }),
+			),
+			promiseCompose(
+				smaliTypeDescriptorParser,
+				value => ({ kind: 'type' as const, value }),
+			),
+			promiseCompose(
+				smaliNumberParser,
+				value => ({ kind: 'raw' as const, value }),
+			),
 			promiseCompose(
 				createExactSequenceParser('true'),
-				() => true,
+				() => ({ kind: 'raw' as const, value: true }),
 			),
 			promiseCompose(
 				createExactSequenceParser('false'),
-				() => false,
+				() => ({ kind: 'raw' as const, value: false }),
 			),
 			promiseCompose(
 				createExactSequenceParser('null'),
-				() => null,
+				() => ({ kind: 'raw' as const, value: null }),
 			),
 			promiseCompose(
 				createExactSequenceParser('{}'),
-				() => [],
+				() => ({ kind: 'raw' as const, value: [] }),
 			),
 			promiseCompose(
 				createTupleParser([
@@ -635,7 +753,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 					_openBrace,
 					value,
 					_closeBrace,
-				]) => value,
+				]) => ({ kind: 'raw' as const, value }),
 			),
 			promiseCompose(
 				createTupleParser([
@@ -661,7 +779,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 					_openBrace,
 					value,
 					_closeBrace,
-				]) => value,
+				]) => ({ kind: 'type' as const, value }),
 			),
 			promiseCompose(
 				createTupleParser([
@@ -687,7 +805,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 					_openBrace,
 					value,
 					_closeBrace,
-				]) => value,
+				]) => ({ kind: 'string' as const, value }),
 			),
 			promiseCompose(
 				createTupleParser([
@@ -713,7 +831,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 					_openBrace,
 					value,
 					_closeBrace,
-				]) => value,
+				]) => ({ kind: 'raw' as const, value }),
 			),
 		]),
 		smaliLineEndPraser,
@@ -724,9 +842,9 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		_equalsSign,
 		value,
 		_newline,
-	]) => ({
+	]): SmaliAnnotationElement => ({
 		name,
-		value,
+		value: value as SmaliAnnotationElementValue,
 	}),
 );
 
@@ -2471,7 +2589,10 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 					annotations: method.methodAnnotations.map(annotation => ({
 						type: annotation.type,
 						visibility: annotation.visibility,
-						elements: annotation.elements as any ?? [], // TODO
+						elements: annotation.elements.map(element => ({
+							name: element.name,
+							value: convertToTaggedEncodedValue(element.value),
+						})),
 					})),
 				});
 			}
@@ -2490,7 +2611,10 @@ const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
 					return [ {
 						type: parameterAnnotation.annotation.type,
 						visibility: parameterAnnotation.annotation.visibility,
-						elements: parameterAnnotation.annotation.elements as any ?? [], // TODO
+						elements: parameterAnnotation.annotation.elements.map(element => ({
+							name: element.name,
+							value: convertToTaggedEncodedValue(element.value),
+						})),
 					} ];
 				}
 
@@ -2740,7 +2864,14 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 		sortFields(fields.instanceFields);
 
 		const annotations: DalvikExecutableClassAnnotations = {
-			classAnnotations: classAnnotations as any ?? [], // TODO
+			classAnnotations: (classAnnotations ?? []).map(annotation => ({
+				type: annotation.type,
+				visibility: annotation.visibility,
+				elements: annotation.elements.map(element => ({
+					name: element.name,
+					value: convertToTaggedEncodedValue(element.value),
+				})),
+			})),
 			fieldAnnotations: [],
 			methodAnnotations: methods.methodAnnotations,
 			parameterAnnotations: methods.parameterAnnotations,
@@ -2758,13 +2889,27 @@ export const smaliParser: Parser<DalvikExecutableClassDefinition<DalvikBytecode>
 
 			if (existingFieldAnnotations) {
 				existingFieldAnnotations.annotations ??= [];
-				existingFieldAnnotations.annotations.push(...smaliField.annotations as any); // TODO
+				existingFieldAnnotations.annotations.push(...smaliField.annotations.map(annotation => ({
+					type: annotation.type,
+					visibility: annotation.visibility,
+					elements: annotation.elements.map(element => ({
+						name: element.name,
+						value: convertToTaggedEncodedValue(element.value),
+					})),
+				})));
 				continue;
 			}
 
 			annotations.fieldAnnotations.push({
 				field: smaliField.field.field,
-				annotations: smaliField.annotations as any, // TODO
+				annotations: smaliField.annotations.map(annotation => ({
+					type: annotation.type,
+					visibility: annotation.visibility,
+					elements: annotation.elements.map(element => ({
+						name: element.name,
+						value: convertToTaggedEncodedValue(element.value),
+					})),
+				})),
 			});
 		}
 
