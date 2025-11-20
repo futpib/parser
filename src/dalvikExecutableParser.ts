@@ -56,7 +56,7 @@ import {
 	createDalvikBytecodeParser, type DalvikBytecode, type DalvikBytecodeOperation, type DalvikBytecodeOperationResolvers, resolveDalvikBytecodeOperation,
 } from './dalvikBytecodeParser.js';
 import {
-	ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
+	byteParser, ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
 } from './dalvikExecutableParser/typeParsers.js';
 import {
 	type DalvikExecutable,
@@ -897,7 +897,7 @@ const createEncodedValueArgParser = (valueType: number): Parser<number, Uint8Arr
 const encodedValueByteParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		createExactElementParser(0),
-		ubyteParser,
+		byteParser,
 	]),
 	([ _, value ]) => ({ type: 'byte' as const, value }),
 );
