@@ -366,10 +366,11 @@ export const createArbitraryDalvikExecutable = <Instructions>(
 		parameterAnnotations: fc.array(arbitraryDalvikExecutableClassParameterAnnotation, { maxLength: 2 }),
 	}).map(annotations => ({
 		...annotations,
-		// Filter out field/method annotations with undefined or empty annotations array
-		// In DEX format, fields/methods with no annotations should not appear in the annotations directory at all
+		// Filter out field/method/parameter annotations with undefined or empty annotations array
+		// In DEX format, fields/methods/parameters with no annotations should not appear in the annotations directory at all
 		fieldAnnotations: annotations.fieldAnnotations.filter(fa => fa.annotations !== undefined && fa.annotations.length > 0),
 		methodAnnotations: annotations.methodAnnotations.filter(ma => ma.annotations.length > 0),
+		parameterAnnotations: annotations.parameterAnnotations.filter(pa => pa.annotations.length > 0 && pa.annotations.some(paramAnnots => paramAnnots.length > 0)),
 	}));
 
 	// Class data
