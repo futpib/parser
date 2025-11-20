@@ -171,12 +171,15 @@ stringParserTest(smaliFieldParser, [
 					elements: [
 						{
 							name: 'value',
-							value: [
-								'Lo/b<',
-								'Ljava/lang/Float;',
-								'Lo/i;',
-								'>;',
-							],
+							value: {
+								kind: 'type',
+								value: [
+									'Lo/b<',
+									'Ljava/lang/Float;',
+									'Lo/i;',
+									'>;',
+								],
+							},
 						},
 					],
 				},
@@ -201,11 +204,14 @@ stringParserTest(smaliAnnotationParser, [
 			elements: [
 				{
 					name: 'value',
-					value: [
-						'<T:',
-						'Landroid/view/View;',
-						'>(I)TT;',
-					],
+					value: {
+						kind: 'type',
+						value: [
+							'<T:',
+							'Landroid/view/View;',
+							'>(I)TT;',
+						],
+					},
 				},
 			],
 		},
@@ -236,12 +242,15 @@ stringParserTest(smaliAnnotationParser, [
 			elements: [
 				{
 					name: 'value',
-					value: [
-						'Lo/b<',
-						'Ljava/lang/Float;',
-						'Lo/i;',
-						'>;',
-					],
+					value: {
+						kind: 'type',
+						value: [
+							'Lo/b<',
+							'Ljava/lang/Float;',
+							'Lo/i;',
+							'>;',
+						],
+					},
 				},
 			],
 		},

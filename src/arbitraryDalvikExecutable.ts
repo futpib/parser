@@ -25,7 +25,7 @@ type DalvikExecutableAnnotationItemVisibility = 'build' | 'runtime' | 'system';
 
 type DalvikExecutableAnnotationElement = {
 	name: string;
-	value: DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string>;
+	value: DalvikExecutableEncodedValue;
 };
 
 type DalvikExecutableDebugByteCodeValue =
@@ -141,15 +141,27 @@ const arbitraryDalvikExecutableMethod: fc.Arbitrary<DalvikExecutableMethod> = fc
 });
 
 // Encoded value generator (recursive)
-// DalvikExecutableEncodedValue = number | bigint | boolean | null | DalvikExecutableEncodedValue[] | undefined
+// DalvikExecutableEncodedValue is now a tagged union with type information
 const arbitraryDalvikExecutableEncodedValue: fc.Arbitrary<DalvikExecutableEncodedValue> = fc.letrec(tie => ({
 	value: fc.oneof(
-		fc.integer({ min: -2147483648, max: 2147483647 }),
-		fc.bigInt({ min: -9223372036854775808n, max: 9223372036854775807n }),
-		fc.boolean(),
-		fc.constant(null),
-		fc.constant(undefined),
-		fc.array(tie('value') as fc.Arbitrary<DalvikExecutableEncodedValue>, { maxLength: 3 }),
+		fc.record({ type: fc.constant('byte' as const), value: fc.integer({ min: -128, max: 127 }) }),
+		fc.record({ type: fc.constant('short' as const), value: fc.integer({ min: -32768, max: 32767 }) }),
+		fc.record({ type: fc.constant('char' as const), value: fc.integer({ min: 0, max: 65535 }) }),
+		fc.record({ type: fc.constant('int' as const), value: fc.integer({ min: -2147483648, max: 2147483647 }) }),
+		fc.record({ type: fc.constant('long' as const), value: fc.bigInt({ min: -9223372036854775808n, max: 9223372036854775807n }) }),
+		fc.record({ type: fc.constant('float' as const), value: fc.float() }),
+		fc.record({ type: fc.constant('double' as const), value: fc.double() }),
+		fc.record({ type: fc.constant('methodType' as const), value: arbitraryDalvikExecutablePrototype }),
+		fc.record({ type: fc.constant('methodHandle' as const), value: fc.nat(255) }),
+		fc.record({ type: fc.constant('string' as const), value: fc.string() }),
+		fc.record({ type: fc.constant('type' as const), value: arbitraryDalvikClassName }),
+		fc.record({ type: fc.constant('field' as const), value: arbitraryDalvikExecutableField }),
+		fc.record({ type: fc.constant('method' as const), value: arbitraryDalvikExecutableMethod }),
+		fc.record({ type: fc.constant('enum' as const), value: arbitraryDalvikExecutableField }),
+		fc.record({ type: fc.constant('array' as const), value: fc.array(tie('value') as fc.Arbitrary<DalvikExecutableEncodedValue>, { maxLength: 3 }) }),
+		// Note: We skip 'annotation' type here to avoid deep recursion complexity
+		fc.record({ type: fc.constant('null' as const), value: fc.constant(null) }),
+		fc.record({ type: fc.constant('boolean' as const), value: fc.boolean() }),
 	),
 })).value;
 
@@ -162,10 +174,7 @@ const arbitraryAnnotationVisibility: fc.Arbitrary<DalvikExecutableAnnotationItem
 
 const arbitraryDalvikExecutableAnnotationElement: fc.Arbitrary<DalvikExecutableAnnotationElement> = fc.record({
 	name: arbitraryJavaIdentifier,
-	value: fc.oneof(
-		arbitraryDalvikExecutableEncodedValue,
-		fc.array(fc.oneof(arbitraryDalvikExecutableEncodedValue, fc.string()), { maxLength: 3 }),
-	),
+	value: arbitraryDalvikExecutableEncodedValue,
 });
 
 const arbitraryDalvikExecutableAnnotation: fc.Arbitrary<DalvikExecutableAnnotation> = fc.record({
