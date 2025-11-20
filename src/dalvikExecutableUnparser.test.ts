@@ -29,6 +29,24 @@ testProp(
 	'dalvikExecutableUnparser roundtrip',
 	[createArbitraryDalvikExecutable(arbitraryMinimalBytecode)],
 	async (t, dalvikExecutable) => {
+		// Log structure
+		if (seed !== undefined) {
+			console.log('Classes:', dalvikExecutable.classDefinitions.length);
+			for (const classDef of dalvikExecutable.classDefinitions) {
+				if (classDef.classData) {
+					console.log(`  ${classDef.class}:`);
+					console.log(`    directMethods: ${classDef.classData.directMethods.length}`);
+					console.log(`    virtualMethods: ${classDef.classData.virtualMethods.length}`);
+					for (const m of classDef.classData.directMethods) {
+						console.log(`      direct ${m.method.name}: code=${!!m.code}`);
+					}
+					for (const m of classDef.classData.virtualMethods) {
+						console.log(`      virtual ${m.method.name}: code=${!!m.code}`);
+					}
+				}
+			}
+		}
+
 		// Unparse to bytes
 		const unparsedIterable = runUnparser(
 			dalvikExecutableUnparser,
