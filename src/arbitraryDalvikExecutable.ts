@@ -313,7 +313,13 @@ export const createArbitraryDalvikExecutable = <Instructions>(
 		instanceFields: fc.array(arbitraryDalvikExecutableFieldWithAccess, { maxLength: 3 }),
 		directMethods: fc.array(arbitraryDalvikExecutableMethodWithAccess, { maxLength: 3 }),
 		virtualMethods: fc.array(arbitraryDalvikExecutableMethodWithAccess, { maxLength: 3 }),
-	});
+	}).filter(classData => 
+		// Filter out empty classData (all arrays empty) as it's semantically equivalent to undefined
+		classData.staticFields.length > 0 ||
+		classData.instanceFields.length > 0 ||
+		classData.directMethods.length > 0 ||
+		classData.virtualMethods.length > 0
+	);
 
 	// Class definition
 	const arbitraryDalvikExecutableClassDefinition: fc.Arbitrary<DalvikExecutableClassDefinition<Instructions>> = fc.record({
