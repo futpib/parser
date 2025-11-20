@@ -76,8 +76,31 @@ const arbitraryDalvikMethodName = fc.oneof(
 
 const arbitraryDalvikFieldName = arbitraryJavaIdentifier;
 
-// Access flags generator
-const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
+// Access flags generator - common flags for all contexts
+const arbitraryDalvikExecutableAccessFlagsCommon: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
+	public: fc.boolean(),
+	private: fc.boolean(),
+	protected: fc.boolean(),
+	static: fc.boolean(),
+	final: fc.boolean(),
+	synchronized: fc.boolean(),
+	volatile: fc.constant(false),
+	bridge: fc.constant(false),
+	transient: fc.constant(false),
+	varargs: fc.constant(false),
+	native: fc.boolean(),
+	interface: fc.boolean(),
+	abstract: fc.boolean(),
+	strict: fc.boolean(),
+	synthetic: fc.boolean(),
+	annotation: fc.boolean(),
+	enum: fc.boolean(),
+	constructor: fc.boolean(),
+	declaredSynchronized: fc.boolean(),
+});
+
+// Access flags for fields - volatile and transient are valid (0x40 and 0x80)
+const arbitraryDalvikExecutableFieldAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
 	public: fc.boolean(),
 	private: fc.boolean(),
 	protected: fc.boolean(),
@@ -85,8 +108,31 @@ const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessF
 	final: fc.boolean(),
 	synchronized: fc.boolean(),
 	volatile: fc.boolean(),
-	bridge: fc.boolean(),
+	bridge: fc.constant(false),
 	transient: fc.boolean(),
+	varargs: fc.constant(false),
+	native: fc.boolean(),
+	interface: fc.boolean(),
+	abstract: fc.boolean(),
+	strict: fc.boolean(),
+	synthetic: fc.boolean(),
+	annotation: fc.boolean(),
+	enum: fc.boolean(),
+	constructor: fc.boolean(),
+	declaredSynchronized: fc.boolean(),
+});
+
+// Access flags for methods - bridge and varargs are valid (0x40 and 0x80)
+const arbitraryDalvikExecutableMethodAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
+	public: fc.boolean(),
+	private: fc.boolean(),
+	protected: fc.boolean(),
+	static: fc.boolean(),
+	final: fc.boolean(),
+	synchronized: fc.boolean(),
+	volatile: fc.constant(false),
+	bridge: fc.boolean(),
+	transient: fc.constant(false),
 	varargs: fc.boolean(),
 	native: fc.boolean(),
 	interface: fc.boolean(),
@@ -99,6 +145,9 @@ const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessF
 	declaredSynchronized: fc.boolean(),
 });
 
+// Generic access flags for class-level (uses common)
+const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = arbitraryDalvikExecutableAccessFlagsCommon;
+
 // Field generator
 const arbitraryDalvikExecutableField: fc.Arbitrary<DalvikExecutableField> = fc.record({
 	class: arbitraryDalvikClassName,
@@ -108,7 +157,7 @@ const arbitraryDalvikExecutableField: fc.Arbitrary<DalvikExecutableField> = fc.r
 
 const arbitraryDalvikExecutableFieldWithAccess: fc.Arbitrary<DalvikExecutableFieldWithAccess> = fc.record({
 	field: arbitraryDalvikExecutableField,
-	accessFlags: arbitraryDalvikExecutableAccessFlags,
+	accessFlags: arbitraryDalvikExecutableFieldAccessFlags,
 });
 
 // Prototype generator
@@ -286,7 +335,7 @@ export const createArbitraryDalvikExecutable = <Instructions>(
 	// Method with access and code
 	const arbitraryDalvikExecutableMethodWithAccess: fc.Arbitrary<DalvikExecutableMethodWithAccess<Instructions>> = fc.record({
 		method: arbitraryDalvikExecutableMethod,
-		accessFlags: arbitraryDalvikExecutableAccessFlags,
+		accessFlags: arbitraryDalvikExecutableMethodAccessFlags,
 		code: fc.option(arbitraryDalvikExecutableCode, { nil: undefined }),
 	});
 
