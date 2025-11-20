@@ -215,6 +215,13 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		}
 	}
 
+	// Track classDataItem, codeItem, and debugInfoItem for later writing
+	// Collect data to write items grouped by type (required by DEX format)
+	const classDataToWrite: Array<{ classDef: any; classDefItem: any; classIdx: number }> = [];
+	const codeToWrite: Array<{ code: any; offsetWriteLater: any }> = [];
+	const debugInfoToWrite: Array<{ debugInfo: any; offsetWriteLater: any }> = [];
+
+	// First pass: write interfaces and static values, collect classData/code/debugInfo
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
 		const classDefItem = classDefItems[classIdx];
@@ -233,38 +240,86 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		}
 
 		if (classDef.classData && classDefItem.classDataOffsetWriteLater) {
-			const classDataOffset = unparserContext.position;
-			yield * unparserContext.writeEarlier(classDefItem.classDataOffsetWriteLater, uintUnparser, classDataOffset);
+			classDataToWrite.push({ classDef, classDefItem, classIdx });
+		}
+	}
 
-			const classData = classDef.classData;
-			const allMethods = [ ...classData.directMethods, ...classData.virtualMethods ];
-			const codeOffsetWriteLaters: any[] = [];
+	// Second pass: write all classData items (grouped)
+	let classDataItemsOffset = 0;
+	let classDataItemsCount = 0;
+	const classDataCodeInfo: Array<{ allMethods: any[]; codeOffsetWriteLaters: any[] }> = [];
 
-			yield * sectionUnparsers.classDataUnparser(codeOffsetWriteLaters)(classDef.classData, unparserContext);
+	for (const { classDef, classDefItem } of classDataToWrite) {
+		if (classDataItemsCount === 0) {
+			classDataItemsOffset = unparserContext.position;
+		}
+		classDataItemsCount++;
 
-			for (let methodIdx = 0; methodIdx < allMethods.length; methodIdx++) {
-				const method = allMethods[methodIdx];
-				if (method.code) {
-					yield * alignmentUnparser(4)(undefined, unparserContext);
-					const codeOffset = unparserContext.position;
+		const classDataOffset = unparserContext.position;
+		yield * unparserContext.writeEarlier(classDefItem.classDataOffsetWriteLater, uintUnparser, classDataOffset);
 
-					if (codeOffsetWriteLaters[methodIdx]) {
-						yield * unparserContext.writeEarlier(codeOffsetWriteLaters[methodIdx], uintUnparser, codeOffset);
-					}
+		const classData = classDef.classData;
+		const allMethods = [ ...classData.directMethods, ...classData.virtualMethods ];
+		const codeOffsetWriteLaters: any[] = [];
 
-					let debugInfoOffsetWriteLater;
-					yield * sectionUnparsers.codeItemUnparser(result => {
-						debugInfoOffsetWriteLater = result.debugInfoOffsetWriteLater;
-					})(method.code, unparserContext);
+		yield * sectionUnparsers.classDataUnparser(codeOffsetWriteLaters)(classDef.classData, unparserContext);
 
-					if (method.code.debugInfo && debugInfoOffsetWriteLater) {
-						const debugInfoOffset = unparserContext.position;
-						yield * unparserContext.writeEarlier(debugInfoOffsetWriteLater, uintUnparser, debugInfoOffset);
-						yield * sectionUnparsers.debugInfoUnparser(method.code.debugInfo, unparserContext);
-					}
-				}
+		// Collect code items for later writing
+		classDataCodeInfo.push({ allMethods, codeOffsetWriteLaters });
+		for (let methodIdx = 0; methodIdx < allMethods.length; methodIdx++) {
+			const method = allMethods[methodIdx];
+			if (method.code) {
+				codeToWrite.push({ code: method.code, offsetWriteLater: codeOffsetWriteLaters[methodIdx] });
 			}
 		}
+	}
+
+	// Third pass: write all code items (grouped)
+	let codeItemsOffset = 0;
+	let codeItemsCount = 0;
+
+	for (const { code, offsetWriteLater } of codeToWrite) {
+		yield * alignmentUnparser(4)(undefined, unparserContext);
+
+		if (codeItemsCount === 0) {
+			codeItemsOffset = unparserContext.position;
+		}
+		codeItemsCount++;
+
+		const codeOffset = unparserContext.position;
+		if (offsetWriteLater) {
+			yield * unparserContext.writeEarlier(offsetWriteLater, uintUnparser, codeOffset);
+		}
+
+		let debugInfoOffsetWriteLater;
+		yield * sectionUnparsers.codeItemUnparser(result => {
+			debugInfoOffsetWriteLater = result.debugInfoOffsetWriteLater;
+		})(code, unparserContext);
+
+		if (code.debugInfo && debugInfoOffsetWriteLater) {
+			debugInfoToWrite.push({ debugInfo: code.debugInfo, offsetWriteLater: debugInfoOffsetWriteLater });
+		}
+	}
+
+	// Fourth pass: write all debugInfo items (grouped)
+	let debugInfoItemsOffset = 0;
+	let debugInfoItemsCount = 0;
+
+	for (const { debugInfo, offsetWriteLater } of debugInfoToWrite) {
+		if (debugInfoItemsCount === 0) {
+			debugInfoItemsOffset = unparserContext.position;
+		}
+		debugInfoItemsCount++;
+
+		const debugInfoOffset = unparserContext.position;
+		yield * unparserContext.writeEarlier(offsetWriteLater, uintUnparser, debugInfoOffset);
+		yield * sectionUnparsers.debugInfoUnparser(debugInfo, unparserContext);
+	}
+
+	// Fifth pass: write annotations
+	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
+		const classDef = input.classDefinitions[classIdx];
+		const classDefItem = classDefItems[classIdx];
 
 		if (classDef.annotations && classDefItem.annotationsOffsetWriteLater) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
@@ -397,6 +452,18 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	if (stringPool.size() > 0) {
 		mapItems.push({ type: 0x2002, size: stringPool.size(), offset: dataOffset });
+	}
+
+	if (classDataItemsCount > 0) {
+		mapItems.push({ type: 0x2000, size: classDataItemsCount, offset: classDataItemsOffset });
+	}
+
+	if (codeItemsCount > 0) {
+		mapItems.push({ type: 0x2001, size: codeItemsCount, offset: codeItemsOffset });
+	}
+
+	if (debugInfoItemsCount > 0) {
+		mapItems.push({ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset });
 	}
 
 	mapItems.push({ type: 0x1000, size: 1, offset: mapOffset });
