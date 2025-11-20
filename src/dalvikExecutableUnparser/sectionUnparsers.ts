@@ -183,49 +183,49 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		// Handle primitive numeric types
 		if (type === 'byte') {
 			const bytes = encodeSignedInt(value);
-			yield new Uint8Array([ (0x00 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x00 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
 
 		if (type === 'short') {
 			const bytes = encodeSignedInt(value);
-			yield new Uint8Array([ (0x02 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x02 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
 
 		if (type === 'char') {
 			const bytes = encodeUnsignedInt(value);
-			yield new Uint8Array([ (0x03 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x03 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
 
 		if (type === 'int') {
 			const bytes = encodeSignedInt(value);
-			yield new Uint8Array([ (0x04 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x04 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
 
 		if (type === 'long') {
 			const bytes = encodeSignedLong(value);
-			yield new Uint8Array([ (0x06 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x06 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
 
 		if (type === 'float') {
 			const bytes = encodeFloat(value);
-			yield new Uint8Array([ (0x10 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x10 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
 
 		if (type === 'double') {
 			const bytes = encodeDouble(value);
-			yield new Uint8Array([ (0x11 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x11 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
@@ -233,7 +233,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		// Handle method handle
 		if (type === 'methodHandle') {
 			const bytes = encodeValueArgument(value);
-			yield new Uint8Array([ (0x16 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x16 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
@@ -242,7 +242,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		if (type === 'string') {
 			const stringIndex = getStringIndex(value);
 			const bytes = encodeValueArgument(stringIndex);
-			yield new Uint8Array([ (0x17 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x17 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
@@ -250,7 +250,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		if (type === 'type') {
 			const typeIndex = getTypeIndex(value);
 			const bytes = encodeValueArgument(typeIndex);
-			yield new Uint8Array([ (0x18 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x18 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
@@ -258,7 +258,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		if (type === 'field') {
 			const fieldIndex = getFieldIndex(value);
 			const bytes = encodeValueArgument(fieldIndex);
-			yield new Uint8Array([ (0x19 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x19 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
@@ -266,7 +266,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		if (type === 'method') {
 			const methodIndex = getMethodIndex(value);
 			const bytes = encodeValueArgument(methodIndex);
-			yield new Uint8Array([ (0x1A << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x1A | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
@@ -274,7 +274,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		if (type === 'enum') {
 			const fieldIndex = getFieldIndex(value);
 			const bytes = encodeValueArgument(fieldIndex);
-			yield new Uint8Array([ (0x1B << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x1B | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}
@@ -282,7 +282,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		if (type === 'methodType') {
 			const protoIndex = getProtoIndex(value);
 			const bytes = encodeValueArgument(protoIndex);
-			yield new Uint8Array([ (0x15 << 5) | (bytes.length - 1) ]);
+			yield new Uint8Array([ 0x15 | ((bytes.length - 1) << 5) ]);
 			yield bytes;
 			return;
 		}

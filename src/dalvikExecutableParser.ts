@@ -3064,10 +3064,6 @@ const createDalvikExecutableParser = <Instructions>({
 							return annotationSet ?? [];
 						}) ?? [];
 
-						if (annotations.length === 0) {
-							return [];
-						}
-
 						return { method, annotations };
 					});
 
