@@ -230,9 +230,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const codeToWrite: Array<{ code: any }> = [];
 	const debugInfoToWrite: Array<{ debugInfo: any; offsetWriteLater: any }> = [];
 
-	// First pass: write interfaces and static values, collect classData/code/debugInfo
+	// First pass: write type lists and collect other data
 	let encodedArrayItemsOffset = 0;
 	let encodedArrayItemsCount = 0;
+	const encodedArraysToWrite: Array<{ classDef: any; classDefItem: any }> = [];
 
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
@@ -252,14 +253,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		}
 
 		if (classDef.staticValues.length > 0 && classDefItem.staticValuesOffsetWriteLater) {
-			if (encodedArrayItemsCount === 0) {
-				encodedArrayItemsOffset = unparserContext.position;
-			}
-			encodedArrayItemsCount++;
-
-			const staticValuesOffset = unparserContext.position;
-			yield * unparserContext.writeEarlier(classDefItem.staticValuesOffsetWriteLater, uintUnparser, staticValuesOffset);
-			yield * sectionUnparsers.encodedArrayUnparser(classDef.staticValues, unparserContext);
+			encodedArraysToWrite.push({ classDef, classDefItem });
 		}
 
 		if (classDef.classData && classDefItem.classDataOffsetWriteLater) {
@@ -272,6 +266,18 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 				}
 			}
 		}
+	}
+
+	// Second pass: write all encoded arrays
+	for (const { classDef, classDefItem } of encodedArraysToWrite) {
+		if (encodedArrayItemsCount === 0) {
+			encodedArrayItemsOffset = unparserContext.position;
+		}
+		encodedArrayItemsCount++;
+
+		const staticValuesOffset = unparserContext.position;
+		yield * unparserContext.writeEarlier(classDefItem.staticValuesOffsetWriteLater, uintUnparser, staticValuesOffset);
+		yield * sectionUnparsers.encodedArrayUnparser(classDef.staticValues, unparserContext);
 	}
 
 	// Second pass: write all code items FIRST (grouped) and build offset map
@@ -478,8 +484,9 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	}
 
 	yield * alignmentUnparser(4)(undefined, unparserContext);
-	const mapOffset = unparserContext.position;
-	yield * unparserContext.writeEarlier(mapOffsetWriteLater, uintUnparser, mapOffset);
+	const mapOffsetToWrite = unparserContext.position;
+	yield * unparserContext.writeEarlier(mapOffsetWriteLater, uintUnparser, mapOffsetToWrite);
+	const mapOffset = unparserContext.position; // Re-capture position after writeEarlier
 
 	const mapItems: Array<{ type: number; size: number; offset: number }> = [];
 
