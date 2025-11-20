@@ -28,6 +28,7 @@ import { type DalvikBytecode } from '../dalvikBytecodeParser.js';
 import { dalvikBytecodeUnparser } from '../dalvikBytecodeUnparser.js';
 import { ubyteUnparser, ushortUnparser, uintUnparser } from '../dalvikBytecodeUnparser/formatUnparsers.js';
 import { type PoolBuilders } from './poolBuilders.js';
+import { WriteLater } from '../unparserContext.js';
 import { alignmentUnparser, encodeModifiedUtf8, mutf8Unparser, sleb128Unparser, uleb128p1Unparser, uleb128Unparser } from './utils.js';
 
 export function createSectionUnparsers(poolBuilders: PoolBuilders) {
@@ -518,7 +519,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		yield * ubyteUnparser(0x00, unparserContext);
 	};
 
-	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: any }) => void): Unparser<DalvikExecutableCode<DalvikBytecode>, Uint8Array> => {
+	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: WriteLater<Uint8Array, number> }) => void): Unparser<DalvikExecutableCode<DalvikBytecode>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * ushortUnparser(input.registersSize, unparserContext);
 			yield * ushortUnparser(input.insSize, unparserContext);
@@ -547,7 +548,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 			}
 
 			if (input.tries.length > 0) {
-				const handlerOffsetWriteLaters: any[] = [];
+				const handlerOffsetWriteLaters: Array<WriteLater<Uint8Array, number>> = [];
 
 				for (const tryBlock of input.tries) {
 					yield * uintUnparser(tryBlock.startAddress, unparserContext);
