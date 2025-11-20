@@ -221,7 +221,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const codeToWrite: Array<{ code: any }> = [];
 	const debugInfoToWrite: Array<{ debugInfo: any; offsetWriteLater: any }> = [];
 
-	// First pass: write interfaces and static values, collect classData/code
+	// First pass: write interfaces and static values, collect classData/code/debugInfo
+	let encodedArrayItemsOffset = 0;
+	let encodedArrayItemsCount = 0;
+
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
 		const classDefItem = classDefItems[classIdx];
@@ -234,6 +237,11 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		}
 
 		if (classDef.staticValues.length > 0 && classDefItem.staticValuesOffsetWriteLater) {
+			if (encodedArrayItemsCount === 0) {
+				encodedArrayItemsOffset = unparserContext.position;
+			}
+			encodedArrayItemsCount++;
+
 			const staticValuesOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(classDefItem.staticValuesOffsetWriteLater, uintUnparser, staticValuesOffset);
 			yield * sectionUnparsers.encodedArrayUnparser(classDef.staticValues, unparserContext);
@@ -309,12 +317,27 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	}
 
 	// Fifth pass: write annotations
+	let annotationsDirectoryItemsOffset = 0;
+	let annotationsDirectoryItemsCount = 0;
+	let annotationSetItemsOffset = 0;
+	let annotationSetItemsCount = 0;
+	let annotationSetRefListItemsOffset = 0;
+	let annotationSetRefListItemsCount = 0;
+	let annotationItemsOffset = 0;
+	let annotationItemsCount = 0;
+
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
 		const classDefItem = classDefItems[classIdx];
 
 		if (classDef.annotations && classDefItem.annotationsOffsetWriteLater) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
+
+			if (annotationsDirectoryItemsCount === 0) {
+				annotationsDirectoryItemsOffset = unparserContext.position;
+			}
+			annotationsDirectoryItemsCount++;
+
 			const annotationsOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(classDefItem.annotationsOffsetWriteLater, uintUnparser, annotationsOffset);
 
@@ -323,6 +346,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 			if (classDef.annotations.classAnnotations.length > 0 && annotationOffsetWriteLaters.classAnnotationsOffsetWriteLater) {
 				yield * alignmentUnparser(4)(undefined, unparserContext);
+
+				if (annotationSetItemsCount === 0) {
+					annotationSetItemsOffset = unparserContext.position;
+				}
+				annotationSetItemsCount++;
+
 				const classAnnotationsOffset = unparserContext.position;
 				yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.classAnnotationsOffsetWriteLater, uintUnparser, classAnnotationsOffset);
 
@@ -330,6 +359,11 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 				yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(classDef.annotations.classAnnotations, unparserContext);
 
 				for (let i = 0; i < classDef.annotations.classAnnotations.length; i++) {
+					if (annotationItemsCount === 0) {
+						annotationItemsOffset = unparserContext.position;
+					}
+					annotationItemsCount++;
+
 					const annotationItemOffset = unparserContext.position;
 					yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[i], uintUnparser, annotationItemOffset);
 					yield * annotationUnparsers.annotationItemUnparser(classDef.annotations.classAnnotations[i], unparserContext);
@@ -340,6 +374,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 				const fieldAnnotation = classDef.annotations.fieldAnnotations[i];
 				if (fieldAnnotation.annotations && fieldAnnotation.annotations.length > 0 && annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters?.[i]) {
 					yield * alignmentUnparser(4)(undefined, unparserContext);
+
+					if (annotationSetItemsCount === 0) {
+						annotationSetItemsOffset = unparserContext.position;
+					}
+					annotationSetItemsCount++;
+
 					const fieldAnnotationsOffset = unparserContext.position;
 					yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters[i], uintUnparser, fieldAnnotationsOffset);
 
@@ -347,6 +387,11 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 					yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(fieldAnnotation.annotations, unparserContext);
 
 					for (let j = 0; j < fieldAnnotation.annotations.length; j++) {
+						if (annotationItemsCount === 0) {
+							annotationItemsOffset = unparserContext.position;
+						}
+						annotationItemsCount++;
+
 						const annotationItemOffset = unparserContext.position;
 						yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[j], uintUnparser, annotationItemOffset);
 						yield * annotationUnparsers.annotationItemUnparser(fieldAnnotation.annotations[j], unparserContext);
@@ -358,6 +403,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 				const methodAnnotation = classDef.annotations.methodAnnotations[i];
 				if (methodAnnotation.annotations.length > 0 && annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters?.[i]) {
 					yield * alignmentUnparser(4)(undefined, unparserContext);
+
+					if (annotationSetItemsCount === 0) {
+						annotationSetItemsOffset = unparserContext.position;
+					}
+					annotationSetItemsCount++;
+
 					const methodAnnotationsOffset = unparserContext.position;
 					yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters[i], uintUnparser, methodAnnotationsOffset);
 
@@ -365,6 +416,11 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 					yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(methodAnnotation.annotations, unparserContext);
 
 					for (let j = 0; j < methodAnnotation.annotations.length; j++) {
+						if (annotationItemsCount === 0) {
+							annotationItemsOffset = unparserContext.position;
+						}
+						annotationItemsCount++;
+
 						const annotationItemOffset = unparserContext.position;
 						yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[j], uintUnparser, annotationItemOffset);
 						yield * annotationUnparsers.annotationItemUnparser(methodAnnotation.annotations[j], unparserContext);
@@ -376,6 +432,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 				const paramAnnotation = classDef.annotations.parameterAnnotations[i];
 				if (annotationOffsetWriteLaters.parameterAnnotationsOffsetWriteLaters?.[i]) {
 					yield * alignmentUnparser(4)(undefined, unparserContext);
+
+					if (annotationSetRefListItemsCount === 0) {
+						annotationSetRefListItemsOffset = unparserContext.position;
+					}
+					annotationSetRefListItemsCount++;
+
 					const paramAnnotationsOffset = unparserContext.position;
 					yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.parameterAnnotationsOffsetWriteLaters[i], uintUnparser, paramAnnotationsOffset);
 
@@ -386,6 +448,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 						const paramSet = paramAnnotation.annotations[j];
 						if (paramSet.length > 0 && annotationSetOffsetWriteLaters[j]) {
 							yield * alignmentUnparser(4)(undefined, unparserContext);
+
+							if (annotationSetItemsCount === 0) {
+								annotationSetItemsOffset = unparserContext.position;
+							}
+							annotationSetItemsCount++;
+
 							const paramSetOffset = unparserContext.position;
 							yield * unparserContext.writeEarlier(annotationSetOffsetWriteLaters[j], uintUnparser, paramSetOffset);
 
@@ -393,6 +461,11 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 							yield * annotationUnparsers.annotationSetItemUnparser(annotationItemOffsetWriteLaters)(paramSet, unparserContext);
 
 							for (let k = 0; k < paramSet.length; k++) {
+								if (annotationItemsCount === 0) {
+									annotationItemsOffset = unparserContext.position;
+								}
+								annotationItemsCount++;
+
 								const annotationItemOffset = unparserContext.position;
 								yield * unparserContext.writeEarlier(annotationItemOffsetWriteLaters[k], uintUnparser, annotationItemOffset);
 								yield * annotationUnparsers.annotationItemUnparser(paramSet[k], unparserContext);
@@ -446,6 +519,14 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		mapItems.push({ type: 0x2002, size: stringPool.size(), offset: dataOffset });
 	}
 
+	if (annotationSetRefListItemsCount > 0) {
+		mapItems.push({ type: 0x1002, size: annotationSetRefListItemsCount, offset: annotationSetRefListItemsOffset });
+	}
+
+	if (annotationSetItemsCount > 0) {
+		mapItems.push({ type: 0x1003, size: annotationSetItemsCount, offset: annotationSetItemsOffset });
+	}
+
 	if (classDataItemsCount > 0) {
 		mapItems.push({ type: 0x2000, size: classDataItemsCount, offset: classDataItemsOffset });
 	}
@@ -458,9 +539,21 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		mapItems.push({ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset });
 	}
 
+	if (annotationItemsCount > 0) {
+		mapItems.push({ type: 0x2004, size: annotationItemsCount, offset: annotationItemsOffset });
+	}
+
+	if (encodedArrayItemsCount > 0) {
+		mapItems.push({ type: 0x2005, size: encodedArrayItemsCount, offset: encodedArrayItemsOffset });
+	}
+
+	if (annotationsDirectoryItemsCount > 0) {
+		mapItems.push({ type: 0x2006, size: annotationsDirectoryItemsCount, offset: annotationsDirectoryItemsOffset });
+	}
+
 	mapItems.push({ type: 0x1000, size: 1, offset: mapOffset });
 
-	// Sort map items by offset as required by DEX format
+	// Sort map items by offset (required by DEX format spec)
 	mapItems.sort((a, b) => a.offset - b.offset);
 
 	yield * uintUnparser(mapItems.length, unparserContext);
