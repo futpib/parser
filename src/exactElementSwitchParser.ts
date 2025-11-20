@@ -8,8 +8,8 @@ export const createElementSwitchParser = <
 	Sequence,
 	Element = DeriveSequenceElement<Sequence>,
 >(
-	childParsers: Map<Element, Parser<any, Sequence, Element>>,
-	defaultParser?: Parser<any, Sequence, Element>,
+	childParsers: Map<Element, Parser<unknown, Sequence, Element>>,
+	defaultParser?: Parser<unknown, Sequence, Element>,
 ): Parser<Output, Sequence, Element> => {
 	parserImplementationInvariant(childParsers.size > 0, 'Element switch parser must have at least one child parser.');
 

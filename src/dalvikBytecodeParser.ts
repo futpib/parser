@@ -2468,7 +2468,7 @@ export const dalvikBytecodeOperationCompanion = {
 };
 
 // Map of single-byte opcodes to their parsers for O(1) lookup
-const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<any, Uint8Array>>([
+const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<unknown, Uint8Array>>([
 	// Invoke operations
 	[ 0x6E, dalvikBytecodeOperationInvokeVirtualParser ],
 	[ 0x6F, dalvikBytecodeOperationInvokeSuperParser ],

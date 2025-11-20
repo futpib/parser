@@ -83,6 +83,6 @@ export function isLazyMessageError(
 			&& value !== null
 			&& value instanceof Error
 			&& '_lazyMessage' in value
-			&& typeof (value as any).computeMessage === 'function'
+			&& typeof (value as Record<string, unknown>).computeMessage === 'function'
 	);
 }
