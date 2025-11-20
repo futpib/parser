@@ -76,8 +76,31 @@ const arbitraryDalvikMethodName = fc.oneof(
 
 const arbitraryDalvikFieldName = arbitraryJavaIdentifier;
 
-// Access flags generator
-const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
+// Access flags generator - common flags for all contexts
+const arbitraryDalvikExecutableAccessFlagsCommon: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
+	public: fc.boolean(),
+	private: fc.boolean(),
+	protected: fc.boolean(),
+	static: fc.boolean(),
+	final: fc.boolean(),
+	synchronized: fc.boolean(),
+	volatile: fc.constant(false),
+	bridge: fc.constant(false),
+	transient: fc.constant(false),
+	varargs: fc.constant(false),
+	native: fc.boolean(),
+	interface: fc.boolean(),
+	abstract: fc.boolean(),
+	strict: fc.boolean(),
+	synthetic: fc.boolean(),
+	annotation: fc.boolean(),
+	enum: fc.boolean(),
+	constructor: fc.boolean(),
+	declaredSynchronized: fc.boolean(),
+});
+
+// Access flags for fields - volatile and transient are valid (0x40 and 0x80)
+const arbitraryDalvikExecutableFieldAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
 	public: fc.boolean(),
 	private: fc.boolean(),
 	protected: fc.boolean(),
@@ -85,8 +108,31 @@ const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessF
 	final: fc.boolean(),
 	synchronized: fc.boolean(),
 	volatile: fc.boolean(),
-	bridge: fc.boolean(),
+	bridge: fc.constant(false),
 	transient: fc.boolean(),
+	varargs: fc.constant(false),
+	native: fc.boolean(),
+	interface: fc.boolean(),
+	abstract: fc.boolean(),
+	strict: fc.boolean(),
+	synthetic: fc.boolean(),
+	annotation: fc.boolean(),
+	enum: fc.boolean(),
+	constructor: fc.boolean(),
+	declaredSynchronized: fc.boolean(),
+});
+
+// Access flags for methods - bridge and varargs are valid (0x40 and 0x80)
+const arbitraryDalvikExecutableMethodAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = fc.record({
+	public: fc.boolean(),
+	private: fc.boolean(),
+	protected: fc.boolean(),
+	static: fc.boolean(),
+	final: fc.boolean(),
+	synchronized: fc.boolean(),
+	volatile: fc.constant(false),
+	bridge: fc.boolean(),
+	transient: fc.constant(false),
 	varargs: fc.boolean(),
 	native: fc.boolean(),
 	interface: fc.boolean(),
@@ -99,6 +145,9 @@ const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessF
 	declaredSynchronized: fc.boolean(),
 });
 
+// Generic access flags for class-level (uses common)
+const arbitraryDalvikExecutableAccessFlags: fc.Arbitrary<DalvikExecutableAccessFlags> = arbitraryDalvikExecutableAccessFlagsCommon;
+
 // Field generator
 const arbitraryDalvikExecutableField: fc.Arbitrary<DalvikExecutableField> = fc.record({
 	class: arbitraryDalvikClassName,
@@ -108,7 +157,7 @@ const arbitraryDalvikExecutableField: fc.Arbitrary<DalvikExecutableField> = fc.r
 
 const arbitraryDalvikExecutableFieldWithAccess: fc.Arbitrary<DalvikExecutableFieldWithAccess> = fc.record({
 	field: arbitraryDalvikExecutableField,
-	accessFlags: arbitraryDalvikExecutableAccessFlags,
+	accessFlags: arbitraryDalvikExecutableFieldAccessFlags,
 });
 
 // Prototype generator
@@ -226,7 +275,8 @@ const arbitraryDalvikExecutableDebugByteCodeValue: fc.Arbitrary<DalvikExecutable
 	}),
 	fc.record({
 		type: fc.constant('special' as const),
-		value: fc.nat({ max: 255 }),
+		// Special opcodes must be >= 0x0A (values 0x00-0x09 are specific debug opcodes)
+		value: fc.integer({ min: 0x0A, max: 255 }),
 	}),
 );
 
@@ -261,6 +311,9 @@ const arbitraryDalvikExecutableEncodedTypeAddressPair: fc.Arbitrary<DalvikExecut
 const arbitraryDalvikExecutableEncodedCatchHandler: fc.Arbitrary<DalvikExecutableEncodedCatchHandler> = fc.record({
 	handlers: fc.array(arbitraryDalvikExecutableEncodedTypeAddressPair, { maxLength: 3 }),
 	catchAllAddress: fc.option(fc.nat({ max: 65535 }), { nil: undefined }),
+}).filter(handler => {
+	// A handler must have at least one typed handler OR a catch-all address
+	return handler.handlers.length > 0 || handler.catchAllAddress !== undefined;
 });
 
 const arbitraryDalvikExecutableTry: fc.Arbitrary<DalvikExecutableTry> = fc.record({
@@ -286,7 +339,7 @@ export const createArbitraryDalvikExecutable = <Instructions>(
 	// Method with access and code
 	const arbitraryDalvikExecutableMethodWithAccess: fc.Arbitrary<DalvikExecutableMethodWithAccess<Instructions>> = fc.record({
 		method: arbitraryDalvikExecutableMethod,
-		accessFlags: arbitraryDalvikExecutableAccessFlags,
+		accessFlags: arbitraryDalvikExecutableMethodAccessFlags,
 		code: fc.option(arbitraryDalvikExecutableCode, { nil: undefined }),
 	});
 
@@ -314,7 +367,14 @@ export const createArbitraryDalvikExecutable = <Instructions>(
 		fieldAnnotations: fc.array(arbitraryDalvikExecutableClassFieldAnnotation, { maxLength: 2 }),
 		methodAnnotations: fc.array(arbitraryDalvikExecutableClassMethodAnnotation, { maxLength: 2 }),
 		parameterAnnotations: fc.array(arbitraryDalvikExecutableClassParameterAnnotation, { maxLength: 2 }),
-	});
+	}).map(annotations => ({
+		...annotations,
+		// Filter out field/method/parameter annotations with undefined or empty annotations array
+		// In DEX format, fields/methods/parameters with no annotations should not appear in the annotations directory at all
+		fieldAnnotations: annotations.fieldAnnotations.filter(fa => fa.annotations !== undefined && fa.annotations.length > 0),
+		methodAnnotations: annotations.methodAnnotations.filter(ma => ma.annotations.length > 0),
+		parameterAnnotations: annotations.parameterAnnotations.filter(pa => pa.annotations.length > 0 && pa.annotations.some(paramAnnots => paramAnnots.length > 0)),
+	}));
 
 	// Class data
 	const arbitraryDalvikExecutableClassData: fc.Arbitrary<DalvikExecutableClassData<Instructions>> = fc.record({
@@ -340,6 +400,30 @@ export const createArbitraryDalvikExecutable = <Instructions>(
 		annotations: fc.option(arbitraryDalvikExecutableClassAnnotations, { nil: undefined }),
 		staticValues: fc.array(arbitraryDalvikExecutableEncodedValue, { maxLength: 3 }),
 		classData: fc.option(arbitraryDalvikExecutableClassData, { nil: undefined }),
+	}).map(classDef => {
+		// Match parser logic: if all members are synthetic, set class synthetic to true
+		const allMembers = [
+			...classDef.classData?.staticFields ?? [],
+			...classDef.classData?.instanceFields ?? [],
+			...classDef.classData?.directMethods ?? [],
+			// Note: virtualMethods are not included to match parser behavior
+		];
+		const allMembersAreSynthetic = (
+			allMembers.every(member => member.accessFlags.synthetic)
+			&& allMembers.length > 0
+		);
+
+		if (allMembersAreSynthetic) {
+			return {
+				...classDef,
+				accessFlags: {
+					...classDef.accessFlags,
+					synthetic: true,
+				},
+			};
+		}
+
+		return classDef;
 	});
 
 	// Root DalvikExecutable

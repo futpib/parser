@@ -176,8 +176,8 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 
 		// Handle boolean
 		if (type === 'boolean') {
-			const valueArg = value ? 1 : 0;
-			yield new Uint8Array([ (valueArg << 5) | 0x1F ]);
+			// VALUE_BOOLEAN = 0x1F, with value_arg=0 for false, value_arg=1 for true
+			yield new Uint8Array([ value ? ((1 << 5) | 0x1F) : ((0 << 5) | 0x1F) ]);
 			return;
 		}
 
@@ -339,10 +339,6 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		const signByte = value < 0 ? 0xFF : 0x00;
 
 		while (length > 1 && buffer[length - 1] === signByte) {
-			if (length === 2) {
-				break;
-			}
-
 			const prevByte = buffer[length - 2];
 			const signBitMatches = value < 0 ? (prevByte & 0x80) !== 0 : (prevByte & 0x80) === 0;
 

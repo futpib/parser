@@ -205,10 +205,19 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		yield * sectionUnparsers.stringDataUnparser(stringPool.getStrings()[i], unparserContext);
 	}
 
+	let typeListItemsOffset = 0;
+	let typeListItemsCount = 0;
+
 	for (let i = 0; i < protoPool.size(); i++) {
 		const proto = protoPool.getProtos()[i];
 		if (proto.parameters.length > 0) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
+
+			if (typeListItemsCount === 0) {
+				typeListItemsOffset = unparserContext.position;
+			}
+			typeListItemsCount++;
+
 			const paramListOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(protoParameterListOffsetWriteLaters[i], uintUnparser, paramListOffset);
 			yield * sectionUnparsers.typeListUnparser(proto.parameters, unparserContext);
@@ -231,6 +240,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 		if (classDef.interfaces.length > 0 && classDefItem.interfacesOffsetWriteLater) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
+
+			if (typeListItemsCount === 0) {
+				typeListItemsOffset = unparserContext.position;
+			}
+			typeListItemsCount++;
+
 			const interfacesOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(classDefItem.interfacesOffsetWriteLater, uintUnparser, interfacesOffset);
 			yield * sectionUnparsers.typeListUnparser(classDef.interfaces, unparserContext);
@@ -496,6 +511,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	if (stringPool.size() > 0) {
 		mapItems.push({ type: 0x2002, size: stringPool.size(), offset: dataOffset });
+	}
+
+	if (typeListItemsCount > 0) {
+		mapItems.push({ type: 0x1001, size: typeListItemsCount, offset: typeListItemsOffset });
 	}
 
 	if (annotationSetRefListItemsCount > 0) {

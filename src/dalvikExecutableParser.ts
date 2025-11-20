@@ -56,7 +56,7 @@ import {
 	createDalvikBytecodeParser, type DalvikBytecode, type DalvikBytecodeOperation, type DalvikBytecodeOperationResolvers, resolveDalvikBytecodeOperation,
 } from './dalvikBytecodeParser.js';
 import {
-	ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
+	byteParser, ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
 } from './dalvikExecutableParser/typeParsers.js';
 import {
 	type DalvikExecutable,
@@ -897,7 +897,7 @@ const createEncodedValueArgParser = (valueType: number): Parser<number, Uint8Arr
 const encodedValueByteParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
 	createTupleParser([
 		createExactElementParser(0),
-		ubyteParser,
+		byteParser,
 	]),
 	([ _, value ]) => ({ type: 'byte' as const, value }),
 );
@@ -1794,15 +1794,15 @@ type DalvikExecutableDebugByteCodeValueItem =
 	| {
 		type: 'startLocal';
 		registerNum: number;
-		nameIndex: IndexIntoStringIds;
-		typeIndex: IndexIntoTypeIds;
+		nameIndex: undefined | IndexIntoStringIds;
+		typeIndex: undefined | IndexIntoTypeIds;
 	}
 	| {
 		type: 'startLocalExtended';
 		registerNum: number;
-		nameIndex: IndexIntoStringIds;
-		typeIndex: IndexIntoTypeIds;
-		signatureIndex: IndexIntoStringIds;
+		nameIndex: undefined | IndexIntoStringIds;
+		typeIndex: undefined | IndexIntoTypeIds;
+		signatureIndex: undefined | IndexIntoStringIds;
 	}
 	| {
 		type: 'endLocal';
@@ -1847,14 +1847,14 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 			case 0x03: { return promiseCompose(
 				createTupleParser([
 					uleb128NumberParser,
-					uleb128NumberParser,
-					uleb128NumberParser,
+					uleb128p1NumberParser,
+					uleb128p1NumberParser,
 				]),
 				([ registerNumber, nameIndex, typeIndex ]) => ({
 					type: 'startLocal',
 					registerNum: registerNumber,
-					nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
-					typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
+					nameIndex: nameIndex === -1 ? undefined : isoIndexIntoStringIds.wrap(nameIndex),
+					typeIndex: typeIndex === -1 ? undefined : isoIndexIntoTypeIds.wrap(typeIndex),
 				}),
 			);
 			}
@@ -1862,16 +1862,16 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 			case 0x04: { return promiseCompose(
 				createTupleParser([
 					uleb128NumberParser,
-					uleb128NumberParser,
-					uleb128NumberParser,
-					uleb128NumberParser,
+					uleb128p1NumberParser,
+					uleb128p1NumberParser,
+					uleb128p1NumberParser,
 				]),
 				([ registerNumber, nameIndex, typeIndex, signatureIndex ]) => ({
 					type: 'startLocalExtended',
 					registerNum: registerNumber,
-					nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
-					typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
-					signatureIndex: isoIndexIntoStringIds.wrap(signatureIndex),
+					nameIndex: nameIndex === -1 ? undefined : isoIndexIntoStringIds.wrap(nameIndex),
+					typeIndex: typeIndex === -1 ? undefined : isoIndexIntoTypeIds.wrap(typeIndex),
+					signatureIndex: signatureIndex === -1 ? undefined : isoIndexIntoStringIds.wrap(signatureIndex),
 				}),
 			);
 			}
@@ -1895,7 +1895,7 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 			}
 
 			case 0x09: { return promiseCompose(
-				uleb128NumberParser,
+				uleb128p1NumberParser,
 				nameIndex => ({ type: 'setFile', nameIndex: isoIndexIntoStringIds.wrap(nameIndex) }),
 			);
 			}
@@ -2641,7 +2641,6 @@ const createDalvikExecutableParser = <Instructions>({
 						invariant(handler_, 'Handler must be there. Handler offset: %s', tryItem.handlerOffset);
 
 						const handler = {
-							...handler_,
 							handlers: handler_.handlers.map(encodedHandler => {
 								const type = types.at(encodedHandler.typeIndex);
 								invariant(type, 'Type must be there. Type id: %s', encodedHandler.typeIndex);
@@ -2651,6 +2650,7 @@ const createDalvikExecutableParser = <Instructions>({
 									address: encodedHandler.address,
 								};
 							}),
+							catchAllAddress: handler_.catchAllAddress,
 						};
 
 						return {
@@ -2960,9 +2960,13 @@ const createDalvikExecutableParser = <Instructions>({
 			}
 
 			function resolveAnnotationSetItem(annotationSetItem: undefined | DalvikExecutableAnnotationSetItem): undefined | DalvikExecutableAnnotation[] {
-				const annotationSet = annotationSetItem?.entries.map(resolveAnnotationOffsetItem);
+				if (!annotationSetItem) {
+					return undefined;
+				}
 
-				if (!annotationSet?.length) {
+				const annotationSet = annotationSetItem.entries.map(resolveAnnotationOffsetItem);
+
+				if (!annotationSet.length) {
 					return [];
 				}
 
@@ -3006,7 +3010,7 @@ const createDalvikExecutableParser = <Instructions>({
 							: undefined
 					) ?? [];
 
-					const fieldAnnotations: DalvikExecutableClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.map(fieldAnnotation => {
+					const fieldAnnotations: DalvikExecutableClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.flatMap(fieldAnnotation => {
 						const field = fields.at(fieldAnnotation.fieldIndex);
 						invariant(field, 'Field must be there. Field id: %s', fieldAnnotation.fieldIndex);
 
@@ -3017,10 +3021,17 @@ const createDalvikExecutableParser = <Instructions>({
 							fieldAnnotation.annotationsOffset,
 						);
 
-						return {
+						const annotations = resolveAnnotationSetItem(annotationSetItem);
+
+						// Skip fields with no annotations (undefined or empty array)
+						if (!annotations || annotations.length === 0) {
+							return [];
+						}
+
+						return [{
 							field,
-							annotations: resolveAnnotationSetItem(annotationSetItem) ?? [],
-						};
+							annotations,
+						}];
 					});
 
 					const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.flatMap(methodAnnotation => {
@@ -3034,10 +3045,17 @@ const createDalvikExecutableParser = <Instructions>({
 							methodAnnotation.annotationsOffset,
 						);
 
-						return {
+						const annotations = resolveAnnotationSetItem(annotationSetItem) ?? [];
+
+						// Skip methods with no annotations
+						if (annotations.length === 0) {
+							return [];
+						}
+
+						return [{
 							method,
-							annotations: resolveAnnotationSetItem(annotationSetItem) ?? [],
-						};
+							annotations,
+						}];
 					});
 
 					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.flatMap(parameterAnnotation => {
