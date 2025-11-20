@@ -389,6 +389,30 @@ export const createArbitraryDalvikExecutable = <Instructions>(
 		annotations: fc.option(arbitraryDalvikExecutableClassAnnotations, { nil: undefined }),
 		staticValues: fc.array(arbitraryDalvikExecutableEncodedValue, { maxLength: 3 }),
 		classData: fc.option(arbitraryDalvikExecutableClassData, { nil: undefined }),
+	}).map(classDef => {
+		// Match parser logic: if all members are synthetic, set class synthetic to true
+		const allMembers = [
+			...classDef.classData?.staticFields ?? [],
+			...classDef.classData?.instanceFields ?? [],
+			...classDef.classData?.directMethods ?? [],
+			// Note: virtualMethods are not included to match parser behavior
+		];
+		const allMembersAreSynthetic = (
+			allMembers.every(member => member.accessFlags.synthetic)
+			&& allMembers.length > 0
+		);
+
+		if (allMembersAreSynthetic) {
+			return {
+				...classDef,
+				accessFlags: {
+					...classDef.accessFlags,
+					synthetic: true,
+				},
+			};
+		}
+
+		return classDef;
 	});
 
 	// Root DalvikExecutable
