@@ -2641,7 +2641,6 @@ const createDalvikExecutableParser = <Instructions>({
 						invariant(handler_, 'Handler must be there. Handler offset: %s', tryItem.handlerOffset);
 
 						const handler = {
-							...handler_,
 							handlers: handler_.handlers.map(encodedHandler => {
 								const type = types.at(encodedHandler.typeIndex);
 								invariant(type, 'Type must be there. Type id: %s', encodedHandler.typeIndex);
@@ -2651,6 +2650,7 @@ const createDalvikExecutableParser = <Instructions>({
 									address: encodedHandler.address,
 								};
 							}),
+							catchAllAddress: handler_.catchAllAddress,
 						};
 
 						return {

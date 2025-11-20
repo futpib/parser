@@ -311,6 +311,9 @@ const arbitraryDalvikExecutableEncodedTypeAddressPair: fc.Arbitrary<DalvikExecut
 const arbitraryDalvikExecutableEncodedCatchHandler: fc.Arbitrary<DalvikExecutableEncodedCatchHandler> = fc.record({
 	handlers: fc.array(arbitraryDalvikExecutableEncodedTypeAddressPair, { maxLength: 3 }),
 	catchAllAddress: fc.option(fc.nat({ max: 65535 }), { nil: undefined }),
+}).filter(handler => {
+	// A handler must have at least one typed handler OR a catch-all address
+	return handler.handlers.length > 0 || handler.catchAllAddress !== undefined;
 });
 
 const arbitraryDalvikExecutableTry: fc.Arbitrary<DalvikExecutableTry> = fc.record({
