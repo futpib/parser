@@ -1794,15 +1794,15 @@ type DalvikExecutableDebugByteCodeValueItem =
 	| {
 		type: 'startLocal';
 		registerNum: number;
-		nameIndex: IndexIntoStringIds;
-		typeIndex: IndexIntoTypeIds;
+		nameIndex: undefined | IndexIntoStringIds;
+		typeIndex: undefined | IndexIntoTypeIds;
 	}
 	| {
 		type: 'startLocalExtended';
 		registerNum: number;
-		nameIndex: IndexIntoStringIds;
-		typeIndex: IndexIntoTypeIds;
-		signatureIndex: IndexIntoStringIds;
+		nameIndex: undefined | IndexIntoStringIds;
+		typeIndex: undefined | IndexIntoTypeIds;
+		signatureIndex: undefined | IndexIntoStringIds;
 	}
 	| {
 		type: 'endLocal';
@@ -1847,14 +1847,14 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 			case 0x03: { return promiseCompose(
 				createTupleParser([
 					uleb128NumberParser,
-					uleb128NumberParser,
-					uleb128NumberParser,
+					uleb128p1NumberParser,
+					uleb128p1NumberParser,
 				]),
 				([ registerNumber, nameIndex, typeIndex ]) => ({
 					type: 'startLocal',
 					registerNum: registerNumber,
-					nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
-					typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
+					nameIndex: nameIndex === -1 ? undefined : isoIndexIntoStringIds.wrap(nameIndex),
+					typeIndex: typeIndex === -1 ? undefined : isoIndexIntoTypeIds.wrap(typeIndex),
 				}),
 			);
 			}
@@ -1862,16 +1862,16 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 			case 0x04: { return promiseCompose(
 				createTupleParser([
 					uleb128NumberParser,
-					uleb128NumberParser,
-					uleb128NumberParser,
-					uleb128NumberParser,
+					uleb128p1NumberParser,
+					uleb128p1NumberParser,
+					uleb128p1NumberParser,
 				]),
 				([ registerNumber, nameIndex, typeIndex, signatureIndex ]) => ({
 					type: 'startLocalExtended',
 					registerNum: registerNumber,
-					nameIndex: isoIndexIntoStringIds.wrap(nameIndex),
-					typeIndex: isoIndexIntoTypeIds.wrap(typeIndex),
-					signatureIndex: isoIndexIntoStringIds.wrap(signatureIndex),
+					nameIndex: nameIndex === -1 ? undefined : isoIndexIntoStringIds.wrap(nameIndex),
+					typeIndex: typeIndex === -1 ? undefined : isoIndexIntoTypeIds.wrap(typeIndex),
+					signatureIndex: signatureIndex === -1 ? undefined : isoIndexIntoStringIds.wrap(signatureIndex),
 				}),
 			);
 			}
