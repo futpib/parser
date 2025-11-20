@@ -6,6 +6,7 @@ import { runParser } from './parser.js';
 import { createDalvikBytecodeParser } from './dalvikBytecodeParser.js';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { arbitraryDalvikBytecode } from './arbitraryDalvikBytecode.js';
+import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 
 const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
 
@@ -21,19 +22,7 @@ testProp(
 		);
 
 		// Collect all chunks into a single Uint8Array
-		const chunks: Uint8Array[] = [];
-		for await (const chunk of unparsedStreamIterable) {
-			chunks.push(chunk);
-		}
-
-		// Concatenate all chunks
-		const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-		const unparsedStream = new Uint8Array(totalLength);
-		let offset = 0;
-		for (const chunk of chunks) {
-			unparsedStream.set(chunk, offset);
-			offset += chunk.length;
-		}
+		const unparsedStream = await uint8ArrayAsyncIterableToUint8Array(unparsedStreamIterable);
 
 		// Create parser with the correct size
 		const dalvikBytecodeParser = createDalvikBytecodeParser(unparsedStream.length);
