@@ -215,6 +215,14 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		}
 	}
 
+	// Track classDataItem, codeItem, and debugInfoItem offsets and counts for map entries
+	let classDataItemsOffset = 0;
+	let classDataItemsCount = 0;
+	let codeItemsOffset = 0;
+	let codeItemsCount = 0;
+	let debugInfoItemsOffset = 0;
+	let debugInfoItemsCount = 0;
+
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
 		const classDefItem = classDefItems[classIdx];
@@ -233,6 +241,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		}
 
 		if (classDef.classData && classDefItem.classDataOffsetWriteLater) {
+			// Track first classDataItem offset
+			if (classDataItemsCount === 0) {
+				classDataItemsOffset = unparserContext.position;
+			}
+			classDataItemsCount++;
+
 			const classDataOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(classDefItem.classDataOffsetWriteLater, uintUnparser, classDataOffset);
 
@@ -246,6 +260,13 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 				const method = allMethods[methodIdx];
 				if (method.code) {
 					yield * alignmentUnparser(4)(undefined, unparserContext);
+					
+					// Track first codeItem offset
+					if (codeItemsCount === 0) {
+						codeItemsOffset = unparserContext.position;
+					}
+					codeItemsCount++;
+					
 					const codeOffset = unparserContext.position;
 
 					if (codeOffsetWriteLaters[methodIdx]) {
@@ -258,6 +279,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 					})(method.code, unparserContext);
 
 					if (method.code.debugInfo && debugInfoOffsetWriteLater) {
+						// Track first debugInfoItem offset
+						if (debugInfoItemsCount === 0) {
+							debugInfoItemsOffset = unparserContext.position;
+						}
+						debugInfoItemsCount++;
+						
 						const debugInfoOffset = unparserContext.position;
 						yield * unparserContext.writeEarlier(debugInfoOffsetWriteLater, uintUnparser, debugInfoOffset);
 						yield * sectionUnparsers.debugInfoUnparser(method.code.debugInfo, unparserContext);
@@ -397,6 +424,18 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	if (stringPool.size() > 0) {
 		mapItems.push({ type: 0x2002, size: stringPool.size(), offset: dataOffset });
+	}
+
+	if (classDataItemsCount > 0) {
+		mapItems.push({ type: 0x2000, size: classDataItemsCount, offset: classDataItemsOffset });
+	}
+
+	if (codeItemsCount > 0) {
+		mapItems.push({ type: 0x2001, size: codeItemsCount, offset: codeItemsOffset });
+	}
+
+	if (debugInfoItemsCount > 0) {
+		mapItems.push({ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset });
 	}
 
 	mapItems.push({ type: 0x1000, size: 1, offset: mapOffset });
