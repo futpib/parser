@@ -190,13 +190,20 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		}
 
 		if (typeof input === 'number') {
-			if (input >= -128 && input <= 127 && Number.isInteger(input)) {
-				const bytes = encodeSignedInt(input);
-				yield new Uint8Array([ (0x00 << 5) | (bytes.length - 1) ]);
-				yield bytes;
+			if (input >= 0 && input <= 127 && Number.isInteger(input)) {
+				// For unsigned byte-sized values (0-127), use value type 0x00
+				yield new Uint8Array([ 0x00 ]);
+				yield new Uint8Array([ input ]);
+			} else if (input >= -128 && input < 0 && Number.isInteger(input)) {
+				// For negative byte-sized values (-128 to -1), use short type with 1 byte
+				// Header byte: lower 5 bits = type (0x02), upper 3 bits = size-1 (0)
+				yield new Uint8Array([ 0x02 | (0 << 5) ]);
+				const buffer = Buffer.alloc(1);
+				buffer.writeInt8(input, 0);
+				yield new Uint8Array(buffer);
 			} else {
 				const bytes = encodeSignedInt(input);
-				yield new Uint8Array([ (0x04 << 5) | (bytes.length - 1) ]);
+				yield new Uint8Array([ 0x04 | ((bytes.length - 1) << 5) ]);
 				yield bytes;
 			}
 			return;

@@ -222,6 +222,9 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const debugInfoToWrite: Array<{ debugInfo: any; offsetWriteLater: any }> = [];
 
 	// First pass: write interfaces and static values, collect classData/code/debugInfo
+	let encodedArrayItemsOffset = 0;
+	let encodedArrayItemsCount = 0;
+
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
 		const classDefItem = classDefItems[classIdx];
@@ -234,6 +237,11 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		}
 
 		if (classDef.staticValues.length > 0 && classDefItem.staticValuesOffsetWriteLater) {
+			if (encodedArrayItemsCount === 0) {
+				encodedArrayItemsOffset = unparserContext.position;
+			}
+			encodedArrayItemsCount++;
+
 			const staticValuesOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(classDefItem.staticValuesOffsetWriteLater, uintUnparser, staticValuesOffset);
 			yield * sectionUnparsers.encodedArrayUnparser(classDef.staticValues, unparserContext);
@@ -466,7 +474,14 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		mapItems.push({ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset });
 	}
 
+	if (encodedArrayItemsCount > 0) {
+		mapItems.push({ type: 0x2005, size: encodedArrayItemsCount, offset: encodedArrayItemsOffset });
+	}
+
 	mapItems.push({ type: 0x1000, size: 1, offset: mapOffset });
+
+	// Sort map items by offset (required by DEX format spec)
+	mapItems.sort((a, b) => a.offset - b.offset);
 
 	yield * uintUnparser(mapItems.length, unparserContext);
 
