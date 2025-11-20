@@ -2960,9 +2960,13 @@ const createDalvikExecutableParser = <Instructions>({
 			}
 
 			function resolveAnnotationSetItem(annotationSetItem: undefined | DalvikExecutableAnnotationSetItem): undefined | DalvikExecutableAnnotation[] {
-				const annotationSet = annotationSetItem?.entries.map(resolveAnnotationOffsetItem);
+				if (!annotationSetItem) {
+					return undefined;
+				}
 
-				if (!annotationSet?.length) {
+				const annotationSet = annotationSetItem.entries.map(resolveAnnotationOffsetItem);
+
+				if (!annotationSet.length) {
 					return [];
 				}
 
@@ -3006,7 +3010,7 @@ const createDalvikExecutableParser = <Instructions>({
 							: undefined
 					) ?? [];
 
-					const fieldAnnotations: DalvikExecutableClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.map(fieldAnnotation => {
+					const fieldAnnotations: DalvikExecutableClassFieldAnnotation[] = annotationsDirectoryItem.fieldAnnotations.flatMap(fieldAnnotation => {
 						const field = fields.at(fieldAnnotation.fieldIndex);
 						invariant(field, 'Field must be there. Field id: %s', fieldAnnotation.fieldIndex);
 
@@ -3017,10 +3021,17 @@ const createDalvikExecutableParser = <Instructions>({
 							fieldAnnotation.annotationsOffset,
 						);
 
-						return {
+						const annotations = resolveAnnotationSetItem(annotationSetItem);
+
+						// Skip fields with no annotations (undefined or empty array)
+						if (!annotations || annotations.length === 0) {
+							return [];
+						}
+
+						return [{
 							field,
-							annotations: resolveAnnotationSetItem(annotationSetItem) ?? [],
-						};
+							annotations,
+						}];
 					});
 
 					const methodAnnotations: DalvikExecutableClassMethodAnnotation[] = annotationsDirectoryItem.methodAnnotations.flatMap(methodAnnotation => {
@@ -3034,10 +3045,17 @@ const createDalvikExecutableParser = <Instructions>({
 							methodAnnotation.annotationsOffset,
 						);
 
-						return {
+						const annotations = resolveAnnotationSetItem(annotationSetItem) ?? [];
+
+						// Skip methods with no annotations
+						if (annotations.length === 0) {
+							return [];
+						}
+
+						return [{
 							method,
-							annotations: resolveAnnotationSetItem(annotationSetItem) ?? [],
-						};
+							annotations,
+						}];
 					});
 
 					const parameterAnnotations: DalvikExecutableClassParameterAnnotation[] = annotationsDirectoryItem.parameterAnnotations.flatMap(parameterAnnotation => {
