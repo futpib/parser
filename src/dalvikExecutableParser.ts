@@ -13,7 +13,40 @@ import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createSkipToParser } from './skipToParser.js';
 import { createLookaheadParser } from './lookaheadParser.js';
 import {
-	getIsoTypedNumberArray, type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds, isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler, isoOffsetToAnnotationItem, isoOffsetToAnnotationsDirectoryItem, isoOffsetToAnnotationSetItem, isoOffsetToAnnotationSetRefListItem, isoOffsetToClassDataItem, isoOffsetToCodeItem, isoOffsetToDebugInfoItem, isoOffsetToEncodedArrayItem, isoOffsetToStringDataItem, isoOffsetToTypeList, type OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, type OffsetToAnnotationItem, type OffsetToAnnotationsDirectoryItem, type OffsetToAnnotationSetItem, type OffsetToAnnotationSetRefListItem, type OffsetToClassDataItem, type OffsetToCodeItem, type OffsetToDebugInfoItem, type OffsetToEncodedArrayItem, type OffsetToStringDataItem, type OffsetToTypeList, type TypedNumberArray,
+	getIsoTypedNumberArray,
+	type IndexIntoFieldIds,
+	type IndexIntoMethodIds,
+	type IndexIntoPrototypeIds,
+	type IndexIntoStringIds,
+	type IndexIntoTypeIds,
+	isoIndexIntoFieldIds,
+	isoIndexIntoMethodIds,
+	isoIndexIntoPrototypeIds,
+	isoIndexIntoStringIds,
+	isoIndexIntoTypeIds,
+	isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler,
+	isoOffsetToAnnotationItem,
+	isoOffsetToAnnotationsDirectoryItem,
+	isoOffsetToAnnotationSetItem,
+	isoOffsetToAnnotationSetRefListItem,
+	isoOffsetToClassDataItem,
+	isoOffsetToCodeItem,
+	isoOffsetToDebugInfoItem,
+	isoOffsetToEncodedArrayItem,
+	isoOffsetToStringDataItem,
+	isoOffsetToTypeList,
+	type OffsetFromEncodedCatchHandlerListToEncodedCatchHandler,
+	type OffsetToAnnotationItem,
+	type OffsetToAnnotationsDirectoryItem,
+	type OffsetToAnnotationSetItem,
+	type OffsetToAnnotationSetRefListItem,
+	type OffsetToClassDataItem,
+	type OffsetToCodeItem,
+	type OffsetToDebugInfoItem,
+	type OffsetToEncodedArrayItem,
+	type OffsetToStringDataItem,
+	type OffsetToTypeList,
+	type TypedNumberArray,
 } from './dalvikExecutableParser/typedNumbers.js';
 import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
@@ -26,7 +59,17 @@ import {
 	ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
 } from './dalvikExecutableParser/typeParsers.js';
 import {
-	type DalvikExecutable, type DalvikExecutableAccessFlags, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassFieldAnnotation, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableEncodedValue,
+	type DalvikExecutable,
+	type DalvikExecutableAccessFlags,
+	type DalvikExecutableAnnotation,
+	type DalvikExecutableClassAnnotations,
+	type DalvikExecutableClassData,
+	type DalvikExecutableClassFieldAnnotation,
+	type DalvikExecutableClassMethodAnnotation,
+	type DalvikExecutableClassParameterAnnotation,
+	type DalvikExecutableCode,
+	type DalvikExecutableDebugInfo,
+	type DalvikExecutableEncodedValue,
 } from './dalvikExecutable.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
@@ -825,6 +868,7 @@ type DalvikExecutableTaggedEncodedValue =
 	| { type: 'enum'; value: IndexIntoFieldIds }
 	| { type: 'array'; value: DalvikExecutableTaggedEncodedValue[] }
 	| { type: 'annotation'; value: DalvikExecutableEncodedAnnotation }
+	// eslint-disable-next-line @typescript-eslint/no-restricted-types
 	| { type: 'null'; value: null }
 	| { type: 'boolean'; value: boolean };
 
@@ -2722,11 +2766,11 @@ const createDalvikExecutableParser = <Instructions>({
 			}
 
 			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for static values
-			// Static values don't allow strings, so we keep indices as numbers
+			// Resolves internal index types to actual values while preserving type tags
 			function resolveTaggedEncodedValueForStaticValues(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue {
 				const { type, value } = taggedValue;
 
-				// For primitive types, return the value
+				// For primitive types, keep the type tag and value
 				if (
 					type === 'byte'
 					|| type === 'short'
@@ -2734,124 +2778,132 @@ const createDalvikExecutableParser = <Instructions>({
 					|| type === 'int'
 					|| type === 'float'
 					|| type === 'double'
+					|| type === 'long'
+					|| type === 'boolean'
+					|| type === 'null'
+					|| type === 'methodHandle'
 				) {
-					return value;
+					return { type, value } as DalvikExecutableEncodedValue;
 				}
 
-				// For method handle (index without typed wrapper), return as number
-				if (type === 'methodHandle') {
-					return value;
-				}
-
-				if (
-					type === 'methodType'
-					|| type === 'string'
-					|| type === 'type'
-					|| type === 'field'
-					|| type === 'method'
-					|| type === 'enum'
-				) {
-					return (value as any).value;
-				}
-
-				if (type === 'array') {
-					return value.map(resolveTaggedEncodedValueForStaticValues);
-				}
-
-				if (type === 'annotation') {
-					return value as any;
-				}
-
-				return value;
-			}
-
-			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for annotation elements
-			// Annotation elements allow strings in arrays for specific value types
-			function resolveTaggedEncodedValueForAnnotations(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string> {
-				const { type, value } = taggedValue;
-
-				// For primitive types, return the value as a number
-				if (
-					type === 'byte'
-					|| type === 'short'
-					|| type === 'char'
-					|| type === 'int'
-					|| type === 'float'
-					|| type === 'double'
-				) {
-					return value;
-				}
-
-				// For method handle (index without typed wrapper), return as number
-				if (type === 'methodHandle') {
-					return value;
-				}
-
-				// For typed indices that stay as numbers/objects, resolve them
+				// For types that reference the pool, resolve the index to the actual value
 				if (type === 'methodType') {
 					const prototype = prototypes.at(value);
 					invariant(prototype, 'Prototype must be there. Prototype id: %s', isoIndexIntoPrototypeIds.unwrap(value));
-					return prototype as any;
+					return { type, value: prototype };
 				}
 
-				if (type === 'field') {
+				if (type === 'string') {
+					const string = strings.at(value);
+					invariant(string !== undefined, 'String must be there. String id: %s', isoIndexIntoStringIds.unwrap(value));
+					return { type, value: string };
+				}
+
+				if (type === 'type') {
+					const typeString = types.at(value);
+					invariant(typeString !== undefined, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(value));
+					return { type, value: typeString };
+				}
+
+				if (type === 'field' || type === 'enum') {
 					const field = fields.at(value);
 					invariant(field, 'Field must be there. Field id: %s', isoIndexIntoFieldIds.unwrap(value));
-					return field as any;
+					return { type, value: field };
 				}
 
 				if (type === 'method') {
 					const method = methods.at(value);
 					invariant(method, 'Method must be there. Method id: %s', isoIndexIntoMethodIds.unwrap(value));
-					return method as any;
+					return { type, value: method };
 				}
 
-				if (type === 'enum') {
-					const enumField = fields.at(value);
-					invariant(enumField, 'Enum field must be there. Field id: %s', isoIndexIntoFieldIds.unwrap(value));
-					return enumField as any;
+				if (type === 'array') {
+					return { type, value: value.map(resolveTaggedEncodedValueForStaticValues) };
 				}
 
-				// For long values, return as bigint
-				if (type === 'long') {
-					return value;
+				if (type === 'annotation') {
+					// Resolve the encoded annotation
+					const annotationType = types.at(value.typeIndex);
+					invariant(annotationType, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(value.typeIndex));
+
+					const resolvedElements = value.elements.map(element => {
+						const name = strings.at(element.nameIndex);
+						invariant(name, 'Name string must be there. String offset: %s', element.nameIndex);
+
+						return {
+							name,
+							value: resolveTaggedEncodedValueForAnnotations(element.value),
+						};
+					});
+
+					const annotation: DalvikExecutableAnnotation = {
+						visibility: 'build', // Default visibility for embedded annotations
+						type: annotationType,
+						elements: resolvedElements,
+					};
+
+					return { type, value: annotation };
 				}
 
-				// For boolean values, return as boolean
-				if (type === 'boolean') {
-					return value;
+				// This should never happen
+				throw new Error(`Unknown encoded value type: ${type}`);
+			}
+
+			// Resolve TaggedEncodedValue to DalvikExecutableEncodedValue for annotation elements
+			// Resolves internal index types to actual values while preserving type tags
+			function resolveTaggedEncodedValueForAnnotations(taggedValue: DalvikExecutableTaggedEncodedValue): DalvikExecutableEncodedValue {
+				const { type, value } = taggedValue;
+
+				// For primitive types, keep the type tag and value
+				if (
+					type === 'byte'
+					|| type === 'short'
+					|| type === 'char'
+					|| type === 'int'
+					|| type === 'float'
+					|| type === 'double'
+					|| type === 'long'
+					|| type === 'boolean'
+					|| type === 'null'
+					|| type === 'methodHandle'
+				) {
+					return { type, value } as DalvikExecutableEncodedValue;
 				}
 
-				// For null values, return null
-				if (type === 'null') {
-					return null;
+				// For types that reference the pool, resolve the index to the actual value
+				if (type === 'methodType') {
+					const prototype = prototypes.at(value);
+					invariant(prototype, 'Prototype must be there. Prototype id: %s', isoIndexIntoPrototypeIds.unwrap(value));
+					return { type, value: prototype };
 				}
 
-				// For string type, resolve the string index to actual string
 				if (type === 'string') {
 					const string = strings.at(value);
-					// Handle cases where string index might not exist (e.g., index 0 in some DEX files)
-					if (string === undefined) {
-						return undefined;
-					}
-					// Return string directly for use in annotation arrays
-					return string as any;
+					invariant(string !== undefined, 'String must be there. String id: %s', isoIndexIntoStringIds.unwrap(value));
+					return { type, value: string };
 				}
 
-				// For type, resolve the type index to actual type string
 				if (type === 'type') {
 					const typeString = types.at(value);
-					// Handle cases where type index might not exist (e.g., index 0 in some DEX files)
-					if (typeString === undefined) {
-						return undefined;
-					}
-					// Return type string directly for use in annotation arrays
-					return typeString as any;
+					invariant(typeString !== undefined, 'Type must be there. Type id: %s', isoIndexIntoTypeIds.unwrap(value));
+					return { type, value: typeString };
+				}
+
+				if (type === 'field' || type === 'enum') {
+					const field = fields.at(value);
+					invariant(field, 'Field must be there. Field id: %s', isoIndexIntoFieldIds.unwrap(value));
+					return { type, value: field };
+				}
+
+				if (type === 'method') {
+					const method = methods.at(value);
+					invariant(method, 'Method must be there. Method id: %s', isoIndexIntoMethodIds.unwrap(value));
+					return { type, value: method };
 				}
 
 				// For arrays, recursively resolve elements
 				if (type === 'array') {
-					return value.map(resolveTaggedEncodedValueForAnnotations) as any;
+					return { type, value: value.map(resolveTaggedEncodedValueForAnnotations) };
 				}
 
 				// For annotations
@@ -2870,14 +2922,17 @@ const createDalvikExecutableParser = <Instructions>({
 						};
 					});
 
-					return {
+					const annotation: DalvikExecutableAnnotation = {
+						visibility: 'build', // Default visibility for embedded annotations
 						type: annotationType,
 						elements: resolvedElements,
-					} as any;
+					};
+
+					return { type, value: annotation };
 				}
 
-				// Fallback: return value as number
-				return value as number;
+				// This should never happen
+				throw new Error(`Unknown encoded value type: ${type}`);
 			}
 
 			function resolveAnnotationOffsetItem({ annotationOffset }: DalvikExecutableAnnotationOffsetItem): DalvikExecutableAnnotation {

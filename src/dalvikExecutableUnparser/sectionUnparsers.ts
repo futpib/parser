@@ -165,111 +165,150 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		return flags;
 	}
 
-	const encodedValueUnparser: Unparser<DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string>, Uint8Array> = async function * (input, unparserContext) {
-		if (input === null) {
+	const encodedValueUnparser: Unparser<DalvikExecutableEncodedValue, Uint8Array> = async function * (input, unparserContext) {
+		const { type, value } = input;
+
+		// Handle null
+		if (type === 'null') {
 			yield new Uint8Array([ 0x1E ]);
 			return;
 		}
 
-		if (input === undefined) {
-			yield new Uint8Array([ 0x1E ]);
+		// Handle boolean
+		if (type === 'boolean') {
+			yield new Uint8Array([ value ? 0x1F : 0x1E ]);
 			return;
 		}
 
-		if (typeof input === 'boolean') {
-			yield new Uint8Array([ input ? 0x1F : 0x1E ]);
+		// Handle primitive numeric types
+		if (type === 'byte') {
+			const bytes = encodeSignedInt(value);
+			yield new Uint8Array([ (0x00 << 5) | (bytes.length - 1) ]);
+			yield bytes;
 			return;
 		}
 
-		if (typeof input === 'string') {
-			const stringIndex = getStringIndex(input);
+		if (type === 'short') {
+			const bytes = encodeSignedInt(value);
+			yield new Uint8Array([ (0x02 << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		if (type === 'char') {
+			const bytes = encodeUnsignedInt(value);
+			yield new Uint8Array([ (0x03 << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		if (type === 'int') {
+			const bytes = encodeSignedInt(value);
+			yield new Uint8Array([ (0x04 << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		if (type === 'long') {
+			const bytes = encodeSignedLong(value);
+			yield new Uint8Array([ (0x06 << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		if (type === 'float') {
+			const bytes = encodeFloat(value);
+			yield new Uint8Array([ (0x10 << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		if (type === 'double') {
+			const bytes = encodeDouble(value);
+			yield new Uint8Array([ (0x11 << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		// Handle method handle
+		if (type === 'methodHandle') {
+			const bytes = encodeValueArgument(value);
+			yield new Uint8Array([ (0x16 << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		// Handle types that reference the pool
+		if (type === 'string') {
+			const stringIndex = getStringIndex(value);
 			const bytes = encodeValueArgument(stringIndex);
 			yield new Uint8Array([ (0x17 << 5) | (bytes.length - 1) ]);
 			yield bytes;
 			return;
 		}
 
-		if (typeof input === 'number') {
-			if (input >= 0 && input <= 127 && Number.isInteger(input)) {
-				// For unsigned byte-sized values (0-127), use value type 0x00
-				yield new Uint8Array([ 0x00 ]);
-				yield new Uint8Array([ input ]);
-			} else if (input >= -128 && input < 0 && Number.isInteger(input)) {
-				// For negative byte-sized values (-128 to -1), use short type with 1 byte
-				// Header byte: lower 5 bits = type (0x02), upper 3 bits = size-1 (0)
-				yield new Uint8Array([ 0x02 | (0 << 5) ]);
-				const buffer = Buffer.alloc(1);
-				buffer.writeInt8(input, 0);
-				yield new Uint8Array(buffer);
-			} else {
-				const bytes = encodeSignedInt(input);
-				yield new Uint8Array([ 0x04 | ((bytes.length - 1) << 5) ]);
-				yield bytes;
-			}
-			return;
-		}
-
-		if (typeof input === 'bigint') {
-			const bytes = encodeSignedLong(input);
-			yield new Uint8Array([ (0x06 << 5) | (bytes.length - 1) ]);
+		if (type === 'type') {
+			const typeIndex = getTypeIndex(value);
+			const bytes = encodeValueArgument(typeIndex);
+			yield new Uint8Array([ (0x18 << 5) | (bytes.length - 1) ]);
 			yield bytes;
 			return;
 		}
 
-		if (isDalvikExecutableField(input)) {
-			const fieldIndex = getFieldIndex(input as DalvikExecutableField);
+		if (type === 'field') {
+			const fieldIndex = getFieldIndex(value);
 			const bytes = encodeValueArgument(fieldIndex);
 			yield new Uint8Array([ (0x19 << 5) | (bytes.length - 1) ]);
 			yield bytes;
 			return;
 		}
 
-		if (isDalvikExecutableMethod(input)) {
-			const methodIndex = getMethodIndex(input as DalvikExecutableMethod);
+		if (type === 'method') {
+			const methodIndex = getMethodIndex(value);
 			const bytes = encodeValueArgument(methodIndex);
 			yield new Uint8Array([ (0x1A << 5) | (bytes.length - 1) ]);
 			yield bytes;
 			return;
 		}
 
-		if (typeof input === 'object' && input !== null && !Array.isArray(input) && 'returnType' in input && 'parameters' in input && 'shorty' in input) {
-			const protoIndex = getProtoIndex(input as DalvikExecutablePrototype);
+		if (type === 'enum') {
+			const fieldIndex = getFieldIndex(value);
+			const bytes = encodeValueArgument(fieldIndex);
+			yield new Uint8Array([ (0x1B << 5) | (bytes.length - 1) ]);
+			yield bytes;
+			return;
+		}
+
+		if (type === 'methodType') {
+			const protoIndex = getProtoIndex(value);
 			const bytes = encodeValueArgument(protoIndex);
 			yield new Uint8Array([ (0x15 << 5) | (bytes.length - 1) ]);
 			yield bytes;
 			return;
 		}
 
-		if (typeof input === 'object' && 'type' in input && 'elements' in input) {
-			const annotation = input as any;
-			if (typeof annotation.type === 'string') {
-				const typeIndex = getTypeIndex(annotation.type);
-				yield new Uint8Array([ 0x1D << 5 ]);
-				yield * uleb128Unparser(typeIndex, unparserContext);
-				yield * uleb128Unparser(annotation.elements.length, unparserContext);
+		// Handle arrays
+		if (type === 'array') {
+			yield new Uint8Array([ 0x1C << 5 ]);
+			yield * uleb128Unparser(value.length, unparserContext);
 
-				for (const element of annotation.elements) {
-					const nameIndex = getStringIndex(element.name);
-					yield * uleb128Unparser(nameIndex, unparserContext);
-					yield * encodedValueUnparser(element.value, unparserContext);
-				}
+			for (const element of value) {
+				yield * encodedValueUnparser(element, unparserContext);
 			}
 			return;
 		}
 
-		if (Array.isArray(input)) {
-			yield new Uint8Array([ 0x1C << 5 ]);
-			yield * uleb128Unparser(input.length, unparserContext);
+		// Handle annotations
+		if (type === 'annotation') {
+			const typeIndex = getTypeIndex(value.type);
+			yield new Uint8Array([ 0x1D << 5 ]);
+			yield * uleb128Unparser(typeIndex, unparserContext);
+			yield * uleb128Unparser(value.elements.length, unparserContext);
 
-			for (const element of input) {
-				if (typeof element === 'string') {
-					const stringIndex = getStringIndex(element);
-					const bytes = encodeValueArgument(stringIndex);
-					yield new Uint8Array([ (0x17 << 5) | (bytes.length - 1) ]);
-					yield bytes;
-				} else {
-					yield * encodedValueUnparser(element, unparserContext);
-				}
+			for (const element of value.elements) {
+				const nameIndex = getStringIndex(element.name);
+				yield * uleb128Unparser(nameIndex, unparserContext);
+				yield * encodedValueUnparser(element.value, unparserContext);
 			}
 			return;
 		}
@@ -336,6 +375,47 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 			} else {
 				break;
 			}
+		}
+
+		return buffer.subarray(0, length);
+	}
+
+	function encodeUnsignedInt(value: number): Uint8Array {
+		const buffer = Buffer.alloc(4);
+		buffer.writeUInt32LE(value);
+
+		let length = 4;
+
+		while (length > 1 && buffer[length - 1] === 0x00) {
+			length--;
+		}
+
+		return buffer.subarray(0, length);
+	}
+
+	function encodeFloat(value: number): Uint8Array {
+		const buffer = Buffer.alloc(4);
+		buffer.writeFloatLE(value);
+
+		let length = 4;
+
+		// Remove trailing zero bytes, but keep at least one byte
+		while (length > 1 && buffer[length - 1] === 0x00) {
+			length--;
+		}
+
+		return buffer.subarray(0, length);
+	}
+
+	function encodeDouble(value: number): Uint8Array {
+		const buffer = Buffer.alloc(8);
+		buffer.writeDoubleLE(value);
+
+		let length = 8;
+
+		// Remove trailing zero bytes, but keep at least one byte
+		while (length > 1 && buffer[length - 1] === 0x00) {
+			length--;
 		}
 
 		return buffer.subarray(0, length);

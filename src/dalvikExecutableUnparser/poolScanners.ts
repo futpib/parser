@@ -67,55 +67,62 @@ export function scanForPoolReferences(
 		addString(method.name);
 	}
 
-	function scanEncodedValue(value: DalvikExecutableEncodedValue | Array<DalvikExecutableEncodedValue | string>): void {
-		if (value === null || value === undefined) {
+	function scanEncodedValue(value: DalvikExecutableEncodedValue): void {
+		const { type, value: innerValue } = value;
+
+		// Handle primitive types - they don't need pool entries
+		if (
+			type === 'byte'
+			|| type === 'short'
+			|| type === 'char'
+			|| type === 'int'
+			|| type === 'long'
+			|| type === 'float'
+			|| type === 'double'
+			|| type === 'boolean'
+			|| type === 'null'
+			|| type === 'methodHandle'
+		) {
 			return;
 		}
 
-		if (typeof value === 'string') {
-			addString(value);
+		// Handle types that need pool entries
+		if (type === 'string') {
+			addString(innerValue);
 			return;
 		}
 
-		if (typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') {
+		if (type === 'type') {
+			addType(innerValue);
 			return;
 		}
 
-		if (isDalvikExecutableField(value)) {
-			addField(value as DalvikExecutableField);
+		if (type === 'field' || type === 'enum') {
+			addField(innerValue);
 			return;
 		}
 
-		if (isDalvikExecutableMethod(value)) {
-			addMethod(value as DalvikExecutableMethod);
+		if (type === 'method') {
+			addMethod(innerValue);
 			return;
 		}
 
-		if (Array.isArray(value)) {
-			for (const element of value) {
-				if (typeof element === 'string') {
-					addString(element);
-				} else {
-					scanEncodedValue(element);
-				}
+		if (type === 'methodType') {
+			addPrototype(innerValue);
+			return;
+		}
+
+		// Handle arrays recursively
+		if (type === 'array') {
+			for (const element of innerValue) {
+				scanEncodedValue(element);
 			}
 			return;
 		}
 
-		if (typeof value === 'object' && 'returnType' in value && 'parameters' in value) {
-			addPrototype(value as DalvikExecutablePrototype);
-			return;
-		}
-
-		if (typeof value === 'object' && 'type' in value && 'elements' in value) {
-			const annotation = value as any;
-			if (typeof annotation.type === 'string') {
-				addType(annotation.type);
-				for (const element of annotation.elements) {
-					addString(element.name);
-					scanEncodedValue(element.value);
-				}
-			}
+		// Handle annotations
+		if (type === 'annotation') {
+			scanAnnotation(innerValue);
 		}
 	}
 
