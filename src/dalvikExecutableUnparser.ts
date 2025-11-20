@@ -218,10 +218,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	// Track classDataItem, codeItem, and debugInfoItem for later writing
 	// Collect data to write items grouped by type (required by DEX format)
 	const classDataToWrite: Array<{ classDef: any; classDefItem: any; classIdx: number }> = [];
-	const codeToWrite: Array<{ code: any; offsetWriteLater: any }> = [];
+	const codeToWrite: Array<{ code: any }> = [];
 	const debugInfoToWrite: Array<{ debugInfo: any; offsetWriteLater: any }> = [];
 
-	// First pass: write interfaces and static values, collect classData/code/debugInfo
+	// First pass: write interfaces and static values, collect classData/code
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
 		const classDefItem = classDefItems[classIdx];
@@ -241,13 +241,45 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 		if (classDef.classData && classDefItem.classDataOffsetWriteLater) {
 			classDataToWrite.push({ classDef, classDefItem, classIdx });
+			// Collect code items from this class
+			const allMethods = [ ...classDef.classData.directMethods, ...classDef.classData.virtualMethods ];
+			for (const method of allMethods) {
+				if (method.code) {
+					codeToWrite.push({ code: method.code });
+				}
+			}
 		}
 	}
 
-	// Second pass: write all classData items (grouped)
+	// Second pass: write all code items FIRST (grouped) and build offset map
+	let codeItemsOffset = 0;
+	let codeItemsCount = 0;
+	const codeOffsetMap = new Map();
+
+	for (const { code } of codeToWrite) {
+		yield * alignmentUnparser(4)(undefined, unparserContext);
+
+		if (codeItemsCount === 0) {
+			codeItemsOffset = unparserContext.position;
+		}
+		codeItemsCount++;
+
+		const codeOffset = unparserContext.position;
+		codeOffsetMap.set(code, codeOffset);
+
+		let debugInfoOffsetWriteLater;
+		yield * sectionUnparsers.codeItemUnparser(result => {
+			debugInfoOffsetWriteLater = result.debugInfoOffsetWriteLater;
+		})(code, unparserContext);
+
+		if (code.debugInfo && debugInfoOffsetWriteLater) {
+			debugInfoToWrite.push({ debugInfo: code.debugInfo, offsetWriteLater: debugInfoOffsetWriteLater });
+		}
+	}
+
+	// Third pass: write all classData items (grouped) using the offset map
 	let classDataItemsOffset = 0;
 	let classDataItemsCount = 0;
-	const classDataCodeInfo: Array<{ allMethods: any[]; codeOffsetWriteLaters: any[] }> = [];
 
 	for (const { classDef, classDefItem } of classDataToWrite) {
 		if (classDataItemsCount === 0) {
@@ -258,47 +290,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		const classDataOffset = unparserContext.position;
 		yield * unparserContext.writeEarlier(classDefItem.classDataOffsetWriteLater, uintUnparser, classDataOffset);
 
-		const classData = classDef.classData;
-		const allMethods = [ ...classData.directMethods, ...classData.virtualMethods ];
-		const codeOffsetWriteLaters: any[] = [];
-
-		yield * sectionUnparsers.classDataUnparser(codeOffsetWriteLaters)(classDef.classData, unparserContext);
-
-		// Collect code items for later writing
-		classDataCodeInfo.push({ allMethods, codeOffsetWriteLaters });
-		for (let methodIdx = 0; methodIdx < allMethods.length; methodIdx++) {
-			const method = allMethods[methodIdx];
-			if (method.code) {
-				codeToWrite.push({ code: method.code, offsetWriteLater: codeOffsetWriteLaters[methodIdx] });
-			}
-		}
-	}
-
-	// Third pass: write all code items (grouped)
-	let codeItemsOffset = 0;
-	let codeItemsCount = 0;
-
-	for (const { code, offsetWriteLater } of codeToWrite) {
-		yield * alignmentUnparser(4)(undefined, unparserContext);
-
-		if (codeItemsCount === 0) {
-			codeItemsOffset = unparserContext.position;
-		}
-		codeItemsCount++;
-
-		const codeOffset = unparserContext.position;
-		if (offsetWriteLater) {
-			yield * unparserContext.writeEarlier(offsetWriteLater, uintUnparser, codeOffset);
-		}
-
-		let debugInfoOffsetWriteLater;
-		yield * sectionUnparsers.codeItemUnparser(result => {
-			debugInfoOffsetWriteLater = result.debugInfoOffsetWriteLater;
-		})(code, unparserContext);
-
-		if (code.debugInfo && debugInfoOffsetWriteLater) {
-			debugInfoToWrite.push({ debugInfo: code.debugInfo, offsetWriteLater: debugInfoOffsetWriteLater });
-		}
+		yield * sectionUnparsers.classDataUnparser(codeOffsetMap)(classDef.classData, unparserContext);
 	}
 
 	// Fourth pass: write all debugInfo items (grouped)
@@ -467,6 +459,9 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	}
 
 	mapItems.push({ type: 0x1000, size: 1, offset: mapOffset });
+
+	// Sort map items by offset as required by DEX format
+	mapItems.sort((a, b) => a.offset - b.offset);
 
 	yield * uintUnparser(mapItems.length, unparserContext);
 

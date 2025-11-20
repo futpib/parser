@@ -598,7 +598,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		return Math.floor(totalSize / 2);
 	}
 
-	const classDataUnparser = (codeOffsetWriteLaters: any[]): Unparser<DalvikExecutableClassData<DalvikBytecode>, Uint8Array> => {
+	const classDataUnparser = (codeOffsetMap: Map<any, number>): Unparser<DalvikExecutableClassData<DalvikBytecode>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * uleb128Unparser(input.staticFields.length, unparserContext);
 			yield * uleb128Unparser(input.instanceFields.length, unparserContext);
@@ -627,13 +627,11 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 				yield * uleb128Unparser(methodIndex - prevMethodIndex, unparserContext);
 				yield * uleb128Unparser(accessFlagsToNumber(method.accessFlags), unparserContext);
 
-				if (method.code) {
-					const codeOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-					codeOffsetWriteLaters.push(codeOffsetWriteLater);
-				} else {
-					codeOffsetWriteLaters.push(null);
-					yield * uleb128Unparser(0, unparserContext);
+				const codeOffset = method.code ? codeOffsetMap.get(method.code) : 0;
+				if (method.code && codeOffset === undefined) {
+					throw new Error('Code offset not found in map');
 				}
+				yield * uleb128Unparser(codeOffset || 0, unparserContext);
 
 				prevMethodIndex = methodIndex;
 			}
@@ -644,13 +642,11 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 				yield * uleb128Unparser(methodIndex - prevMethodIndex, unparserContext);
 				yield * uleb128Unparser(accessFlagsToNumber(method.accessFlags), unparserContext);
 
-				if (method.code) {
-					const codeOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-					codeOffsetWriteLaters.push(codeOffsetWriteLater);
-				} else {
-					codeOffsetWriteLaters.push(null);
-					yield * uleb128Unparser(0, unparserContext);
+				const codeOffset = method.code ? codeOffsetMap.get(method.code) : 0;
+				if (method.code && codeOffset === undefined) {
+					throw new Error('Code offset not found in map');
 				}
+				yield * uleb128Unparser(codeOffset || 0, unparserContext);
 
 				prevMethodIndex = methodIndex;
 			}
