@@ -13,7 +13,40 @@ import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createSkipToParser } from './skipToParser.js';
 import { createLookaheadParser } from './lookaheadParser.js';
 import {
-	getIsoTypedNumberArray, type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds, isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler, isoOffsetToAnnotationItem, isoOffsetToAnnotationsDirectoryItem, isoOffsetToAnnotationSetItem, isoOffsetToAnnotationSetRefListItem, isoOffsetToClassDataItem, isoOffsetToCodeItem, isoOffsetToDebugInfoItem, isoOffsetToEncodedArrayItem, isoOffsetToStringDataItem, isoOffsetToTypeList, type OffsetFromEncodedCatchHandlerListToEncodedCatchHandler, type OffsetToAnnotationItem, type OffsetToAnnotationsDirectoryItem, type OffsetToAnnotationSetItem, type OffsetToAnnotationSetRefListItem, type OffsetToClassDataItem, type OffsetToCodeItem, type OffsetToDebugInfoItem, type OffsetToEncodedArrayItem, type OffsetToStringDataItem, type OffsetToTypeList, type TypedNumberArray,
+	getIsoTypedNumberArray,
+	type IndexIntoFieldIds,
+	type IndexIntoMethodIds,
+	type IndexIntoPrototypeIds,
+	type IndexIntoStringIds,
+	type IndexIntoTypeIds,
+	isoIndexIntoFieldIds,
+	isoIndexIntoMethodIds,
+	isoIndexIntoPrototypeIds,
+	isoIndexIntoStringIds,
+	isoIndexIntoTypeIds,
+	isoOffsetFromEncodedCatchHandlerListToEncodedCatchHandler,
+	isoOffsetToAnnotationItem,
+	isoOffsetToAnnotationsDirectoryItem,
+	isoOffsetToAnnotationSetItem,
+	isoOffsetToAnnotationSetRefListItem,
+	isoOffsetToClassDataItem,
+	isoOffsetToCodeItem,
+	isoOffsetToDebugInfoItem,
+	isoOffsetToEncodedArrayItem,
+	isoOffsetToStringDataItem,
+	isoOffsetToTypeList,
+	type OffsetFromEncodedCatchHandlerListToEncodedCatchHandler,
+	type OffsetToAnnotationItem,
+	type OffsetToAnnotationsDirectoryItem,
+	type OffsetToAnnotationSetItem,
+	type OffsetToAnnotationSetRefListItem,
+	type OffsetToClassDataItem,
+	type OffsetToCodeItem,
+	type OffsetToDebugInfoItem,
+	type OffsetToEncodedArrayItem,
+	type OffsetToStringDataItem,
+	type OffsetToTypeList,
+	type TypedNumberArray,
 } from './dalvikExecutableParser/typedNumbers.js';
 import { sleb128NumberParser, uleb128NumberParser } from './leb128Parser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
@@ -26,7 +59,17 @@ import {
 	ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
 } from './dalvikExecutableParser/typeParsers.js';
 import {
-	type DalvikExecutable, type DalvikExecutableAccessFlags, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassFieldAnnotation, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableEncodedValue,
+	type DalvikExecutable,
+	type DalvikExecutableAccessFlags,
+	type DalvikExecutableAnnotation,
+	type DalvikExecutableClassAnnotations,
+	type DalvikExecutableClassData,
+	type DalvikExecutableClassFieldAnnotation,
+	type DalvikExecutableClassMethodAnnotation,
+	type DalvikExecutableClassParameterAnnotation,
+	type DalvikExecutableCode,
+	type DalvikExecutableDebugInfo,
+	type DalvikExecutableEncodedValue,
 } from './dalvikExecutable.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
