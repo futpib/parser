@@ -2238,6 +2238,7 @@ type DalvikExecutableData<Instructions> = {
 	encodedArrayItemByOffset: DalvikExecutableEncodedArrayItemByOffset;
 	annotationsDirectoryItemByOffset: DalvikExecutableAnnotationsDirectoryItemByOffset;
 	hiddenApiClassDataItems: DalvikExecutableHiddenApiClassDataItem[];
+	link: undefined | Uint8Array;
 };
 
 const createDalvikExecutableDataParser = <Instructions>({
@@ -2267,8 +2268,18 @@ const createDalvikExecutableDataParser = <Instructions>({
 		let encodedArrayItemByOffset: DalvikExecutableEncodedArrayItemByOffset = new Map();
 		let annotationsDirectoryItemByOffset: DalvikExecutableAnnotationsDirectoryItemByOffset = new Map();
 		const hiddenApiClassDataItems: DalvikExecutableHiddenApiClassDataItem[] = [];
+		
+		// Track if link has been parsed
+		let link: undefined | Uint8Array = undefined;
+		let linkParsed = false;
 
 		for (const dexMapItem of mapList) {
+			// Parse link data before any map item that comes after it in the file
+			// Link data is not included in the map items, but is referenced in the header
+			if (!linkParsed && headerItem.link.size > 0 && headerItem.link.offset < dexMapItem.offset) {
+				link = await createRawDataParser(headerItem.link)(parserContext);
+				linkParsed = true;
+			}
 			if (dexMapItem.type === 'headerItem') {
 				continue;
 			}
@@ -2312,6 +2323,7 @@ const createDalvikExecutableDataParser = <Instructions>({
 			}
 
 			if (dexMapItem.type === 'mapList') {
+				// Re-parse the map itself to consume it from the input
 				await createDalvikExecutableMapListParser(dexMapItem.offset)(parserContext);
 				continue;
 			}
@@ -2376,6 +2388,12 @@ const createDalvikExecutableDataParser = <Instructions>({
 			invariant(false, 'Unexpected map item type: %s', dexMapItem.type);
 		}
 
+		// Parse link data after the loop if it hasn't been parsed yet
+		// This handles the case where link comes after all map items
+		if (!linkParsed && headerItem.link.size > 0) {
+			link = await createRawDataParser(headerItem.link)(parserContext);
+		}
+
 		return {
 			headerItem,
 			stringIdItems,
@@ -2398,6 +2416,7 @@ const createDalvikExecutableDataParser = <Instructions>({
 			encodedArrayItemByOffset,
 			annotationsDirectoryItemByOffset,
 			hiddenApiClassDataItems,
+			link,
 		};
 	};
 
@@ -2416,40 +2435,35 @@ const createDalvikExecutableParser = <Instructions>({
 		headerItem,
 		mapList,
 	}) => promiseCompose(
-		createTupleParser([
-			createDalvikExecutableDataParser({
-				headerItem,
-				mapList,
-				createInstructionsParser,
-			}),
-			createRawDataParser(headerItem.link),
-		]),
-		async ([
-			{
-				headerItem: _headerItem,
-				stringIdItems,
-				typeIdItems,
-				prototypeIdItems,
-				fieldIdItems,
-				methodIdItems,
-				classDefinitionItems,
-				// CallSiteIdItems,
-				// methodHandleItems,
-				mapList: _mapList,
-				typeListByOffset,
-				annotationSetRefListItemByOffset,
-				annotationSetItemByOffset,
-				classDataItemByOffset,
-				codeItemByOffset,
-				stringDataItemStringByOffset,
-				debugInfoItemByOffset,
-				annotationItemByOffset,
-				encodedArrayItemByOffset,
-				annotationsDirectoryItemByOffset,
-				// HiddenApiClassDataItems,
-			},
+		createDalvikExecutableDataParser({
+			headerItem,
+			mapList,
+			createInstructionsParser,
+		}),
+		async ({
+			headerItem: _headerItem,
+			stringIdItems,
+			typeIdItems,
+			prototypeIdItems,
+			fieldIdItems,
+			methodIdItems,
+			classDefinitionItems,
+			// CallSiteIdItems,
+			// methodHandleItems,
+			mapList: _mapList,
+			typeListByOffset,
+			annotationSetRefListItemByOffset,
+			annotationSetItemByOffset,
+			classDataItemByOffset,
+			codeItemByOffset,
+			stringDataItemStringByOffset,
+			debugInfoItemByOffset,
+			annotationItemByOffset,
+			encodedArrayItemByOffset,
+			annotationsDirectoryItemByOffset,
+			// HiddenApiClassDataItems,
 			link,
-		]) => {
+		}) => {
 			const strings = stringIdItems.map(stringId => {
 				const stringOffset = stringId;
 				const string = stringDataItemStringByOffset.get(stringOffset);
