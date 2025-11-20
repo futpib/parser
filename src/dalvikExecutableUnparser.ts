@@ -10,6 +10,7 @@ import { alignmentUnparser, calculateAdler32, calculateSHA1 } from './dalvikExec
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 import { runUnparser } from './unparser.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
+import { WriteLater } from './unparserContext.js';
 
 async function* yieldAndCapture<T>(gen: AsyncIterable<T, T>): AsyncIterable<T, T> {
 	let value: T | undefined;
@@ -84,7 +85,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const stringIdsOffset = unparserContext.position;
 	yield * unparserContext.writeEarlier(stringIdsOffsetWriteLater, uintUnparser, stringIdsOffset);
 
-	const stringDataOffsetWriteLaters: any[] = [];
+	const stringDataOffsetWriteLaters: Array<WriteLater<Uint8Array, number>> = [];
 	for (let i = 0; i < stringPool.size(); i++) {
 		const offsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
 		stringDataOffsetWriteLaters.push(offsetWriteLater);
@@ -101,7 +102,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const protoIdsOffset = unparserContext.position;
 	yield * unparserContext.writeEarlier(protoIdsOffsetWriteLater, uintUnparser, protoIdsOffset);
 
-	const protoParameterListOffsetWriteLaters: any[] = [];
+	const protoParameterListOffsetWriteLaters: Array<WriteLater<Uint8Array, number> | null> = [];
 	for (const proto of protoPool.getProtos()) {
 		const shortyIndex = sectionUnparsers.getStringIndex(proto.shorty);
 		const returnTypeIndex = sectionUnparsers.getTypeIndex(proto.returnType);
@@ -136,10 +137,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	yield * unparserContext.writeEarlier(classDefsOffsetWriteLater, uintUnparser, classDefsOffset);
 
 	const classDefItems: Array<{
-		interfacesOffsetWriteLater?: any;
-		annotationsOffsetWriteLater?: any;
-		classDataOffsetWriteLater?: any;
-		staticValuesOffsetWriteLater?: any;
+		interfacesOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		annotationsOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		classDataOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		staticValuesOffsetWriteLater?: WriteLater<Uint8Array, number>;
 	}> = [];
 
 	for (const classDef of input.classDefinitions) {
