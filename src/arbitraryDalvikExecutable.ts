@@ -148,7 +148,6 @@ const arbitraryDalvikExecutableEncodedValue: fc.Arbitrary<DalvikExecutableEncode
 		fc.bigInt({ min: -9223372036854775808n, max: 9223372036854775807n }),
 		fc.boolean(),
 		fc.constant(null),
-		fc.constant(undefined),
 		fc.array(tie('value') as fc.Arbitrary<DalvikExecutableEncodedValue>, { maxLength: 3 }),
 	),
 })).value;
