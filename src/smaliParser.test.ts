@@ -172,7 +172,7 @@ stringParserTest(smaliFieldParser, [
 						{
 							name: 'value',
 							value: {
-								kind: 'type',
+								kind: 'string',
 								value: [
 									'Lo/b<',
 									'Ljava/lang/Float;',
@@ -205,7 +205,7 @@ stringParserTest(smaliAnnotationParser, [
 				{
 					name: 'value',
 					value: {
-						kind: 'type',
+						kind: 'string',
 						value: [
 							'<T:',
 							'Landroid/view/View;',
@@ -243,7 +243,7 @@ stringParserTest(smaliAnnotationParser, [
 				{
 					name: 'value',
 					value: {
-						kind: 'type',
+						kind: 'string',
 						value: [
 							'Lo/b<',
 							'Ljava/lang/Float;',
