@@ -91,7 +91,8 @@ async function withEnrichedParserError<
 				error.name,
 			);
 
-			const normalError: ParserError = new ((normalParserErrorModule as any)[error.name])(error.message);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const normalError: ParserError = new ((normalParserErrorModule as any)[error.name])(error.message);
 			Object.assign(normalError, error);
 
 			normalError.stack = normalError.stack + '\nIf you need a useful stack trace, pass `errorStack: true` to `runParser`, trading off some performance.';

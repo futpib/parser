@@ -207,37 +207,37 @@ export function scanForPoolReferences(
 
 		for (const operation of code.instructions) {
 			if ('methodIndex' in operation) {
-				const methodIndex = operation.methodIndex as any;
+				const methodIndex = operation.methodIndex as unknown;
 				if (isDalvikExecutableMethod(methodIndex)) {
 					addMethod(methodIndex);
 				}
 			}
 
 			if ('fieldIndex' in operation) {
-				const fieldIndex = operation.fieldIndex as any;
+				const fieldIndex = operation.fieldIndex as unknown;
 				if (isDalvikExecutableField(fieldIndex)) {
 					addField(fieldIndex);
 				}
 			}
 
 			if ('typeIndex' in operation) {
-				const typeIndex = operation.typeIndex as any;
+				const typeIndex = operation.typeIndex as unknown;
 				if (typeof typeIndex === 'string') {
 					addType(typeIndex);
 				}
 			}
 
 			if ('stringIndex' in operation) {
-				const stringIndex = operation.stringIndex as any;
+				const stringIndex = operation.stringIndex as unknown;
 				if (typeof stringIndex === 'string') {
 					addString(stringIndex);
 				}
 			}
 
 			if ('protoIndex' in operation) {
-				const protoIndex = operation.protoIndex as any;
-				if (typeof protoIndex === 'object' && 'returnType' in protoIndex) {
-					addPrototype(protoIndex);
+				const protoIndex = operation.protoIndex as unknown;
+				if (typeof protoIndex === 'object' && protoIndex !== null && 'returnType' in protoIndex) {
+					addPrototype(protoIndex as DalvikExecutablePrototype);
 				}
 			}
 		}
