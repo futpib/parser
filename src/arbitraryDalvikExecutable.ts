@@ -275,7 +275,8 @@ const arbitraryDalvikExecutableDebugByteCodeValue: fc.Arbitrary<DalvikExecutable
 	}),
 	fc.record({
 		type: fc.constant('special' as const),
-		value: fc.nat({ max: 255 }),
+		// Special opcodes must be >= 0x0A (values 0x00-0x09 are specific debug opcodes)
+		value: fc.integer({ min: 0x0A, max: 255 }),
 	}),
 );
 
