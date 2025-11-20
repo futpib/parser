@@ -1895,7 +1895,7 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 			}
 
 			case 0x09: { return promiseCompose(
-				uleb128NumberParser,
+				uleb128p1NumberParser,
 				nameIndex => ({ type: 'setFile', nameIndex: isoIndexIntoStringIds.wrap(nameIndex) }),
 			);
 			}
