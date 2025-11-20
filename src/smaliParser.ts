@@ -86,6 +86,16 @@ function convertToTaggedEncodedValue(wrappedValue: SmaliAnnotationElementValue):
 		return { type: 'string', value };
 	}
 
+	// Handle enum values
+	if (kind === 'enum') {
+		if (Array.isArray(value)) {
+			// Array of enum values
+			return { type: 'array', value: value.map(v => ({ type: 'enum', value: v })) };
+		}
+		// Single enum value
+		return { type: 'enum', value };
+	}
+
 	// Handle raw values (everything else)
 	// Handle null
 	if (value === null) {
@@ -595,6 +605,7 @@ const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<
 type SmaliAnnotationElementValue =
 	| { kind: 'type'; value: string | string[] }
 	| { kind: 'string'; value: string | string[] }
+	| { kind: 'enum'; value: DalvikExecutableField | DalvikExecutableField[] }
 	| { kind: 'raw'; value: unknown };
 
 type SmaliAnnotationElement = {
@@ -695,7 +706,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 			),
 			promiseCompose(
 				smaliEnumValueParser,
-				value => ({ kind: 'raw' as const, value }),
+				value => ({ kind: 'enum' as const, value }),
 			),
 			promiseCompose(
 				smaliQuotedStringParser,
@@ -753,7 +764,7 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 					_openBrace,
 					value,
 					_closeBrace,
-				]) => ({ kind: 'raw' as const, value }),
+				]) => ({ kind: 'enum' as const, value }),
 			),
 			promiseCompose(
 				createTupleParser([
