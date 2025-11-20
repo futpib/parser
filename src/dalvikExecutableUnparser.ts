@@ -1,5 +1,5 @@
 import { type Unparser } from './unparser.js';
-import { type DalvikExecutable } from './dalvikExecutable.js';
+import { type DalvikExecutable, type DalvikExecutableAnnotation } from './dalvikExecutable.js';
 import { type DalvikBytecode } from './dalvikBytecodeParser.js';
 import { uintUnparser, ushortUnparser } from './dalvikBytecodeUnparser/formatUnparsers.js';
 import { createPoolBuilders } from './dalvikExecutableUnparser/poolBuilders.js';

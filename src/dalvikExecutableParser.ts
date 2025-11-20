@@ -1820,7 +1820,7 @@ type DalvikExecutableDebugByteCodeValueItem =
 	}
 	| {
 		type: 'setFile';
-		nameIndex: IndexIntoStringIds;
+		nameIndex: IndexIntoStringIds | undefined;
 	}
 	| {
 		type: 'special';
@@ -1896,7 +1896,7 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 
 			case 0x09: { return promiseCompose(
 				uleb128p1NumberParser,
-				nameIndex => ({ type: 'setFile', nameIndex: isoIndexIntoStringIds.wrap(nameIndex) }),
+				nameIndex => ({ type: 'setFile', nameIndex: nameIndex === -1 ? undefined : isoIndexIntoStringIds.wrap(nameIndex) }),
 			);
 			}
 
@@ -2613,7 +2613,7 @@ const createDalvikExecutableParser = <Instructions>({
 							};
 							}
 
-							case 'setFile': { return { type: 'setFile', name: strings.at(value.nameIndex) };
+							case 'setFile': { return { type: 'setFile', name: value.nameIndex === undefined ? undefined : strings.at(value.nameIndex) };
 							}
 
 							default: { return value;
