@@ -32,6 +32,7 @@ export const parseArrayElements = async <ElementOutput, Sequence>(
 		const initialPosition = elementParserContext.position;
 
 		try {
+			// eslint-disable-next-line no-await-in-loop -- Sequential parsing is required
 			const element = await elementParser(elementParserContext);
 			if (elementParserContext.position === initialPosition) {
 				if (returnOnNoMatch) {
