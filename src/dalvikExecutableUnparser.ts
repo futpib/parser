@@ -106,8 +106,13 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	yield * uintUnparser(0x12345678, unparserContext);
 
-	const hasLink = !!(input.link && input.link.length > 0);
-	yield * uintUnparser(hasLink ? input.link!.length : 0, unparserContext);
+	const linkData = input.link;
+	const hasLink = !!(linkData && linkData.length > 0);
+	if (hasLink) {
+		yield * uintUnparser(linkData.length, unparserContext);
+	} else {
+		yield * uintUnparser(0, unparserContext);
+	}
 	const linkOffsetWriteLater = yield * writeConditionalOffset(hasLink, unparserContext);
 
 	const mapOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
