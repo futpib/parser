@@ -50,6 +50,30 @@ async function* writeConditionalOffset(
 	}
 }
 
+/**
+ * Helper class to track offset and count for a section of items.
+ * Records the offset of the first item and counts items as they are written.
+ */
+class SectionTracker {
+	private _offset = 0;
+	private _count = 0;
+
+	recordItem(position: number): void {
+		if (this._count === 0) {
+			this._offset = position;
+		}
+		this._count++;
+	}
+
+	get offset(): number {
+		return this._offset;
+	}
+
+	get count(): number {
+		return this._count;
+	}
+}
+
 export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>, Uint8Array> = async function * (input, unparserContext) {
 	const poolBuilders = createPoolBuilders();
 
@@ -212,18 +236,13 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		yield * sectionUnparsers.stringDataUnparser(stringPool.getStrings()[i], unparserContext);
 	}
 
-	let typeListItemsOffset = 0;
-	let typeListItemsCount = 0;
+	const typeListItemsTracker = new SectionTracker();
 
 	for (let i = 0; i < protoPool.size(); i++) {
 		const proto = protoPool.getProtos()[i];
 		if (proto.parameters.length > 0) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
-
-			if (typeListItemsCount === 0) {
-				typeListItemsOffset = unparserContext.position;
-			}
-			typeListItemsCount++;
+			typeListItemsTracker.recordItem(unparserContext.position);
 
 			const paramListOffset = unparserContext.position;
 			const writeLater = protoParameterListOffsetWriteLaters[i];
@@ -250,8 +269,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const debugInfoToWrite: Array<{ debugInfo: DalvikExecutableDebugInfo; offsetWriteLater: WriteLater<Uint8Array, number> }> = [];
 
 	// First pass: collect type lists, encoded arrays, and classData/code/debugInfo to write
-	let encodedArrayItemsOffset = 0;
-	let encodedArrayItemsCount = 0;
+	const encodedArrayItemsTracker = new SectionTracker();
 
 	type TypeListToWrite = {
 		interfaces: string[];
@@ -298,11 +316,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	// Second pass: write all type lists (interfaces)
 	for (const typeList of typeListsToWrite) {
 		yield * alignmentUnparser(4)(undefined, unparserContext);
-
-		if (typeListItemsCount === 0) {
-			typeListItemsOffset = unparserContext.position;
-		}
-		typeListItemsCount++;
+		typeListItemsTracker.recordItem(unparserContext.position);
 
 		const typeListOffset = unparserContext.position;
 		yield * unparserContext.writeEarlier(typeList.offsetWriteLater, uintUnparser, typeListOffset);
@@ -311,10 +325,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	// Third pass: write all encoded arrays (static values)
 	for (const encodedArray of encodedArraysToWrite) {
-		if (encodedArrayItemsCount === 0) {
-			encodedArrayItemsOffset = unparserContext.position;
-		}
-		encodedArrayItemsCount++;
+		encodedArrayItemsTracker.recordItem(unparserContext.position);
 
 		const encodedArrayOffset = unparserContext.position;
 		yield * unparserContext.writeEarlier(encodedArray.offsetWriteLater, uintUnparser, encodedArrayOffset);
@@ -322,17 +333,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	}
 
 	// Fourth pass: write all code items (grouped) and build offset map
-	let codeItemsOffset = 0;
-	let codeItemsCount = 0;
+	const codeItemsTracker = new SectionTracker();
 	const codeOffsetMap = new Map();
 
 	for (const { code } of codeToWrite) {
 		yield * alignmentUnparser(4)(undefined, unparserContext);
-
-		if (codeItemsCount === 0) {
-			codeItemsOffset = unparserContext.position;
-		}
-		codeItemsCount++;
+		codeItemsTracker.recordItem(unparserContext.position);
 
 		const codeOffset = unparserContext.position;
 		codeOffsetMap.set(code, codeOffset);
@@ -348,14 +354,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	}
 
 	// Fifth pass: write all classData items (grouped) using the offset map
-	let classDataItemsOffset = 0;
-	let classDataItemsCount = 0;
+	const classDataItemsTracker = new SectionTracker();
 
 	for (const { classDef, classDefItem } of classDataToWrite) {
-		if (classDataItemsCount === 0) {
-			classDataItemsOffset = unparserContext.position;
-		}
-		classDataItemsCount++;
+		classDataItemsTracker.recordItem(unparserContext.position);
 
 		const classDataOffset = unparserContext.position;
 		if (classDefItem.classDataOffsetWriteLater && classDef.classData) {
@@ -366,14 +368,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	}
 
 	// Sixth pass: write all debugInfo items (grouped)
-	let debugInfoItemsOffset = 0;
-	let debugInfoItemsCount = 0;
+	const debugInfoItemsTracker = new SectionTracker();
 
 	for (const { debugInfo, offsetWriteLater } of debugInfoToWrite) {
-		if (debugInfoItemsCount === 0) {
-			debugInfoItemsOffset = unparserContext.position;
-		}
-		debugInfoItemsCount++;
+		debugInfoItemsTracker.recordItem(unparserContext.position);
 
 		const debugInfoOffset = unparserContext.position;
 		yield * unparserContext.writeEarlier(offsetWriteLater, uintUnparser, debugInfoOffset);
@@ -381,14 +379,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	}
 
 	// Seventh pass: write annotations
-	let annotationsDirectoryItemsOffset = 0;
-	let annotationsDirectoryItemsCount = 0;
-	let annotationSetItemsOffset = 0;
-	let annotationSetItemsCount = 0;
-	let annotationSetRefListItemsOffset = 0;
-	let annotationSetRefListItemsCount = 0;
-	let annotationItemsOffset = 0;
-	let annotationItemsCount = 0;
+	const annotationsDirectoryItemsTracker = new SectionTracker();
+	const annotationSetItemsTracker = new SectionTracker();
+	const annotationSetRefListItemsTracker = new SectionTracker();
+	const annotationItemsTracker = new SectionTracker();
 
 	// Collect annotation sets and items to write later
 	type AnnotationSetToWrite = {
@@ -413,11 +407,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 		if (classDef.annotations && classDefItem.annotationsOffsetWriteLater) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
-
-			if (annotationsDirectoryItemsCount === 0) {
-				annotationsDirectoryItemsOffset = unparserContext.position;
-			}
-			annotationsDirectoryItemsCount++;
+			annotationsDirectoryItemsTracker.recordItem(unparserContext.position);
 
 			const annotationsOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(classDefItem.annotationsOffsetWriteLater, uintUnparser, annotationsOffset);
@@ -477,11 +467,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	// Second sub-pass: write all annotation set ref lists
 	for (const refList of annotationSetRefListsToWrite) {
 		yield * alignmentUnparser(4)(undefined, unparserContext);
-
-		if (annotationSetRefListItemsCount === 0) {
-			annotationSetRefListItemsOffset = unparserContext.position;
-		}
-		annotationSetRefListItemsCount++;
+		annotationSetRefListItemsTracker.recordItem(unparserContext.position);
 
 		const refListOffset = unparserContext.position;
 		yield * unparserContext.writeEarlier(refList.refListOffsetWriteLater, uintUnparser, refListOffset);
@@ -505,11 +491,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	// Third sub-pass: write all annotation sets
 	for (const annotationSet of annotationSetsToWrite) {
 		yield * alignmentUnparser(4)(undefined, unparserContext);
-
-		if (annotationSetItemsCount === 0) {
-			annotationSetItemsOffset = unparserContext.position;
-		}
-		annotationSetItemsCount++;
+		annotationSetItemsTracker.recordItem(unparserContext.position);
 
 		const setOffset = unparserContext.position;
 		yield * unparserContext.writeEarlier(annotationSet.setOffsetWriteLater, uintUnparser, setOffset);
@@ -520,10 +502,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	// Fourth sub-pass: write all annotation items
 	for (const annotationSet of annotationSetsToWrite) {
 		for (let i = 0; i < annotationSet.annotations.length; i++) {
-			if (annotationItemsCount === 0) {
-				annotationItemsOffset = unparserContext.position;
-			}
-			annotationItemsCount++;
+			annotationItemsTracker.recordItem(unparserContext.position);
 
 			const itemOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(annotationSet.itemOffsetWriteLaters[i], uintUnparser, itemOffset);
@@ -551,15 +530,15 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		{ type: 0x0005, size: methodPool.size(), offset: methodIdsOffset },
 		{ type: 0x0006, size: input.classDefinitions.length, offset: classDefsOffset },
 		{ type: 0x2002, size: stringPool.size(), offset: dataOffset },
-		{ type: 0x1001, size: typeListItemsCount, offset: typeListItemsOffset },
-		{ type: 0x1002, size: annotationSetRefListItemsCount, offset: annotationSetRefListItemsOffset },
-		{ type: 0x1003, size: annotationSetItemsCount, offset: annotationSetItemsOffset },
-		{ type: 0x2000, size: classDataItemsCount, offset: classDataItemsOffset },
-		{ type: 0x2001, size: codeItemsCount, offset: codeItemsOffset },
-		{ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset },
-		{ type: 0x2004, size: annotationItemsCount, offset: annotationItemsOffset },
-		{ type: 0x2005, size: encodedArrayItemsCount, offset: encodedArrayItemsOffset },
-		{ type: 0x2006, size: annotationsDirectoryItemsCount, offset: annotationsDirectoryItemsOffset },
+		{ type: 0x1001, size: typeListItemsTracker.count, offset: typeListItemsTracker.offset },
+		{ type: 0x1002, size: annotationSetRefListItemsTracker.count, offset: annotationSetRefListItemsTracker.offset },
+		{ type: 0x1003, size: annotationSetItemsTracker.count, offset: annotationSetItemsTracker.offset },
+		{ type: 0x2000, size: classDataItemsTracker.count, offset: classDataItemsTracker.offset },
+		{ type: 0x2001, size: codeItemsTracker.count, offset: codeItemsTracker.offset },
+		{ type: 0x2003, size: debugInfoItemsTracker.count, offset: debugInfoItemsTracker.offset },
+		{ type: 0x2004, size: annotationItemsTracker.count, offset: annotationItemsTracker.offset },
+		{ type: 0x2005, size: encodedArrayItemsTracker.count, offset: encodedArrayItemsTracker.offset },
+		{ type: 0x2006, size: annotationsDirectoryItemsTracker.count, offset: annotationsDirectoryItemsTracker.offset },
 		{ type: 0x1000, size: 1, offset: mapOffset },
 	];
 
