@@ -541,75 +541,32 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const mapOffset = unparserContext.position;
 	yield * unparserContext.writeEarlier(mapOffsetWriteLater, uintUnparser, mapOffset);
 
-	const mapItems: Array<{ type: number; size: number; offset: number }> = [];
+	// Build map items from section definitions
+	const sectionConfigs = [
+		{ type: 0x0000, size: 1, offset: 0 },
+		{ type: 0x0001, size: stringPool.size(), offset: stringIdsOffset },
+		{ type: 0x0002, size: typePool.size(), offset: typeIdsOffset },
+		{ type: 0x0003, size: protoPool.size(), offset: protoIdsOffset },
+		{ type: 0x0004, size: fieldPool.size(), offset: fieldIdsOffset },
+		{ type: 0x0005, size: methodPool.size(), offset: methodIdsOffset },
+		{ type: 0x0006, size: input.classDefinitions.length, offset: classDefsOffset },
+		{ type: 0x2002, size: stringPool.size(), offset: dataOffset },
+		{ type: 0x1001, size: typeListItemsCount, offset: typeListItemsOffset },
+		{ type: 0x1002, size: annotationSetRefListItemsCount, offset: annotationSetRefListItemsOffset },
+		{ type: 0x1003, size: annotationSetItemsCount, offset: annotationSetItemsOffset },
+		{ type: 0x2000, size: classDataItemsCount, offset: classDataItemsOffset },
+		{ type: 0x2001, size: codeItemsCount, offset: codeItemsOffset },
+		{ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset },
+		{ type: 0x2004, size: annotationItemsCount, offset: annotationItemsOffset },
+		{ type: 0x2005, size: encodedArrayItemsCount, offset: encodedArrayItemsOffset },
+		{ type: 0x2006, size: annotationsDirectoryItemsCount, offset: annotationsDirectoryItemsOffset },
+		{ type: 0x1000, size: 1, offset: mapOffset },
+	];
 
-	mapItems.push({ type: 0x0000, size: 1, offset: 0 });
-
-	if (stringPool.size() > 0) {
-		mapItems.push({ type: 0x0001, size: stringPool.size(), offset: stringIdsOffset });
-	}
-
-	if (typePool.size() > 0) {
-		mapItems.push({ type: 0x0002, size: typePool.size(), offset: typeIdsOffset });
-	}
-
-	if (protoPool.size() > 0) {
-		mapItems.push({ type: 0x0003, size: protoPool.size(), offset: protoIdsOffset });
-	}
-
-	if (fieldPool.size() > 0) {
-		mapItems.push({ type: 0x0004, size: fieldPool.size(), offset: fieldIdsOffset });
-	}
-
-	if (methodPool.size() > 0) {
-		mapItems.push({ type: 0x0005, size: methodPool.size(), offset: methodIdsOffset });
-	}
-
-	if (input.classDefinitions.length > 0) {
-		mapItems.push({ type: 0x0006, size: input.classDefinitions.length, offset: classDefsOffset });
-	}
-
-	if (stringPool.size() > 0) {
-		mapItems.push({ type: 0x2002, size: stringPool.size(), offset: dataOffset });
-	}
-
-	if (typeListItemsCount > 0) {
-		mapItems.push({ type: 0x1001, size: typeListItemsCount, offset: typeListItemsOffset });
-	}
-
-	if (annotationSetRefListItemsCount > 0) {
-		mapItems.push({ type: 0x1002, size: annotationSetRefListItemsCount, offset: annotationSetRefListItemsOffset });
-	}
-
-	if (annotationSetItemsCount > 0) {
-		mapItems.push({ type: 0x1003, size: annotationSetItemsCount, offset: annotationSetItemsOffset });
-	}
-
-	if (classDataItemsCount > 0) {
-		mapItems.push({ type: 0x2000, size: classDataItemsCount, offset: classDataItemsOffset });
-	}
-
-	if (codeItemsCount > 0) {
-		mapItems.push({ type: 0x2001, size: codeItemsCount, offset: codeItemsOffset });
-	}
-
-	if (debugInfoItemsCount > 0) {
-		mapItems.push({ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset });
-	}
-
-	if (annotationItemsCount > 0) {
-		mapItems.push({ type: 0x2004, size: annotationItemsCount, offset: annotationItemsOffset });
-	}
-
-	if (encodedArrayItemsCount > 0) {
-		mapItems.push({ type: 0x2005, size: encodedArrayItemsCount, offset: encodedArrayItemsOffset });
-	}
-
-	if (annotationsDirectoryItemsCount > 0) {
-		mapItems.push({ type: 0x2006, size: annotationsDirectoryItemsCount, offset: annotationsDirectoryItemsOffset });
-	}
-
-	mapItems.push({ type: 0x1000, size: 1, offset: mapOffset });
+	// Filter out sections with zero size (except header and map which always exist)
+	const mapItems = sectionConfigs.filter(
+		config => config.type === 0x0000 || config.type === 0x1000 || config.size > 0,
+	);
 
 	// Sort map items by offset (required by DEX format spec)
 	mapItems.sort((a, b) => a.offset - b.offset);
