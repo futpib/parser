@@ -56,6 +56,7 @@ stringParserTest(smaliCodeParameterParser, [
 				index: 1,
 				prefix: 'p',
 			},
+			name: undefined,
 			annotation: undefined,
 		},
 	],
@@ -66,6 +67,7 @@ stringParserTest(smaliCodeParameterParser, [
 				index: 1,
 				prefix: 'p',
 			},
+			name: 'savedInstanceState',
 			annotation: undefined,
 		},
 	],
@@ -79,6 +81,7 @@ stringParserTest(smaliCodeParameterParser, [
 				index: 1,
 				prefix: 'p',
 			},
+			name: undefined,
 			annotation: {
 				visibility: 'build',
 				type: 'Landroid/annotation/NonNull;',

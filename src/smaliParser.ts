@@ -1260,6 +1260,7 @@ setParserName(smaliCodeEpilogueBeginParser, 'smaliCodeEpilogueBeginParser');
 
 type SmaliCodeParameter = {
 	register: SmaliRegister;
+	name: string | undefined;
 	annotation: SmaliAnnotation | undefined;
 };
 
@@ -1284,7 +1285,7 @@ export const smaliCodeParameterParser: Parser<SmaliCodeParameter, string> = prom
 	([
 		_parameter,
 		register,
-		_optionalCommaAndString,
+		optionalCommaAndString,
 		_whitespace,
 		_commentOrNewline,
 		optionalAnnotation,
@@ -1297,6 +1298,7 @@ export const smaliCodeParameterParser: Parser<SmaliCodeParameter, string> = prom
 
 		return {
 			register,
+			name: optionalCommaAndString?.[2],
 			annotation,
 		};
 	},
@@ -2095,6 +2097,7 @@ setParserName(smaliAnnotatedCodeOperationParser, 'smaliAnnotatedCodeOperationPar
 
 type SmaliExecutableCode<DalvikBytecode> = {
 	dalvikExecutableCode: DalvikExecutableCode<DalvikBytecode>;
+	parameters: SmaliCodeParameter[];
 	parameterAnnotations: SmaliCodeParameter[]; // TODO?: SmaliAnnotation[]
 	methodAnnotations: SmaliAnnotation[];
 };
@@ -2533,6 +2536,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				tries,
 				// _annotations,
 			},
+			parameters,
 			parameterAnnotations: parameters.filter(parameter => parameter.annotation !== undefined),
 			methodAnnotations: annotations,
 		};
@@ -2670,6 +2674,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 		_newline,
 		{
 			dalvikExecutableCode,
+			parameters,
 			parameterAnnotations,
 			methodAnnotations,
 		},
@@ -2728,7 +2733,23 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 			// The parameter count is insSize minus 1 for non-static methods (to exclude 'this')
 			if (code.debugInfo) {
 				const paramCount = accessFlags.static ? insSize : insSize - 1;
-				code.debugInfo.parameterNames = Array(paramCount).fill(undefined);
+				const paramNames: Array<undefined | string> = Array(paramCount).fill(undefined);
+
+				// Map parameter names from .param directives
+				// For non-static methods: p0 is 'this', p1 is first param (index 0)
+				// For static methods: p0 is first param (index 0)
+				for (const param of parameters) {
+					if (param.register.prefix === 'p' && param.name) {
+						const pRegister = param.register.index;
+						// Adjust for 'this' parameter in non-static methods
+						const paramIndex = accessFlags.static ? pRegister : pRegister - 1;
+						if (paramIndex >= 0 && paramIndex < paramCount) {
+							paramNames[paramIndex] = param.name;
+						}
+					}
+				}
+
+				code.debugInfo.parameterNames = paramNames;
 			}
 		}
 
