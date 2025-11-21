@@ -2444,38 +2444,80 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			}
 		};
 
+		// Helper to emit accumulated line/address changes as special opcode or explicit opcodes
+		const emitPendingChanges = (lineDiff: number, addressDiff: number) => {
+			// Special opcode formula: opcode = 0x0A + (line_diff + 4) + 15 * addr_diff
+			// Valid when: line_diff ∈ [-4, 10] and addr_diff ∈ [0, 17] and result ≤ 0xFF
+			if (lineDiff >= -4 && lineDiff <= 10 && addressDiff >= 0) {
+				const adjusted = (lineDiff + 4) + 15 * addressDiff;
+				const opcode = 0x0A + adjusted;
+				if (opcode <= 0xFF) {
+					debugBytecode.push({
+						type: 'special',
+						value: opcode,
+					});
+					return;
+				}
+			}
+
+			// Fall back to explicit opcodes
+			if (addressDiff > 0) {
+				debugBytecode.push({
+					type: 'advancePc',
+					addressDiff,
+				});
+			}
+			if (lineDiff !== 0) {
+				debugBytecode.push({
+					type: 'advanceLine',
+					lineDiff,
+				});
+			}
+		};
+
+		let accumulatedAddressDiff = 0;
+		let accumulatedLineDiff = 0;
+		let lastAddress = 0;
+		let hasEmittedFirstDebugEvent = false;
+
 		for (let i = 0; i < annotatedOperations.length; i++) {
 			const annotated = annotatedOperations[i];
 			const operationAddress = branchOffsetByBranchOffsetIndex.get(i) ?? 0;
 
-			// Track PC advances
-			if (i > 0 && debugBytecode.length > 0) {
-				const prevAddress = branchOffsetByBranchOffsetIndex.get(i - 1) ?? 0;
-				const addressDiff = operationAddress - prevAddress;
-				if (addressDiff > 0) {
-					debugBytecode.push({
-						type: 'advancePc',
-						addressDiff,
-					});
-				}
+			// Accumulate address difference (only after we've started tracking)
+			if (i > 0 && hasEmittedFirstDebugEvent) {
+				accumulatedAddressDiff += operationAddress - lastAddress;
 			}
+			lastAddress = operationAddress;
 
+			// Process line directives first to update accumulatedLineDiff
 			for (const directive of annotated.debugDirectives) {
 				if (directive.type === 'line') {
 					if (lineStart === undefined) {
 						lineStart = directive.line;
 						currentLine = directive.line;
 					} else if (currentLine !== undefined) {
-						const lineDiff = directive.line - currentLine;
-						if (lineDiff !== 0) {
-							debugBytecode.push({
-								type: 'advanceLine',
-								lineDiff,
-							});
-							currentLine = directive.line;
-						}
+						accumulatedLineDiff += directive.line - currentLine;
+						currentLine = directive.line;
 					}
-				} else if (directive.type === 'startLocal') {
+				}
+			}
+
+			// Emit accumulated changes before any other debug events
+			const hasOtherDebugEvents = annotated.debugDirectives.some(d =>
+				d.type !== 'line'
+			);
+
+			if (hasOtherDebugEvents && (accumulatedLineDiff !== 0 || accumulatedAddressDiff !== 0 || !hasEmittedFirstDebugEvent)) {
+				emitPendingChanges(accumulatedLineDiff, accumulatedAddressDiff);
+				accumulatedLineDiff = 0;
+				accumulatedAddressDiff = 0;
+				hasEmittedFirstDebugEvent = true;
+			}
+
+			// Emit other debug directives
+			for (const directive of annotated.debugDirectives) {
+				if (directive.type === 'startLocal') {
 					debugBytecode.push({
 						type: 'startLocal',
 						registerNum: getRegisterNum(directive.local.register),
@@ -2502,6 +2544,11 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 					});
 				}
 			}
+		}
+
+		// Emit any remaining accumulated changes at the end
+		if (accumulatedLineDiff !== 0 || accumulatedAddressDiff !== 0) {
+			emitPendingChanges(accumulatedLineDiff, accumulatedAddressDiff);
 		}
 
 		if (lineStart !== undefined) {
