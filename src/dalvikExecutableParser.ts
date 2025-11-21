@@ -1078,6 +1078,34 @@ const encodedValueLongParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Ar
 			);
 		}
 
+		if (size === 6) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				uint8Array => {
+					const lastByte = uint8Array[size - 1];
+					const firstBit = (lastByte & 0b1000_0000) >> 7;
+					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
+
+					const buffer = Buffer.from([ ...uint8Array, extensionByte, extensionByte ]);
+					return { type: 'long' as const, value: BigInt(buffer.readBigInt64LE(0)) };
+				},
+			);
+		}
+
+		if (size === 7) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				uint8Array => {
+					const lastByte = uint8Array[size - 1];
+					const firstBit = (lastByte & 0b1000_0000) >> 7;
+					const extensionByte = firstBit === 1 ? 0xFF : 0x00;
+
+					const buffer = Buffer.from([ ...uint8Array, extensionByte ]);
+					return { type: 'long' as const, value: BigInt(buffer.readBigInt64LE(0)) };
+				},
+			);
+		}
+
 		invariant(size === 8, '(encodedValueLongParser) Unexpected size: %s', size);
 
 		return promiseCompose(
@@ -1112,6 +1140,16 @@ const encodedValueFloatParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8A
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ 0, 0, ...uint8Array ]);
+					return { type: 'float' as const, value: buffer.readFloatLE(0) };
+				},
+			);
+		}
+
+		if (size === 3) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				uint8Array => {
+					const buffer = Buffer.from([ 0, ...uint8Array ]);
 					return { type: 'float' as const, value: buffer.readFloatLE(0) };
 				},
 			);
@@ -1156,11 +1194,51 @@ const encodedValueDoubleParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8
 			);
 		}
 
+		if (size === 3) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				uint8Array => {
+					const buffer = Buffer.from([ 0, 0, 0, 0, 0, ...uint8Array ]);
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
+				},
+			);
+		}
+
 		if (size === 4) {
 			return promiseCompose(
 				createFixedLengthSequenceParser(size),
 				uint8Array => {
 					const buffer = Buffer.from([ 0, 0, 0, 0, ...uint8Array ]);
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
+				},
+			);
+		}
+
+		if (size === 5) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				uint8Array => {
+					const buffer = Buffer.from([ 0, 0, 0, ...uint8Array ]);
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
+				},
+			);
+		}
+
+		if (size === 6) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				uint8Array => {
+					const buffer = Buffer.from([ 0, 0, ...uint8Array ]);
+					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
+				},
+			);
+		}
+
+		if (size === 7) {
+			return promiseCompose(
+				createFixedLengthSequenceParser(size),
+				uint8Array => {
+					const buffer = Buffer.from([ 0, ...uint8Array ]);
 					return { type: 'double' as const, value: buffer.readDoubleLE(0) };
 				},
 			);

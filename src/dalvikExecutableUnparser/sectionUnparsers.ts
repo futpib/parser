@@ -396,28 +396,32 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		const buffer = Buffer.alloc(4);
 		buffer.writeFloatLE(value);
 
-		let length = 4;
+		let start = 0;
+		let end = 4;
 
-		// Remove trailing zero bytes, but keep at least one byte
-		while (length > 1 && buffer[length - 1] === 0x00) {
-			length--;
+		// Remove leading zero bytes (low-order), but keep at least one byte
+		// Note: In DEX format, encoded values keep high-order bytes
+		while (end > start + 1 && buffer[start] === 0x00) {
+			start++;
 		}
 
-		return buffer.subarray(0, length);
+		return buffer.subarray(start, end);
 	}
 
 	function encodeDouble(value: number): Uint8Array {
 		const buffer = Buffer.alloc(8);
 		buffer.writeDoubleLE(value);
 
-		let length = 8;
+		let start = 0;
+		let end = 8;
 
-		// Remove trailing zero bytes, but keep at least one byte
-		while (length > 1 && buffer[length - 1] === 0x00) {
-			length--;
+		// Remove leading zero bytes (low-order), but keep at least one byte
+		// Note: In DEX format, encoded values keep high-order bytes
+		while (end > start + 1 && buffer[start] === 0x00) {
+			start++;
 		}
 
-		return buffer.subarray(0, length);
+		return buffer.subarray(start, end);
 	}
 
 	const encodedArrayUnparser: Unparser<DalvikExecutableEncodedValue[], Uint8Array> = async function * (input, unparserContext) {
