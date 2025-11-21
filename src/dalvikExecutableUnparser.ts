@@ -44,11 +44,13 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	// DEX File Header (0x70 bytes)
 	// Reference: https://source.android.com/docs/core/runtime/dex-format#header-item
 
-	// Magic number: "dex\n" (0x64 0x65 0x78 0x0A)
+	// Magic: ubyte[8] = DEX_FILE_MAGIC
+	// The spec defines "magic" as the full 8 bytes including both "dex\n" and version
+	// "dex\n" prefix (0x64 0x65 0x78 0x0A)
 	const magicBytes = new Uint8Array([ 0x64, 0x65, 0x78, 0x0A ]);
 	yield magicBytes;
 
-	// Version number: "035\0" for DEX version 035
+	// Version suffix "035\0" for DEX version 035 (part of magic field)
 	const versionBytes = new Uint8Array([ 0x30, 0x33, 0x35, 0x00 ]);
 	yield versionBytes;
 

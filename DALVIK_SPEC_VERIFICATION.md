@@ -10,38 +10,41 @@ This document verifies that the `dalvikExecutableUnparser.ts` implementation com
 
 The dalvikExecutableUnparser implementation has been verified against the official DEX format specification and is fully compliant for DEX version 035.
 
+**Note on Magic Field:** The specification defines `magic` as a single 8-byte field containing both "dex\n" and the version. The implementation writes these as two separate arrays for code clarity, which is functionally equivalent.
+
 ---
 
 ## Header Structure Verification
 
 **Specification Reference:** https://source.android.com/docs/core/runtime/dex-format#header-item
 
+**Important Note:** According to the official specification, the first field `magic` is defined as `ubyte[8]` and includes both the "dex\n" prefix (4 bytes) and the version string (4 bytes, e.g., "035\0"). While the implementation separates these into `magicBytes` and `versionBytes` for clarity, they together constitute the single `magic` field per the specification.
+
 | Field | Offset | Size | Spec Value | Implementation | Status |
 |-------|--------|------|------------|----------------|--------|
-| magic | 0x00 | 4 | `dex\n` (0x64 0x65 0x78 0x0A) | Line 45 | ✅ |
-| version | 0x04 | 4 | `035\0` for version 035 | Line 48 | ✅ |
-| checksum | 0x08 | 4 | adler32 of rest of file | Line 50 | ✅ |
-| signature | 0x0C | 20 | SHA-1 of rest of file | Line 51 | ✅ |
-| file_size | 0x20 | 4 | Size of entire file | Line 52 | ✅ |
-| header_size | 0x24 | 4 | 0x70 (112 bytes) | Line 55 | ✅ |
-| endian_tag | 0x28 | 4 | 0x12345678 (little-endian) | Line 58 | ✅ |
-| link_size | 0x2C | 4 | Size of link section | Lines 61-67 | ✅ |
-| link_off | 0x30 | 4 | Offset to link section | Lines 61-67 | ✅ |
-| map_off | 0x34 | 4 | Offset to map_list | Line 70 | ✅ |
-| string_ids_size | 0x38 | 4 | Count of strings | Line 72 | ✅ |
-| string_ids_off | 0x3C | 4 | Offset to string_ids | Line 73 | ✅ |
-| type_ids_size | 0x40 | 4 | Count of types | Line 75 | ✅ |
-| type_ids_off | 0x44 | 4 | Offset to type_ids | Line 76 | ✅ |
-| proto_ids_size | 0x48 | 4 | Count of prototypes | Line 78 | ✅ |
-| proto_ids_off | 0x4C | 4 | Offset to proto_ids | Line 79 | ✅ |
-| field_ids_size | 0x50 | 4 | Count of fields | Line 81 | ✅ |
-| field_ids_off | 0x54 | 4 | Offset to field_ids | Line 82 | ✅ |
-| method_ids_size | 0x58 | 4 | Count of methods | Line 84 | ✅ |
-| method_ids_off | 0x5C | 4 | Offset to method_ids | Line 85 | ✅ |
-| class_defs_size | 0x60 | 4 | Count of class defs | Line 87 | ✅ |
-| class_defs_off | 0x64 | 4 | Offset to class_defs | Line 88 | ✅ |
-| data_size | 0x68 | 4 | Size of data section | Line 91 | ✅ |
-| data_off | 0x6C | 4 | Offset to data section | Line 90 | ✅ |
+| magic | 0x00 | 8 | `dex\n` + version (e.g., `035\0`) | Lines 48-53 | ✅ |
+| checksum | 0x08 | 4 | adler32 of rest of file | Line 56 | ✅ |
+| signature | 0x0C | 20 | SHA-1 of rest of file | Line 58 | ✅ |
+| file_size | 0x20 | 4 | Size of entire file | Line 60 | ✅ |
+| header_size | 0x24 | 4 | 0x70 (112 bytes) | Line 63 | ✅ |
+| endian_tag | 0x28 | 4 | 0x12345678 (little-endian) | Line 66 | ✅ |
+| link_size | 0x2C | 4 | Size of link section | Lines 69-76 | ✅ |
+| link_off | 0x30 | 4 | Offset to link section | Lines 69-76 | ✅ |
+| map_off | 0x34 | 4 | Offset to map_list | Line 78 | ✅ |
+| string_ids_size | 0x38 | 4 | Count of strings | Line 80 | ✅ |
+| string_ids_off | 0x3C | 4 | Offset to string_ids | Line 81 | ✅ |
+| type_ids_size | 0x40 | 4 | Count of types | Line 83 | ✅ |
+| type_ids_off | 0x44 | 4 | Offset to type_ids | Line 84 | ✅ |
+| proto_ids_size | 0x48 | 4 | Count of prototypes | Line 86 | ✅ |
+| proto_ids_off | 0x4C | 4 | Offset to proto_ids | Line 87 | ✅ |
+| field_ids_size | 0x50 | 4 | Count of fields | Line 89 | ✅ |
+| field_ids_off | 0x54 | 4 | Offset to field_ids | Line 90 | ✅ |
+| method_ids_size | 0x58 | 4 | Count of methods | Line 92 | ✅ |
+| method_ids_off | 0x5C | 4 | Offset to method_ids | Line 93 | ✅ |
+| class_defs_size | 0x60 | 4 | Count of class defs | Line 95 | ✅ |
+| class_defs_off | 0x64 | 4 | Offset to class_defs | Line 96 | ✅ |
+| data_size | 0x68 | 4 | Size of data section | Line 99 | ✅ |
+| data_off | 0x6C | 4 | Offset to data section | Line 98 | ✅ |
 
 ---
 
