@@ -130,7 +130,7 @@ The dalvikExecutableUnparser implementation has been verified against the offici
 
 ### 1. Endianness
 - **Specification:** DEX files use little-endian byte ordering
-- **Implementation:** Endian tag set to 0x12345678 (line 58)
+- **Implementation:** Endian tag set to 0x12345678 (line 66)
 - **Status:** ✅ Compliant
 
 ### 2. String Data Encoding
@@ -145,7 +145,7 @@ The dalvikExecutableUnparser implementation has been verified against the offici
 
 ### 4. Map Item Structure
 - **Specification:** Each map item has type (ushort), unused (ushort), size (uint), offset (uint)
-- **Implementation:** Line 662-665
+- **Implementation:** Lines 646-649
 - **Status:** ✅ Compliant
 
 ---
