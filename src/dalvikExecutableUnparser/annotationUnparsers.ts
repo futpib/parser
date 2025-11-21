@@ -10,6 +10,7 @@ async function* yieldAndCapture<T>(gen: AsyncIterable<T, T>): AsyncIterable<T, T
 import {
 	type DalvikExecutableAnnotation,
 	type DalvikExecutableClassAnnotations,
+	type DalvikExecutableEncodedValue,
 	type DalvikExecutableField,
 	type DalvikExecutableMethod,
 } from '../dalvikExecutable.js';
@@ -22,7 +23,7 @@ export function createAnnotationUnparsers(
 	getTypeIndex: (typeDescriptor: string | undefined) => number,
 	getFieldIndex: (field: DalvikExecutableField) => number,
 	getMethodIndex: (method: DalvikExecutableMethod) => number,
-	encodedValueUnparser: Unparser<any, Uint8Array>,
+	encodedValueUnparser: Unparser<DalvikExecutableEncodedValue, Uint8Array>,
 ) {
 	const annotationItemUnparser: Unparser<DalvikExecutableAnnotation, Uint8Array> = async function * (input, unparserContext) {
 		const visibilityByte = input.visibility === 'build' ? 0x00 : input.visibility === 'runtime' ? 0x01 : 0x02;

@@ -16,6 +16,7 @@ export type Parser<
 	Element = DeriveSequenceElement<Sequence>,
 > = (parserContext: ParserContext<Sequence, Element>) => Output | Promise<Output>;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getParserName(parser: Parser<any, any, any>, default_ = 'anonymous'): string {
 	return parser.name || default_;
 }
@@ -32,6 +33,7 @@ export function setParserName<
 	return parser;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const originalParserByClone = new WeakMap<Parser<any, any, any>, Parser<any, any, any>>();
 
 export function cloneParser<
@@ -89,7 +91,8 @@ async function withEnrichedParserError<
 				error.name,
 			);
 
-			const normalError: ParserError = new ((normalParserErrorModule as any)[error.name])(error.message);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const normalError: ParserError = new ((normalParserErrorModule as any)[error.name])(error.message);
 			Object.assign(normalError, error);
 
 			normalError.stack = normalError.stack + '\nIf you need a useful stack trace, pass `errorStack: true` to `runParser`, trading off some performance.';

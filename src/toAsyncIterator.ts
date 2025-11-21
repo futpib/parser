@@ -24,7 +24,7 @@ export function toAsyncIterator<T>(value: AsyncIterator<T> | AsyncIterable<T> | 
 		|| value instanceof Uint8Array
 	) {
 		return (async function * () {
-			yield value as any;
+			yield value as T;
 		})();
 	}
 
