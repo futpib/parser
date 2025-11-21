@@ -292,7 +292,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 
 		// Handle arrays
 		if (type === 'array') {
-			yield new Uint8Array([ 0x1C << 5 ]);
+			yield new Uint8Array([ 0x1C ]);
 			yield * uleb128Unparser(value.length, unparserContext);
 
 			for (const element of value) {
@@ -304,7 +304,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		// Handle annotations
 		if (type === 'annotation') {
 			const typeIndex = getTypeIndex(value.type);
-			yield new Uint8Array([ 0x1D << 5 ]);
+			yield new Uint8Array([ 0x1D ]);
 			yield * uleb128Unparser(typeIndex, unparserContext);
 			yield * uleb128Unparser(value.elements.length, unparserContext);
 
