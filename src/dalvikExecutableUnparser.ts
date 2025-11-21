@@ -20,6 +20,36 @@ async function* yieldAndCapture<T>(gen: AsyncIterable<T, T>): AsyncIterable<T, T
 	return value!;
 }
 
+/**
+ * Helper function to write a pool size and reserve space for its offset.
+ * Returns a WriteLater for the offset.
+ */
+async function* writePoolHeader(
+	size: number,
+	unparserContext: Parameters<Unparser<any, Uint8Array>>[1],
+) {
+	yield * uintUnparser(size, unparserContext);
+	const offsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
+	return offsetWriteLater;
+}
+
+/**
+ * Helper function to conditionally write an offset placeholder.
+ * Returns WriteLater if condition is true, otherwise writes 0 and returns undefined.
+ */
+async function* writeConditionalOffset(
+	condition: boolean,
+	unparserContext: Parameters<Unparser<any, Uint8Array>>[1],
+) {
+	if (condition) {
+		const offsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
+		return offsetWriteLater;
+	} else {
+		yield * uintUnparser(0, unparserContext);
+		return undefined;
+	}
+}
+
 export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>, Uint8Array> = async function * (input, unparserContext) {
 	const poolBuilders = createPoolBuilders();
 
@@ -50,34 +80,18 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	yield * uintUnparser(0x12345678, unparserContext);
 
-	let linkOffsetWriteLater;
-	if (input.link && input.link.length > 0) {
-		yield * uintUnparser(input.link.length, unparserContext);
-		linkOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-	} else {
-		yield * uintUnparser(0, unparserContext);
-		yield * uintUnparser(0, unparserContext);
-	}
+	const hasLink = !!(input.link && input.link.length > 0);
+	yield * uintUnparser(hasLink ? input.link!.length : 0, unparserContext);
+	const linkOffsetWriteLater = yield * writeConditionalOffset(hasLink, unparserContext);
 
 	const mapOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
 
-	yield * uintUnparser(stringPool.size(), unparserContext);
-	const stringIdsOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-
-	yield * uintUnparser(typePool.size(), unparserContext);
-	const typeIdsOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-
-	yield * uintUnparser(protoPool.size(), unparserContext);
-	const protoIdsOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-
-	yield * uintUnparser(fieldPool.size(), unparserContext);
-	const fieldIdsOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-
-	yield * uintUnparser(methodPool.size(), unparserContext);
-	const methodIdsOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-
-	yield * uintUnparser(input.classDefinitions.length, unparserContext);
-	const classDefsOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
+	const stringIdsOffsetWriteLater = yield * writePoolHeader(stringPool.size(), unparserContext);
+	const typeIdsOffsetWriteLater = yield * writePoolHeader(typePool.size(), unparserContext);
+	const protoIdsOffsetWriteLater = yield * writePoolHeader(protoPool.size(), unparserContext);
+	const fieldIdsOffsetWriteLater = yield * writePoolHeader(fieldPool.size(), unparserContext);
+	const methodIdsOffsetWriteLater = yield * writePoolHeader(methodPool.size(), unparserContext);
+	const classDefsOffsetWriteLater = yield * writePoolHeader(input.classDefinitions.length, unparserContext);
 
 	const dataOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
 	const dataSizeWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
@@ -152,42 +166,34 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		yield * uintUnparser(accessFlags, unparserContext);
 		yield * uintUnparser(superclassTypeIndex, unparserContext);
 
-		let interfacesOffsetWriteLater;
-		if (classDef.interfaces.length > 0) {
-			interfacesOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-		} else {
-			yield * uintUnparser(0, unparserContext);
-		}
+		const interfacesOffsetWriteLater = yield * writeConditionalOffset(
+			classDef.interfaces.length > 0,
+			unparserContext,
+		);
 
 		const sourceFileIndex = classDef.sourceFile ? sectionUnparsers.getStringIndex(classDef.sourceFile) : 0xFFFFFFFF;
 		yield * uintUnparser(sourceFileIndex, unparserContext);
 
-		let annotationsOffsetWriteLater;
-		if (classDef.annotations) {
-			annotationsOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-		} else {
-			yield * uintUnparser(0, unparserContext);
-		}
+		const annotationsOffsetWriteLater = yield * writeConditionalOffset(
+			!!classDef.annotations,
+			unparserContext,
+		);
 
-		let classDataOffsetWriteLater;
-		const hasClassData = classDef.classData && (
+		const hasClassData = !!(classDef.classData && (
 			classDef.classData.staticFields.length > 0 ||
 			classDef.classData.instanceFields.length > 0 ||
 			classDef.classData.directMethods.length > 0 ||
 			classDef.classData.virtualMethods.length > 0
+		));
+		const classDataOffsetWriteLater = yield * writeConditionalOffset(
+			hasClassData,
+			unparserContext,
 		);
-		if (hasClassData) {
-			classDataOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-		} else {
-			yield * uintUnparser(0, unparserContext);
-		}
 
-		let staticValuesOffsetWriteLater;
-		if (classDef.staticValues.length > 0) {
-			staticValuesOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
-		} else {
-			yield * uintUnparser(0, unparserContext);
-		}
+		const staticValuesOffsetWriteLater = yield * writeConditionalOffset(
+			classDef.staticValues.length > 0,
+			unparserContext,
+		);
 
 		classDefItems.push({
 			interfacesOffsetWriteLater,
