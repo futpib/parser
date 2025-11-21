@@ -1,3 +1,8 @@
+// Dalvik Executable (DEX) File Format Unparser
+// Implements the DEX file format specification version 035
+// Reference: https://source.android.com/docs/core/runtime/dex-format
+// DEX 035 is used in Android 5.0-7.1 (API 21-25)
+
 import { type Unparser } from './unparser.js';
 import { type DalvikExecutable, type DalvikExecutableClassDefinition, type DalvikExecutableCode, type DalvikExecutableDebugInfo } from './dalvikExecutable.js';
 import { type DalvikBytecode } from './dalvikBytecodeParser.js';
@@ -36,18 +41,28 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	const { stringPool, typePool, protoPool, fieldPool, methodPool } = poolBuilders;
 
+	// DEX File Header (0x70 bytes)
+	// Reference: https://source.android.com/docs/core/runtime/dex-format#header-item
+
+	// Magic number: "dex\n" (0x64 0x65 0x78 0x0A)
 	const magicBytes = new Uint8Array([ 0x64, 0x65, 0x78, 0x0A ]);
 	yield magicBytes;
 
+	// Version number: "035\0" for DEX version 035
 	const versionBytes = new Uint8Array([ 0x30, 0x33, 0x35, 0x00 ]);
 	yield versionBytes;
 
+	// Checksum: adler32 of rest of file (filled in later)
 	const checksumWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
+	// SHA-1 signature: hash of rest of file (filled in later)
 	const sha1WriteLater = yield * yieldAndCapture(unparserContext.writeLater(20));
+	// File size: total size of file (filled in later)
 	const fileSizeWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
 
+	// Header size: must be 0x70
 	yield * uintUnparser(0x70, unparserContext);
 
+	// Endian tag: must be 0x12345678 for little-endian
 	yield * uintUnparser(0x12345678, unparserContext);
 
 	let linkOffsetWriteLater;
@@ -524,74 +539,102 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const mapOffset = unparserContext.position;
 	yield * unparserContext.writeEarlier(mapOffsetWriteLater, uintUnparser, mapOffset);
 
+	// Map items as defined in the DEX format specification
+	// https://source.android.com/docs/core/runtime/dex-format#map-item-type-codes
+	// These type codes are for DEX version 035 (Android 5.0-7.1, API 21-25)
 	const mapItems: Array<{ type: number; size: number; offset: number }> = [];
 
+	// TYPE_HEADER_ITEM (0x0000) - Always present
 	mapItems.push({ type: 0x0000, size: 1, offset: 0 });
 
+	// TYPE_STRING_ID_ITEM (0x0001)
 	if (stringPool.size() > 0) {
 		mapItems.push({ type: 0x0001, size: stringPool.size(), offset: stringIdsOffset });
 	}
 
+	// TYPE_TYPE_ID_ITEM (0x0002)
 	if (typePool.size() > 0) {
 		mapItems.push({ type: 0x0002, size: typePool.size(), offset: typeIdsOffset });
 	}
 
+	// TYPE_PROTO_ID_ITEM (0x0003)
 	if (protoPool.size() > 0) {
 		mapItems.push({ type: 0x0003, size: protoPool.size(), offset: protoIdsOffset });
 	}
 
+	// TYPE_FIELD_ID_ITEM (0x0004)
 	if (fieldPool.size() > 0) {
 		mapItems.push({ type: 0x0004, size: fieldPool.size(), offset: fieldIdsOffset });
 	}
 
+	// TYPE_METHOD_ID_ITEM (0x0005)
 	if (methodPool.size() > 0) {
 		mapItems.push({ type: 0x0005, size: methodPool.size(), offset: methodIdsOffset });
 	}
 
+	// TYPE_CLASS_DEF_ITEM (0x0006)
 	if (input.classDefinitions.length > 0) {
 		mapItems.push({ type: 0x0006, size: input.classDefinitions.length, offset: classDefsOffset });
 	}
 
+	// Note: TYPE_CALL_SITE_ID_ITEM (0x0007) and TYPE_METHOD_HANDLE_ITEM (0x0008)
+	// are only supported in DEX version 038+ (Android 8.0+, API 26+) and are not
+	// included in this DEX 035 implementation.
+
+	// TYPE_STRING_DATA_ITEM (0x2002)
 	if (stringPool.size() > 0) {
 		mapItems.push({ type: 0x2002, size: stringPool.size(), offset: dataOffset });
 	}
 
+	// TYPE_TYPE_LIST (0x1001)
 	if (typeListItemsCount > 0) {
 		mapItems.push({ type: 0x1001, size: typeListItemsCount, offset: typeListItemsOffset });
 	}
 
+	// TYPE_ANNOTATION_SET_REF_LIST (0x1002)
 	if (annotationSetRefListItemsCount > 0) {
 		mapItems.push({ type: 0x1002, size: annotationSetRefListItemsCount, offset: annotationSetRefListItemsOffset });
 	}
 
+	// TYPE_ANNOTATION_SET_ITEM (0x1003)
 	if (annotationSetItemsCount > 0) {
 		mapItems.push({ type: 0x1003, size: annotationSetItemsCount, offset: annotationSetItemsOffset });
 	}
 
+	// TYPE_CLASS_DATA_ITEM (0x2000)
 	if (classDataItemsCount > 0) {
 		mapItems.push({ type: 0x2000, size: classDataItemsCount, offset: classDataItemsOffset });
 	}
 
+	// TYPE_CODE_ITEM (0x2001)
 	if (codeItemsCount > 0) {
 		mapItems.push({ type: 0x2001, size: codeItemsCount, offset: codeItemsOffset });
 	}
 
+	// TYPE_DEBUG_INFO_ITEM (0x2003)
 	if (debugInfoItemsCount > 0) {
 		mapItems.push({ type: 0x2003, size: debugInfoItemsCount, offset: debugInfoItemsOffset });
 	}
 
+	// TYPE_ANNOTATION_ITEM (0x2004)
 	if (annotationItemsCount > 0) {
 		mapItems.push({ type: 0x2004, size: annotationItemsCount, offset: annotationItemsOffset });
 	}
 
+	// TYPE_ENCODED_ARRAY_ITEM (0x2005)
 	if (encodedArrayItemsCount > 0) {
 		mapItems.push({ type: 0x2005, size: encodedArrayItemsCount, offset: encodedArrayItemsOffset });
 	}
 
+	// TYPE_ANNOTATIONS_DIRECTORY_ITEM (0x2006)
 	if (annotationsDirectoryItemsCount > 0) {
 		mapItems.push({ type: 0x2006, size: annotationsDirectoryItemsCount, offset: annotationsDirectoryItemsOffset });
 	}
 
+	// Note: TYPE_HIDDENAPI_CLASS_DATA_ITEM (0xF000) is only supported in DEX version 039+
+	// (Android 9.0+, API 28+) and is not included in this DEX 035 implementation.
+
+	// TYPE_MAP_LIST (0x1000) - Always last
 	mapItems.push({ type: 0x1000, size: 1, offset: mapOffset });
 
 	// Sort map items by offset (required by DEX format spec)
