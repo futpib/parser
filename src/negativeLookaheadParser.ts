@@ -1,12 +1,11 @@
 import { getParserName, setParserName, type Parser } from './parser.js';
 import { isParserParsingFailedError } from './parserError.js';
-import { withLookahead } from './withLookahead.js';
 
 export const createNegativeLookaheadParser = <Sequence>(
 	childParser: Parser<unknown, Sequence>,
 ): Parser<void, Sequence> => {
 	const negativeLookaheadParser: Parser<void, Sequence> = async parserContext => {
-		const childParserSuccess = await withLookahead(parserContext, async childParserContext => {
+		const childParserSuccess = await parserContext.withLookahead(async childParserContext => {
 			try {
 				await childParser(childParserContext);
 				return true;

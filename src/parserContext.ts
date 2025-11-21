@@ -47,6 +47,19 @@ export type ParserContext<Sequence, Element> = {
 	unlookahead(): void;
 	dispose(): void;
 
+	/**
+	 * Executes a callback with a lookahead parser context.
+	 * Ensures proper cleanup of the lookahead context via dispose() in a finally block.
+	 *
+	 * @param callback - Function that receives the lookahead context and returns a result
+	 * @param options - Optional lookahead options (e.g., debugName)
+	 * @returns The result from the callback
+	 */
+	withLookahead<T>(
+		callback: (lookaheadContext: ParserContext<Sequence, Element>) => Promise<T> | T,
+		options?: LookaheadOptions,
+	): Promise<T>;
+
 	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy>;
 	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy>;
 };
@@ -298,6 +311,19 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 		parentParserContext._exclusiveChildParserContext = undefined;
 		this._parentParserContext = undefined;
+	}
+
+	async withLookahead<T>(
+		callback: (lookaheadContext: ParserContext<Sequence, Element>) => Promise<T> | T,
+		options?: LookaheadOptions,
+	): Promise<T> {
+		const lookaheadContext = this.lookahead(options);
+
+		try {
+			return await callback(lookaheadContext);
+		} finally {
+			lookaheadContext.dispose();
+		}
 	}
 
 	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy> {

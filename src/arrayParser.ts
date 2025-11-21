@@ -1,15 +1,38 @@
 import { getParserName, type Parser, setParserName } from './parser.js';
-import { parseArrayElements } from './arrayParserHelper.js';
+import { isParserParsingFailedError } from './parserError.js';
 
 export const createArrayParser = <ElementOutput, Sequence>(
 	elementParser: Parser<ElementOutput, Sequence>,
 ): Parser<ElementOutput[], Sequence> => {
 	const arrayParser: Parser<ElementOutput[], Sequence> = async parserContext => {
-		return parseArrayElements(
-			parserContext,
-			() => elementParser,
-			{ returnOnNoMatch: true },
-		);
+		const elements: ElementOutput[] = [];
+
+		while (true) {
+			const initialPosition = parserContext.position;
+			// eslint-disable-next-line no-await-in-loop -- Sequential parsing is required
+			const didParse = await parserContext.withLookahead(async elementParserContext => {
+				try {
+					const element = await elementParser(elementParserContext);
+					if (elementParserContext.position === initialPosition) {
+						return false;
+					}
+
+					elements.push(element);
+					elementParserContext.unlookahead();
+					return true;
+				} catch (error) {
+					if (isParserParsingFailedError(error)) {
+						return false;
+					}
+
+					throw error;
+				}
+			});
+
+			if (!didParse) {
+				return elements;
+			}
+		}
 	};
 
 	setParserName(arrayParser, getParserName(elementParser, 'anonymousArrayChild') + '*');

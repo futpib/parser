@@ -1,5 +1,5 @@
 import { getParserName, type Parser, setParserName } from './parser.js';
-import { parseArrayElements } from './arrayParserHelper.js';
+import { isParserParsingFailedError } from './parserError.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
 
@@ -16,11 +16,42 @@ export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 	);
 
 	const separatedArrayParser: Parser<ElementOutput[], Sequence> = async parserContext => {
-		return parseArrayElements(
-			parserContext,
-			iterationIndex => iterationIndex === 0 ? elementParser : separatorThenElementParser,
-			{ returnOnNoMatch: false },
-		);
+		let parser = elementParser;
+
+		const elements: ElementOutput[] = [];
+
+		while (true) {
+			const initialPosition = parserContext.position;
+
+			// eslint-disable-next-line no-await-in-loop, @typescript-eslint/no-loop-func -- Sequential parsing is required, parser variable is intentionally captured
+			const didParse = await parserContext.withLookahead(async elementParserContext => {
+				try {
+					const element = await parser(elementParserContext);
+
+					if (elementParserContext.position === initialPosition) {
+						return false;
+					}
+
+					elements.push(element);
+					elementParserContext.unlookahead();
+					return true;
+				} catch (error) {
+					if (isParserParsingFailedError(error)) {
+						return false;
+					}
+
+					throw error;
+				}
+			});
+
+			if (!didParse) {
+				break;
+			}
+
+			parser = separatorThenElementParser;
+		}
+
+		return elements;
 	};
 
 	setParserName(separatedArrayParser, getParserName(elementParser, 'anonymousSeparatedArrayChild') + '*');
