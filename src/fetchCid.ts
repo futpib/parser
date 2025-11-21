@@ -53,7 +53,7 @@ class FsCache {
 				file.close();
 			});
 
-			return [ streamWithClose, undefined as any ];
+			return [ streamWithClose, undefined as unknown as ReadableStream<Uint8Array> ];
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 				return undefined;

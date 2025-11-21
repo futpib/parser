@@ -10,18 +10,20 @@ async function* yieldAndCapture<T>(gen: AsyncIterable<T, T>): AsyncIterable<T, T
 import {
 	type DalvikExecutableAnnotation,
 	type DalvikExecutableClassAnnotations,
+	type DalvikExecutableEncodedValue,
 	type DalvikExecutableField,
 	type DalvikExecutableMethod,
 } from '../dalvikExecutable.js';
 import { ubyteUnparser, uintUnparser } from '../dalvikBytecodeUnparser/formatUnparsers.js';
 import { alignmentUnparser, uleb128Unparser } from './utils.js';
+import { WriteLater } from '../unparserContext.js';
 
 export function createAnnotationUnparsers(
 	getStringIndex: (str: string | undefined) => number,
 	getTypeIndex: (typeDescriptor: string | undefined) => number,
 	getFieldIndex: (field: DalvikExecutableField) => number,
 	getMethodIndex: (method: DalvikExecutableMethod) => number,
-	encodedValueUnparser: Unparser<any, Uint8Array>,
+	encodedValueUnparser: Unparser<DalvikExecutableEncodedValue, Uint8Array>,
 ) {
 	const annotationItemUnparser: Unparser<DalvikExecutableAnnotation, Uint8Array> = async function * (input, unparserContext) {
 		const visibilityByte = input.visibility === 'build' ? 0x00 : input.visibility === 'runtime' ? 0x01 : 0x02;
@@ -39,7 +41,7 @@ export function createAnnotationUnparsers(
 		}
 	};
 
-	const annotationSetItemUnparser = (annotationItemOffsetWriteLaters: any[]): Unparser<DalvikExecutableAnnotation[], Uint8Array> => {
+	const annotationSetItemUnparser = (annotationItemOffsetWriteLaters: Array<WriteLater<Uint8Array, number>>): Unparser<DalvikExecutableAnnotation[], Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
 
@@ -52,7 +54,7 @@ export function createAnnotationUnparsers(
 		};
 	};
 
-	const annotationSetRefListUnparser = (annotationSetOffsetWriteLaters: any[]): Unparser<DalvikExecutableAnnotation[][], Uint8Array> => {
+	const annotationSetRefListUnparser = (annotationSetOffsetWriteLaters: Array<WriteLater<Uint8Array, number> | null>): Unparser<DalvikExecutableAnnotation[][], Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
 
@@ -70,7 +72,12 @@ export function createAnnotationUnparsers(
 		};
 	};
 
-	const annotationsDirectoryItemUnparser = (annotationOffsetWriteLaters: any): Unparser<DalvikExecutableClassAnnotations, Uint8Array> => {
+	const annotationsDirectoryItemUnparser = (annotationOffsetWriteLaters: {
+		classAnnotationsOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		fieldAnnotationsOffsetWriteLaters?: Array<WriteLater<Uint8Array, number> | null>;
+		methodAnnotationsOffsetWriteLaters?: Array<WriteLater<Uint8Array, number>>;
+		parameterAnnotationsOffsetWriteLaters?: Array<WriteLater<Uint8Array, number>>;
+	}): Unparser<DalvikExecutableClassAnnotations, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * alignmentUnparser(4)(undefined, unparserContext);
 

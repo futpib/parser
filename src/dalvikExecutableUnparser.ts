@@ -1,5 +1,5 @@
 import { type Unparser } from './unparser.js';
-import { type DalvikExecutable, type DalvikExecutableAnnotation } from './dalvikExecutable.js';
+import { type DalvikExecutable, type DalvikExecutableAnnotation, type DalvikExecutableClassDefinition, type DalvikExecutableCode, type DalvikExecutableDebugInfo } from './dalvikExecutable.js';
 import { type DalvikBytecode } from './dalvikBytecodeParser.js';
 import { uintUnparser, ushortUnparser } from './dalvikBytecodeUnparser/formatUnparsers.js';
 import { createPoolBuilders } from './dalvikExecutableUnparser/poolBuilders.js';
@@ -10,6 +10,7 @@ import { alignmentUnparser, calculateAdler32, calculateSHA1 } from './dalvikExec
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 import { runUnparser } from './unparser.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
+import { WriteLater } from './unparserContext.js';
 
 async function* yieldAndCapture<T>(gen: AsyncIterable<T, T>): AsyncIterable<T, T> {
 	let value: T | undefined;
@@ -84,7 +85,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const stringIdsOffset = unparserContext.position;
 	yield * unparserContext.writeEarlier(stringIdsOffsetWriteLater, uintUnparser, stringIdsOffset);
 
-	const stringDataOffsetWriteLaters: any[] = [];
+	const stringDataOffsetWriteLaters: Array<WriteLater<Uint8Array, number>> = [];
 	for (let i = 0; i < stringPool.size(); i++) {
 		const offsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(4));
 		stringDataOffsetWriteLaters.push(offsetWriteLater);
@@ -101,7 +102,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	const protoIdsOffset = unparserContext.position;
 	yield * unparserContext.writeEarlier(protoIdsOffsetWriteLater, uintUnparser, protoIdsOffset);
 
-	const protoParameterListOffsetWriteLaters: any[] = [];
+	const protoParameterListOffsetWriteLaters: Array<WriteLater<Uint8Array, number> | null> = [];
 	for (const proto of protoPool.getProtos()) {
 		const shortyIndex = sectionUnparsers.getStringIndex(proto.shorty);
 		const returnTypeIndex = sectionUnparsers.getTypeIndex(proto.returnType);
@@ -136,10 +137,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 	yield * unparserContext.writeEarlier(classDefsOffsetWriteLater, uintUnparser, classDefsOffset);
 
 	const classDefItems: Array<{
-		interfacesOffsetWriteLater?: any;
-		annotationsOffsetWriteLater?: any;
-		classDataOffsetWriteLater?: any;
-		staticValuesOffsetWriteLater?: any;
+		interfacesOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		annotationsOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		classDataOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		staticValuesOffsetWriteLater?: WriteLater<Uint8Array, number>;
 	}> = [];
 
 	for (const classDef of input.classDefinitions) {
@@ -219,21 +220,41 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 			typeListItemsCount++;
 
 			const paramListOffset = unparserContext.position;
-			yield * unparserContext.writeEarlier(protoParameterListOffsetWriteLaters[i], uintUnparser, paramListOffset);
+			const writeLater = protoParameterListOffsetWriteLaters[i];
+			if (writeLater) {
+				yield * unparserContext.writeEarlier(writeLater, uintUnparser, paramListOffset);
+			}
 			yield * sectionUnparsers.typeListUnparser(proto.parameters, unparserContext);
 		}
 	}
 
 	// Track classDataItem, codeItem, and debugInfoItem for later writing
 	// Collect data to write items grouped by type (required by DEX format)
-	const classDataToWrite: Array<{ classDef: any; classDefItem: any; classIdx: number }> = [];
-	const codeToWrite: Array<{ code: any }> = [];
-	const debugInfoToWrite: Array<{ debugInfo: any; offsetWriteLater: any }> = [];
+	const classDataToWrite: Array<{
+		classDef: DalvikExecutableClassDefinition<DalvikBytecode>;
+		classDefItem: {
+			interfacesOffsetWriteLater?: WriteLater<Uint8Array, number>;
+			annotationsOffsetWriteLater?: WriteLater<Uint8Array, number>;
+			classDataOffsetWriteLater?: WriteLater<Uint8Array, number>;
+			staticValuesOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		};
+		classIdx: number;
+	}> = [];
+	const codeToWrite: Array<{ code: DalvikExecutableCode<DalvikBytecode> }> = [];
+	const debugInfoToWrite: Array<{ debugInfo: DalvikExecutableDebugInfo; offsetWriteLater: WriteLater<Uint8Array, number> }> = [];
 
 	// First pass: write type lists and collect other data
 	let encodedArrayItemsOffset = 0;
 	let encodedArrayItemsCount = 0;
-	const encodedArraysToWrite: Array<{ classDef: any; classDefItem: any }> = [];
+	const encodedArraysToWrite: Array<{
+		classDef: DalvikExecutableClassDefinition<DalvikBytecode>;
+		classDefItem: {
+			interfacesOffsetWriteLater?: WriteLater<Uint8Array, number>;
+			annotationsOffsetWriteLater?: WriteLater<Uint8Array, number>;
+			classDataOffsetWriteLater?: WriteLater<Uint8Array, number>;
+			staticValuesOffsetWriteLater?: WriteLater<Uint8Array, number>;
+		};
+	}> = [];
 
 	for (let classIdx = 0; classIdx < input.classDefinitions.length; classIdx++) {
 		const classDef = input.classDefinitions[classIdx];
@@ -276,7 +297,9 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		encodedArrayItemsCount++;
 
 		const staticValuesOffset = unparserContext.position;
-		yield * unparserContext.writeEarlier(classDefItem.staticValuesOffsetWriteLater, uintUnparser, staticValuesOffset);
+		if (classDefItem.staticValuesOffsetWriteLater) {
+			yield * unparserContext.writeEarlier(classDefItem.staticValuesOffsetWriteLater, uintUnparser, staticValuesOffset);
+		}
 		yield * sectionUnparsers.encodedArrayUnparser(classDef.staticValues, unparserContext);
 	}
 
@@ -317,9 +340,11 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 		classDataItemsCount++;
 
 		const classDataOffset = unparserContext.position;
-		yield * unparserContext.writeEarlier(classDefItem.classDataOffsetWriteLater, uintUnparser, classDataOffset);
+		if (classDefItem.classDataOffsetWriteLater && classDef.classData) {
+			yield * unparserContext.writeEarlier(classDefItem.classDataOffsetWriteLater, uintUnparser, classDataOffset);
 
-		yield * sectionUnparsers.classDataUnparser(codeOffsetMap)(classDef.classData, unparserContext);
+			yield * sectionUnparsers.classDataUnparser(codeOffsetMap)(classDef.classData, unparserContext);
+		}
 	}
 
 	// Fourth pass: write all debugInfo items (grouped)
@@ -349,13 +374,13 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 
 	// Collect all annotation set items and annotation items to write them in separate passes
 	type AnnotationSetToWrite = {
-		setOffsetWriteLater: any;
+		setOffsetWriteLater: WriteLater<Uint8Array, number>;
 		annotations: DalvikExecutableAnnotation[];
-		itemOffsetWriteLaters: any[];
+		itemOffsetWriteLaters: Array<WriteLater<Uint8Array, number>>;
 	};
 	type AnnotationSetRefListToWrite = {
 		refListOffset: number;
-		setOffsetWriteLaters: any[];
+		setOffsetWriteLaters: Array<WriteLater<Uint8Array, number> | null>;
 		annotationSets: AnnotationSetToWrite[];
 	};
 	const annotationSetsToWrite: AnnotationSetToWrite[] = [];
@@ -377,7 +402,12 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 			const annotationsOffset = unparserContext.position;
 			yield * unparserContext.writeEarlier(classDefItem.annotationsOffsetWriteLater, uintUnparser, annotationsOffset);
 
-			const annotationOffsetWriteLaters: any = {};
+			const annotationOffsetWriteLaters: {
+				classAnnotationsOffsetWriteLater?: WriteLater<Uint8Array, number>;
+				fieldAnnotationsOffsetWriteLaters?: Array<WriteLater<Uint8Array, number> | null>;
+				methodAnnotationsOffsetWriteLaters?: Array<WriteLater<Uint8Array, number>>;
+				parameterAnnotationsOffsetWriteLaters?: Array<WriteLater<Uint8Array, number>>;
+			} = {};
 			yield * annotationUnparsers.annotationsDirectoryItemUnparser(annotationOffsetWriteLaters)(classDef.annotations, unparserContext);
 
 			// Collect class annotations set
@@ -392,9 +422,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 			// Collect field annotations sets
 			for (let i = 0; i < classDef.annotations.fieldAnnotations.length; i++) {
 				const fieldAnnotation = classDef.annotations.fieldAnnotations[i];
-				if (fieldAnnotation.annotations && fieldAnnotation.annotations.length > 0 && annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters?.[i]) {
+				const fieldAnnotationsOffsetWriteLater = annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters?.[i];
+				if (fieldAnnotation.annotations && fieldAnnotation.annotations.length > 0 && fieldAnnotationsOffsetWriteLater) {
 					annotationSetsToWrite.push({
-						setOffsetWriteLater: annotationOffsetWriteLaters.fieldAnnotationsOffsetWriteLaters[i],
+						setOffsetWriteLater: fieldAnnotationsOffsetWriteLater,
 						annotations: fieldAnnotation.annotations,
 						itemOffsetWriteLaters: [],
 					});
@@ -404,9 +435,10 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 			// Collect method annotations sets
 			for (let i = 0; i < classDef.annotations.methodAnnotations.length; i++) {
 				const methodAnnotation = classDef.annotations.methodAnnotations[i];
-				if (methodAnnotation.annotations.length > 0 && annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters?.[i]) {
+				const methodAnnotationsOffsetWriteLater = annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters?.[i];
+				if (methodAnnotation.annotations.length > 0 && methodAnnotationsOffsetWriteLater) {
 					annotationSetsToWrite.push({
-						setOffsetWriteLater: annotationOffsetWriteLaters.methodAnnotationsOffsetWriteLaters[i],
+						setOffsetWriteLater: methodAnnotationsOffsetWriteLater,
 						annotations: methodAnnotation.annotations,
 						itemOffsetWriteLaters: [],
 					});
@@ -427,15 +459,16 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecode>
 					const paramAnnotationsOffset = unparserContext.position;
 					yield * unparserContext.writeEarlier(annotationOffsetWriteLaters.parameterAnnotationsOffsetWriteLaters[i], uintUnparser, paramAnnotationsOffset);
 
-					const annotationSetOffsetWriteLaters: any[] = [];
+					const annotationSetOffsetWriteLaters: Array<WriteLater<Uint8Array, number> | null> = [];
 					yield * annotationUnparsers.annotationSetRefListUnparser(annotationSetOffsetWriteLaters)(paramAnnotation.annotations, unparserContext);
 
 					const setsForThisRefList: AnnotationSetToWrite[] = [];
 					for (let j = 0; j < paramAnnotation.annotations.length; j++) {
 						const paramSet = paramAnnotation.annotations[j];
-						if (paramSet.length > 0 && annotationSetOffsetWriteLaters[j]) {
+						const annotationSetOffsetWriteLater = annotationSetOffsetWriteLaters[j];
+						if (paramSet.length > 0 && annotationSetOffsetWriteLater) {
 							const annotationSet: AnnotationSetToWrite = {
-								setOffsetWriteLater: annotationSetOffsetWriteLaters[j],
+								setOffsetWriteLater: annotationSetOffsetWriteLater,
 								annotations: paramSet,
 								itemOffsetWriteLaters: [],
 							};

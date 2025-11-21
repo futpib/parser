@@ -1,4 +1,5 @@
 import { type Unparser } from '../unparser.js';
+import { type UnparserContext } from '../unparserContext.js';
 
 async function* yieldAndCapture<T>(gen: AsyncIterable<T, T>): AsyncIterable<T, T> {
 	let value: T | undefined;
@@ -28,6 +29,7 @@ import { type DalvikBytecode } from '../dalvikBytecodeParser.js';
 import { dalvikBytecodeUnparser } from '../dalvikBytecodeUnparser.js';
 import { ubyteUnparser, ushortUnparser, uintUnparser } from '../dalvikBytecodeUnparser/formatUnparsers.js';
 import { type PoolBuilders } from './poolBuilders.js';
+import { WriteLater } from '../unparserContext.js';
 import { alignmentUnparser, encodeModifiedUtf8, mutf8Unparser, sleb128Unparser, uleb128p1Unparser, uleb128Unparser } from './utils.js';
 
 export function createSectionUnparsers(poolBuilders: PoolBuilders) {
@@ -515,7 +517,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		yield * ubyteUnparser(0x00, unparserContext);
 	};
 
-	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: any }) => void): Unparser<DalvikExecutableCode<DalvikBytecode>, Uint8Array> => {
+	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: WriteLater<Uint8Array, number> }) => void): Unparser<DalvikExecutableCode<DalvikBytecode>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * ushortUnparser(input.registersSize, unparserContext);
 			yield * ushortUnparser(input.insSize, unparserContext);
@@ -544,7 +546,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 			}
 
 			if (input.tries.length > 0) {
-				const handlerOffsetWriteLaters: any[] = [];
+				const handlerOffsetWriteLaters: Array<WriteLater<Uint8Array, number>> = [];
 
 				for (const tryBlock of input.tries) {
 					yield * uintUnparser(tryBlock.startAddress, unparserContext);
@@ -586,7 +588,13 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 	async function calculateInstructionsSize(instructions: DalvikBytecode): Promise<number> {
 		let totalSize = 0;
 
-		for await (const chunk of dalvikBytecodeUnparser(instructions, { position: 0, writeLater: () => { throw new Error('Not supported'); }, writeEarlier: () => { throw new Error('Not supported'); } } as any)) {
+		const mockContext: UnparserContext<Uint8Array, number> = {
+			position: 0,
+			writeLater: () => { throw new Error('Not supported'); },
+			writeEarlier: () => { throw new Error('Not supported'); },
+		};
+
+		for await (const chunk of dalvikBytecodeUnparser(instructions, mockContext)) {
 			if (chunk instanceof Uint8Array) {
 				totalSize += chunk.length;
 			}
@@ -595,7 +603,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		return Math.floor(totalSize / 2);
 	}
 
-	const classDataUnparser = (codeOffsetMap: Map<any, number>): Unparser<DalvikExecutableClassData<DalvikBytecode>, Uint8Array> => {
+	const classDataUnparser = (codeOffsetMap: Map<DalvikExecutableCode<DalvikBytecode>, number>): Unparser<DalvikExecutableClassData<DalvikBytecode>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * uleb128Unparser(input.staticFields.length, unparserContext);
 			yield * uleb128Unparser(input.instanceFields.length, unparserContext);

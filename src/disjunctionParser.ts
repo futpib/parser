@@ -9,7 +9,7 @@ export const createDisjunctionParser = <
 	Sequence,
 	Element = DeriveSequenceElement<Sequence>,
 >(
-	childParsers: Array<Parser<any, Sequence, Element>>,
+	childParsers: Array<Parser<unknown, Sequence, Element>>,
 ): Parser<Output, Sequence, Element> => {
 	parserImplementationInvariant(childParsers.length > 0, 'Disjunction parser must have at least one child parser.');
 
@@ -21,7 +21,7 @@ export const createDisjunctionParser = <
 				debugName: getParserName(childParser, 'anonymousDisjunctionChild'),
 			});
 
-			const childParserResult = await promiseSettled<Output>(childParser(childParserContext));
+			const childParserResult = await promiseSettled<Output>(childParser(childParserContext) as Promise<Output>);
 
 			if (childParserResult.status === 'fulfilled') {
 				const successfulParserOutput = childParserResult.value;

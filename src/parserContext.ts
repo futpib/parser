@@ -47,8 +47,8 @@ export type ParserContext<Sequence, Element> = {
 	unlookahead(): void;
 	dispose(): void;
 
-	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy>;
-	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy>;
+	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy>;
+	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy>;
 };
 
 let parserContextId = 0;
@@ -300,7 +300,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		this._parentParserContext = undefined;
 	}
 
-	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy> {
+	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy> {
 		const parserContext = this;
 
 		return customInvariant(function (lazyMessage: LazyMessage) {
@@ -308,7 +308,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		}, value, format, ...formatArguments);
 	}
 
-	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: any[]): Exclude<T, Falsy> {
+	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy> {
 		parserImplementationInvariant(childErrors.length > 0, 'childErrors.length > 0');
 
 		const errorJoinMode = this._options.errorJoinMode ?? 'none';
