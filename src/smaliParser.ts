@@ -2,7 +2,7 @@ import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
 import {
-	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableEncodedValue, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
+	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableEncodedValue, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
@@ -1176,7 +1176,13 @@ const smaliParametersRegisterParser: Parser<SmaliRegister, string> = promiseComp
 
 setParserName(smaliParametersRegisterParser, 'smaliParametersRegisterParser');
 
-const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
+type SmaliCodeLocal = {
+	register: SmaliRegister;
+	name: string | undefined;
+	type: string | undefined;
+};
+
+const smaliCodeLocalParser: Parser<SmaliCodeLocal, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('    .local '),
 		smaliParametersRegisterParser,
@@ -1191,12 +1197,66 @@ const smaliCodeLocalParser: Parser<SmaliRegister, string> = promiseCompose(
 	]),
 	([
 		_local,
-		local,
-		_newlocal,
-	]) => local,
+		register,
+		nameAndType,
+	]) => ({
+		register,
+		name: nameAndType?.[2],
+		type: nameAndType?.[4],
+	}),
 );
 
 setParserName(smaliCodeLocalParser, 'smaliCodeLocalParser');
+
+const smaliCodeEndLocalParser: Parser<SmaliRegister, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('    .end local '),
+		smaliParametersRegisterParser,
+		smaliLineEndPraser,
+	]),
+	([
+		_endLocal,
+		register,
+		_newline,
+	]) => register,
+);
+
+setParserName(smaliCodeEndLocalParser, 'smaliCodeEndLocalParser');
+
+const smaliCodeRestartLocalParser: Parser<SmaliRegister, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('    .restart local '),
+		smaliParametersRegisterParser,
+		smaliLineEndPraser,
+	]),
+	([
+		_restartLocal,
+		register,
+		_newline,
+	]) => register,
+);
+
+setParserName(smaliCodeRestartLocalParser, 'smaliCodeRestartLocalParser');
+
+const smaliCodePrologueEndParser: Parser<true, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('    .prologue'),
+		smaliLineEndPraser,
+	]),
+	() => true as const,
+);
+
+setParserName(smaliCodePrologueEndParser, 'smaliCodePrologueEndParser');
+
+const smaliCodeEpilogueBeginParser: Parser<true, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('    .epilogue'),
+		smaliLineEndPraser,
+	]),
+	() => true as const,
+);
+
+setParserName(smaliCodeEpilogueBeginParser, 'smaliCodeEpilogueBeginParser');
 
 type SmaliCodeParameter = {
 	register: SmaliRegister;
@@ -1962,28 +2022,76 @@ function isOperationWithLabels(value: unknown): value is DalvikBytecodeOperation
 	);
 }
 
-const smaliAnnotatedCodeOperationParser: Parser<SmaliCodeOperation, string> = promiseCompose(
+type SmaliDebugDirective =
+	| { type: 'line'; line: number }
+	| { type: 'startLocal'; local: SmaliCodeLocal }
+	| { type: 'endLocal'; register: SmaliRegister }
+	| { type: 'restartLocal'; register: SmaliRegister }
+	| { type: 'setPrologueEnd' }
+	| { type: 'setEpilogueBegin' };
+
+type SmaliAnnotatedCodeOperation = {
+	debugDirectives: SmaliDebugDirective[];
+	labels: string[];
+	operation: SmaliCodeOperation;
+};
+
+const smaliAnnotatedCodeOperationParser: Parser<SmaliAnnotatedCodeOperation, string> = promiseCompose(
 	createTupleParser([
 		createArrayParser(smaliCodeLineParser),
 		createOptionalParser(smaliCodeLocalParser),
+		createOptionalParser(smaliCodeEndLocalParser),
+		createOptionalParser(smaliCodeRestartLocalParser),
+		createOptionalParser(smaliCodePrologueEndParser),
+		createOptionalParser(smaliCodeEpilogueBeginParser),
 		createArrayParser(smaliCodeLabelLineParser),
 		smaliCodeOperationParser,
 	]),
 	([
-		_lines,
-		_local,
+		lines,
+		local,
+		endLocal,
+		restartLocal,
+		prologueEnd,
+		epilogueBegin,
 		labels,
 		operation,
 	]) => {
-		if (labels.length > 0) {
-			(operation as any).labels = new Set(labels);
+		const debugDirectives: SmaliDebugDirective[] = [];
+
+		for (const line of lines) {
+			debugDirectives.push({ type: 'line', line });
 		}
 
-		return operation;
+		if (local) {
+			debugDirectives.push({ type: 'startLocal', local });
+		}
+
+		if (endLocal) {
+			debugDirectives.push({ type: 'endLocal', register: endLocal });
+		}
+
+		if (restartLocal) {
+			debugDirectives.push({ type: 'restartLocal', register: restartLocal });
+		}
+
+		if (prologueEnd) {
+			debugDirectives.push({ type: 'setPrologueEnd' });
+		}
+
+		if (epilogueBegin) {
+			debugDirectives.push({ type: 'setEpilogueBegin' });
+		}
+
+		return {
+			debugDirectives,
+			labels,
+			operation,
+		};
 	},
 );
 
-setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
+setParserName(smaliAnnotatedCodeOperationParser, 'smaliAnnotatedCodeOperationParser');
 
 type SmaliExecutableCode<DalvikBytecode> = {
 	dalvikExecutableCode: DalvikExecutableCode<DalvikBytecode>;
@@ -2026,6 +2134,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 	]) => {
 		const annotations = [ ...annotations1, ...annotations2 ];
 		const instructions: SmaliCodeOperation[] = [];
+		const annotatedOperations: SmaliAnnotatedCodeOperation[] = [];
 		const catchDirectives: SmaliCatchDirective[] = [];
 		const catchDirectiveLabels: Map<SmaliCatchDirective, string[]> = new Map();
 
@@ -2039,8 +2148,17 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				} else if ('type' in item && 'startLabel' in item && 'endLabel' in item && 'handlerLabel' in item) {
 					// This is a bare SmaliCatchDirective (shouldn't happen with current parser structure)
 					catchDirectives.push(item as SmaliCatchDirective);
+				} else if ('debugDirectives' in item && 'labels' in item && 'operation' in item) {
+					// This is a SmaliAnnotatedCodeOperation
+					const annotated = item as SmaliAnnotatedCodeOperation;
+					annotatedOperations.push(annotated);
+					const operation = annotated.operation;
+					if (annotated.labels.length > 0) {
+						(operation as any).labels = new Set(annotated.labels);
+					}
+					instructions.push(operation);
 				} else if (item !== undefined) {
-					// This is a SmaliCodeOperation
+					// This is a SmaliCodeOperation (fallback)
 					instructions.push(item as SmaliCodeOperation);
 				}
 			}
@@ -2301,12 +2419,116 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			delete (operation as any).branchOffsetIndices;
 		}
 
+		// Build debug info from debug directives
+		type DebugByteCodeValue = DalvikExecutableDebugInfo['bytecode'][number];
+		let debugInfo: DalvikExecutableDebugInfo | undefined;
+		const debugBytecode: DebugByteCodeValue[] = [];
+		let currentLine: number | undefined;
+		let lineStart: number | undefined;
+
+		// Helper to convert SmaliRegister to register number
+		const getRegisterNum = (register: SmaliRegister): number => {
+			// In Smali, 'v' registers start from 0, 'p' registers are parameters
+			// For now, we'll just use the index. The actual conversion may need
+			// to account for registersSize and parameter mapping.
+			if (register.prefix === 'v') {
+				return register.index;
+			} else {
+				// 'p' registers: need to map to actual register numbers
+				// p0 starts at (registersSize - insSize)
+				// For now, just use the index as we don't have accurate insSize
+				return register.index;
+			}
+		};
+
+		for (let i = 0; i < annotatedOperations.length; i++) {
+			const annotated = annotatedOperations[i];
+			const operationAddress = branchOffsetByBranchOffsetIndex.get(i) ?? 0;
+
+			// Track PC advances
+			if (i > 0 && debugBytecode.length > 0) {
+				const prevAddress = branchOffsetByBranchOffsetIndex.get(i - 1) ?? 0;
+				const addressDiff = operationAddress - prevAddress;
+				if (addressDiff > 0) {
+					debugBytecode.push({
+						type: 'advancePc',
+						addressDiff,
+					});
+				}
+			}
+
+			for (const directive of annotated.debugDirectives) {
+				if (directive.type === 'line') {
+					if (lineStart === undefined) {
+						lineStart = directive.line;
+						currentLine = directive.line;
+					} else if (currentLine !== undefined) {
+						const lineDiff = directive.line - currentLine;
+						if (lineDiff !== 0) {
+							debugBytecode.push({
+								type: 'advanceLine',
+								lineDiff,
+							});
+							currentLine = directive.line;
+						}
+					}
+				} else if (directive.type === 'startLocal') {
+					debugBytecode.push({
+						type: 'startLocal',
+						registerNum: getRegisterNum(directive.local.register),
+						name: directive.local.name,
+						type_: directive.local.type,
+					});
+				} else if (directive.type === 'endLocal') {
+					debugBytecode.push({
+						type: 'endLocal',
+						registerNum: getRegisterNum(directive.register),
+					});
+				} else if (directive.type === 'restartLocal') {
+					debugBytecode.push({
+						type: 'restartLocal',
+						registerNum: getRegisterNum(directive.register),
+					});
+				} else if (directive.type === 'setPrologueEnd') {
+					debugBytecode.push({
+						type: 'setPrologueEnd',
+					});
+				} else if (directive.type === 'setEpilogueBegin') {
+					debugBytecode.push({
+						type: 'setEpilogueBegin',
+					});
+				}
+			}
+		}
+
+		if (lineStart !== undefined) {
+			// Extract parameter names from .param directives
+			const parameterNames: Array<undefined | string> = [];
+			// TODO: Extract from parameters array if needed
+
+			// If we have a lineStart but no bytecode, we need to emit a special opcode
+			// to establish the initial state. The special value 0x0E (14) means:
+			// adjusted = 14 - 10 = 4, line_diff = 4 % 15 - 4 = 0, pc_diff = 4 / 15 = 0
+			if (debugBytecode.length === 0) {
+				debugBytecode.push({
+					type: 'special',
+					value: 0x0A + 4, // 14 in decimal
+				});
+			}
+
+			debugInfo = {
+				lineStart,
+				parameterNames,
+				bytecode: debugBytecode,
+			};
+		}
+
 		return {
 			dalvikExecutableCode: {
 				registersSize,
 				insSize: -1, // TODO
 				outsSize: -1, // TODO
-				debugInfo: undefined, // TODO
+				debugInfo,
 				instructions: instructions as any, // TODO
 				tries,
 				// _annotations,
@@ -2501,6 +2723,13 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 			}
 
 			code.outsSize = outsSize;
+
+			// Populate debug info parameter names
+			// The parameter count is insSize minus 1 for non-static methods (to exclude 'this')
+			if (code.debugInfo) {
+				const paramCount = accessFlags.static ? insSize : insSize - 1;
+				code.debugInfo.parameterNames = Array(paramCount).fill(undefined);
+			}
 		}
 
 		return {

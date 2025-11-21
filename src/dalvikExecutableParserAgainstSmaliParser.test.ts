@@ -88,7 +88,6 @@ const parseDexAgainstSmaliMacro = test.macro({
 
 		const smali = (
 			smali_
-				.replaceAll(/^\s+\.line \d+\s*$/gm, '')
 				.replaceAll(/^\s+# getter for:.*$/gm, '')
 				.replaceAll(/^\s+# setter for:.*$/gm, '')
 				.replaceAll(/^\s+# invokes:.*$/gm, '')
@@ -112,10 +111,6 @@ const parseDexAgainstSmaliMacro = test.macro({
 		});
 
 		const classDefinitionFromDex = executableFromDex.classDefinitions.find(classDefinition => classDefinition.class === classDefinitionFromSmali.class);
-
-		// Normalize both DEX and Smali by removing nop instructions and debug info
-		normalizeClassDefinition(classDefinitionFromDex);
-		normalizeClassDefinition(classDefinitionFromSmali);
 
 		// Console.dir({
 		// 	classDefinitionFromSmali,
@@ -351,10 +346,6 @@ test.serial(
 		// }, {
 		// 	depth: null,
 		// });
-
-		// Normalize both DEX and Smali by removing nop instructions and debug info
-		normalizeClassDefinition(classDefinitionFromDex);
-		normalizeClassDefinition(classDefinitionFromSmali);
 
 		t.deepEqual(
 			classDefinitionFromDex,
