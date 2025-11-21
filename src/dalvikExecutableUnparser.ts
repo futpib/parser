@@ -17,6 +17,7 @@ async function* yieldAndCapture<T>(gen: AsyncIterable<T, T>): AsyncIterable<T, T
 	for await (value of gen) {
 		yield value;
 	}
+
 	return value!;
 }
 
@@ -62,6 +63,7 @@ class SectionTracker {
 		if (this._count === 0) {
 			this._offset = position;
 		}
+
 		this._count++;
 	}
 
