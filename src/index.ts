@@ -1,15 +1,54 @@
-
 export {
 	type Parser,
 	runParser,
-
+	runParserWithRemainingInput,
 	setParserName,
 	getParserName,
+	cloneParser,
+	type RunParserOptions,
+	type RunParserWithRemainingInputResult,
 } from './parser.js';
 
 export type {
 	ParserContext,
 } from './parserContext.js';
+
+export {
+	type ParserInputCompanion,
+	StringParserInputCompanion,
+	stringParserInputCompanion,
+	Uint8ArrayParserInputCompanion,
+	uint8ArrayParserInputCompanion,
+} from './parserInputCompanion.js';
+
+export {
+	type UnparserOutputCompanion,
+	StringUnparserOutputCompanion,
+	stringUnparserOutputCompanion,
+	Uint8ArrayUnparserOutputCompanion,
+	uint8ArrayUnparserOutputCompanion,
+} from './unparserOutputCompanion.js';
+
+export {
+	type ParserError,
+	type ParserParsingFailedError,
+	type ParserParsingJoinError,
+	type ParserErrorModule,
+	isParserError,
+	isParserParsingFailedError,
+	isParserParsingJoinError,
+	normalParserErrorModule,
+	noStackCaptureOverheadParserErrorModule,
+} from './parserError.js';
+
+export {
+	parserCreatorCompose,
+	parserCreatorComposeMem,
+} from './parserCreatorCompose.js';
+
+export type {
+	DeriveSequenceElement,
+} from './sequence.js';
 
 export {
 	createTupleParser,
@@ -76,9 +115,73 @@ export {
 } from './debugLogParser.js';
 
 export {
+	createNonEmptyArrayParser,
+} from './nonEmptyArrayParser.js';
+
+export {
+	createSeparatedArrayParser,
+} from './separatedArrayParser.js';
+
+export {
+	createSeparatedNonEmptyArrayParser,
+} from './separatedNonEmptyArrayParser.js';
+
+export {
+	createLookaheadParser,
+} from './lookaheadParser.js';
+
+export {
+	createNegativeLookaheadParser,
+} from './negativeLookaheadParser.js';
+
+export {
+	createElementTerminatedSequenceParser,
+} from './elementTerminatedSequenceParser.js';
+
+export {
+	createElementTerminatedSequenceArrayParser,
+} from './elementTerminatedSequenceArrayParser.js';
+
+export {
+	createElementTerminatedArrayParserUnsafe,
+} from './elementTerminatedArrayParser.js';
+
+export {
+	createSequenceTerminatedSequenceParser,
+} from './sequenceTerminatedSequenceParser.js';
+
+export {
+	createQuantifierParser,
+} from './quantifierParser.js';
+
+export {
+	createSkipToParser,
+} from './skipToParser.js';
+
+export {
+	createDebugLogInputParser,
+} from './debugLogInputParser.js';
+
+export {
+	createElementSwitchParser,
+} from './exactElementSwitchParser.js';
+
+export {
+	createParserConsumedSequenceParser,
+} from './parserConsumedSequenceParser.js';
+
+export {
 	type Unparser,
+	type UnparserResult,
 	runUnparser,
 } from './unparser.js';
+
+export {
+	type UnparserContext,
+	WriteLater,
+	WriteEarlier,
+	UnparserContextImplementation,
+} from './unparserContext.js';
 
 export {
 	createArrayUnparser,
