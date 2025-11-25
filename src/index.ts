@@ -46,6 +46,10 @@ export {
 	parserCreatorComposeMem,
 } from './parserCreatorCompose.js';
 
+export {
+	promiseCompose,
+} from './promiseCompose.js';
+
 export type {
 	DeriveSequenceElement,
 } from './sequence.js';
