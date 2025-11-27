@@ -154,3 +154,33 @@ test('regexpParser with optional group on empty input', async t => {
 
 	t.is(result[0], '');
 });
+
+// Tests for negative lookahead
+
+test('regexpParser with negative lookahead should not match when followed by same char', async t => {
+	// This regex should NOT match anything in '||' - the | is followed by another |
+	const regexpParser = createRegExpParser(/\|(?!\|)/);
+
+	await t.throwsAsync(
+		runParser(
+			regexpParser,
+			'||',
+			stringParserInputCompanion,
+		),
+	);
+});
+
+test('regexpParser with negative lookahead should match single char', async t => {
+	// This regex should match single '|' when followed by something else
+	const regexpParser = createRegExpParser(/\|(?!\|)/);
+
+	const { output, position, remainingInput } = await runParserWithRemainingInput(
+		regexpParser,
+		'| ',
+		stringParserInputCompanion,
+	);
+
+	t.is(output[0], '|');
+	t.is(position, 1); // Consumed 1 character
+	t.truthy(remainingInput); // There's remaining input (the space)
+});
