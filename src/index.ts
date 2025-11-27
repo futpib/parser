@@ -194,3 +194,7 @@ export {
 export {
 	createSequenceUnparser,
 } from './sequenceUnparser.js';
+
+export {
+	createRegExpParser,
+} from './regexpParser.js';
