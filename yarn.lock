@@ -213,6 +213,7 @@ __metadata:
   dependencies:
     "@ava/typescript": "npm:^6.0.0"
     "@fast-check/ava": "npm:^2.0.2"
+    "@gruhn/regex-utils": "npm:^2.7.3"
     "@types/invariant": "npm:^2.2.37"
     "@types/node": "npm:^24.4.0"
     ava: "npm:^6.4.1"
@@ -244,6 +245,13 @@ __metadata:
       optional: true
   languageName: unknown
   linkType: soft
+
+"@gruhn/regex-utils@npm:^2.7.3":
+  version: 2.7.3
+  resolution: "@gruhn/regex-utils@npm:2.7.3"
+  checksum: 10/82f9d1780dc4235bbe704c926f7cef0abce7f7b2eef4e5a4b72c3dbedc778c3bc25e41a365657ea0a668d71794a13a69cf77ba612479d130b148b1d254d2eae9
+  languageName: node
+  linkType: hard
 
 "@humanfs/core@npm:^0.19.1":
   version: 0.19.1
