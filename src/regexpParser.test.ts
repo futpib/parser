@@ -104,3 +104,53 @@ testProp.serial(
 		verbose: true,
 	},
 );
+
+// Tests for zero-width/optional patterns at end of input
+
+test('regexpParser with star quantifier on empty input', async t => {
+	const regexpParser = createRegExpParser(/a*/);
+
+	const result = await runParser(
+		regexpParser,
+		'',
+		stringParserInputCompanion,
+	);
+
+	t.is(result[0], '');
+});
+
+test('regexpParser with optional whitespace on empty input', async t => {
+	const regexpParser = createRegExpParser(/[ \t]*/);
+
+	const result = await runParser(
+		regexpParser,
+		'',
+		stringParserInputCompanion,
+	);
+
+	t.is(result[0], '');
+});
+
+test('regexpParser with star quantifier at end of input (no match)', async t => {
+	const regexpParser = createRegExpParser(/a*/);
+
+	const { output } = await runParserWithRemainingInput(
+		regexpParser,
+		'bbb',
+		stringParserInputCompanion,
+	);
+
+	t.is(output[0], '');
+});
+
+test('regexpParser with optional group on empty input', async t => {
+	const regexpParser = createRegExpParser(/(?:foo)?/);
+
+	const result = await runParser(
+		regexpParser,
+		'',
+		stringParserInputCompanion,
+	);
+
+	t.is(result[0], '');
+});

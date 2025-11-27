@@ -17,6 +17,12 @@ export const createRegExpParser = (
 				window = Math.floor(window / 2);
 
 				if (window === 0) {
+					// Try matching against empty string for zero-width patterns (e.g., /a*/, /[ \t]*/)
+					const emptyMatch = regexp.exec('');
+					if (emptyMatch !== null && emptyMatch.index === 0) {
+						return emptyMatch;
+					}
+
 					const match = parserContext.invariant(lastMatch, 'Unexpected end of input without regex match');
 
 					parserContext.skip(match[0].length);
