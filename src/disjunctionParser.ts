@@ -1,17 +1,13 @@
-import { getParserName, setParserName, type Parser, type ParserOutput } from './parser.js';
+import { getParserName, setParserName, type Parser, type ParserOutput, type ParserSequence } from './parser.js';
 import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { promiseSettled } from './promiseSettled.js';
-
-// Infer Sequence type from a parser
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type InferSequence<T> = T extends Parser<any, infer S, any> ? S : never;
 
 // Union all output types from an array of parsers
 type DisjunctionParserOutput<Parsers extends readonly unknown[]> = ParserOutput<Parsers[number]>;
 
 // Infer Sequence from parser array
-type InferSequenceFromParserArray<T extends readonly unknown[]> = InferSequence<T[number]>;
+type InferSequenceFromParserArray<T extends readonly unknown[]> = ParserSequence<T[number]>;
 
 export function createDisjunctionParser<
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

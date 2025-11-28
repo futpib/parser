@@ -20,6 +20,9 @@ export type Parser<
 export type ParserOutput<P> = P extends Parser<infer O, any, any> ? O : never;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ParserSequence<P> = P extends Parser<any, infer S, any> ? S : never;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getParserName(parser: Parser<any, any, any>, default_ = 'anonymous'): string {
 	return parser.name || default_;
 }
