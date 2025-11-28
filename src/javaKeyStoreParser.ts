@@ -1,5 +1,6 @@
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
+import { createObjectParser } from './objectParser.js';
 import { type Parser, setParserName } from './parser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -58,13 +59,10 @@ const javaKeyStoreImplementationParser: Parser<'JKS' | 'JCEKS', Uint8Array> = pr
 
 const javaKeyStorePrivateKeyEntryPrivateKeyParser = uint32LengthPrefixedUint8ArrayParser;
 
-const javaKeyStorePrivateKeyEntryCertificateParser = promiseCompose(
-	createTupleParser([
-		javaModifiedUTF8StringParser,
-		uint32LengthPrefixedUint8ArrayParser,
-	]),
-	([ type, certificate ]) => ({ type, certificate }),
-);
+const javaKeyStorePrivateKeyEntryCertificateParser = createObjectParser({
+	type: javaModifiedUTF8StringParser,
+	certificate: uint32LengthPrefixedUint8ArrayParser,
+});
 
 const javaKeyStorePrivateKeyEntryCertificateChainParser = createUint32BECountPrefixedParser(javaKeyStorePrivateKeyEntryCertificateParser);
 
@@ -109,24 +107,9 @@ const javaKeyStoreEntryParser = createUnionParser([
 
 const javaKeyStoreEntriesParser = createUint32BECountPrefixedParser(javaKeyStoreEntryParser);
 
-const javaKeyStoreParser_ = createTupleParser([
-	javaKeyStoreImplementationParser,
-	uint32BEParser,
-	javaKeyStoreEntriesParser,
-	createFixedLengthSequenceParser(20),
-]);
-
-export const javaKeyStoreParser: Parser<unknown, Uint8Array> = promiseCompose(
-	javaKeyStoreParser_,
-	([
-		implementation,
-		version,
-		entries,
-		hash,
-	]) => ({
-		implementation,
-		version,
-		entries,
-		hash,
-	}),
-);
+export const javaKeyStoreParser: Parser<unknown, Uint8Array> = createObjectParser({
+	implementation: javaKeyStoreImplementationParser,
+	version: uint32BEParser,
+	entries: javaKeyStoreEntriesParser,
+	hash: createFixedLengthSequenceParser<Uint8Array>(20),
+});

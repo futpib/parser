@@ -4,6 +4,7 @@ import { pipeline } from 'node:stream/promises';
 import invariant from 'invariant';
 import { createArrayParser } from './arrayParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
+import { createObjectParser } from './objectParser.js';
 import { type Parser, setParserName } from './parser.js';
 import { createTupleParser } from './tupleParser.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -146,28 +147,15 @@ type ZipDataDescriptor = {
 const zipDataDescriptorSignature: Uint8Array = Buffer.from('504b0708', 'hex');
 const zipDataDescriptorSignatureParser = createExactSequenceParser<Uint8Array>(zipDataDescriptorSignature);
 
-const zipDataDescriptorParser: Parser<ZipDataDescriptor, Uint8Array> = promiseCompose(
-	createTupleParser([
-		createNegativeLookaheadParser(zipLocalFileHeaderSignatureParser),
-		// FIXME: optional in spec
-		// createOptionalParser(zipDataDescriptorSignatureParser),
-		zipDataDescriptorSignatureParser,
-		uint32LEParser,
-		uint32LEParser,
-		uint32LEParser,
-	]),
-	([
-		_notZipLocalFileHeaderSignature,
-		_zipDataDescriptorSignature,
-		crc32,
-		compressedSize,
-		uncompressedSize,
-	]) => ({
-		crc32,
-		compressedSize,
-		uncompressedSize,
-	}),
-);
+const zipDataDescriptorParser: Parser<ZipDataDescriptor, Uint8Array> = createObjectParser({
+	_notZipLocalFileHeaderSignature: createNegativeLookaheadParser(zipLocalFileHeaderSignatureParser),
+	// FIXME: optional in spec
+	// _zipDataDescriptorSignature: createOptionalParser(zipDataDescriptorSignatureParser),
+	_zipDataDescriptorSignature: zipDataDescriptorSignatureParser,
+	crc32: uint32LEParser,
+	compressedSize: uint32LEParser,
+	uncompressedSize: uint32LEParser,
+});
 
 setParserName(zipDataDescriptorParser, 'zipDataDescriptorParser');
 
@@ -411,40 +399,16 @@ export type ZipEndOfCentralDirectoryRecord = {
 	zipFileComment: string;
 };
 
-const zipEndOfCentralDirectoryRecordParser_ = createTupleParser([
-	createExactSequenceParser<Uint8Array>(Buffer.from('504b0506', 'hex')),
-	uint16LEParser,
-	uint16LEParser,
-	uint16LEParser,
-	uint16LEParser,
-	uint32LEParser,
-	uint32LEParser,
-	zipFileCommentParser,
-]);
-
-setParserName(zipEndOfCentralDirectoryRecordParser_, 'zipEndOfCentralDirectoryRecordParser_');
-
-export const zipEndOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirectoryRecord, Uint8Array> = promiseCompose(
-	zipEndOfCentralDirectoryRecordParser_,
-	([
-		_endOfCentralDirectoryRecordSignature,
-		numberOfThisDisk,
-		numberOfTheDiskWithTheStartOfTheCentralDirectory,
-		totalNumberOfEntriesInTheCentralDirectoryOnThisDisk,
-		totalNumberOfEntriesInTheCentralDirectory,
-		sizeOfTheCentralDirectory,
-		offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber,
-		zipFileComment,
-	]) => ({
-		numberOfThisDisk,
-		numberOfTheDiskWithTheStartOfTheCentralDirectory,
-		totalNumberOfEntriesInTheCentralDirectoryOnThisDisk,
-		totalNumberOfEntriesInTheCentralDirectory,
-		sizeOfTheCentralDirectory,
-		offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber,
-		zipFileComment,
-	}),
-);
+export const zipEndOfCentralDirectoryRecordParser: Parser<ZipEndOfCentralDirectoryRecord, Uint8Array> = createObjectParser({
+	_endOfCentralDirectoryRecordSignature: createExactSequenceParser<Uint8Array>(Buffer.from('504b0506', 'hex')),
+	numberOfThisDisk: uint16LEParser,
+	numberOfTheDiskWithTheStartOfTheCentralDirectory: uint16LEParser,
+	totalNumberOfEntriesInTheCentralDirectoryOnThisDisk: uint16LEParser,
+	totalNumberOfEntriesInTheCentralDirectory: uint16LEParser,
+	sizeOfTheCentralDirectory: uint32LEParser,
+	offsetOfStartOfCentralDirectoryWithRespectToTheStartingDiskNumber: uint32LEParser,
+	zipFileComment: zipFileCommentParser,
+});
 
 setParserName(zipEndOfCentralDirectoryRecordParser, 'zipEndOfCentralDirectoryRecordParser');
 
