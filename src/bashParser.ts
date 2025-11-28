@@ -10,6 +10,7 @@ import { createOptionalParser } from './optionalParser.js';
 import { createRegExpParser } from './regexpParser.js';
 import { createNonEmptyArrayParser } from './nonEmptyArrayParser.js';
 import { createSeparatedNonEmptyArrayParser } from './separatedNonEmptyArrayParser.js';
+import { createObjectParser } from './objectParser.js';
 import {
 	type BashWord,
 	type BashWordPart,
@@ -55,20 +56,15 @@ const bashUnquotedWordCharsParser: Parser<string, string> = promiseCompose(
 );
 
 // Single quoted string: '...'
-const bashSingleQuotedParser: Parser<BashWordPartSingleQuoted, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser("'"),
-		promiseCompose(
-			createRegExpParser(/[^']*/),
-			match => match[0],
-		),
-		createExactSequenceParser("'"),
-	]),
-	([, value]) => ({
-		type: 'singleQuoted' as const,
-		value,
-	}),
-);
+const bashSingleQuotedParser: Parser<BashWordPartSingleQuoted, string> = createObjectParser({
+	type: 'singleQuoted' as const,
+	_open: createExactSequenceParser("'"),
+	value: promiseCompose(
+		createRegExpParser(/[^']*/),
+		match => match[0],
+	),
+	_close: createExactSequenceParser("'"),
+});
 
 // Variable name
 const bashVariableNameParser: Parser<string, string> = promiseCompose(
@@ -77,44 +73,29 @@ const bashVariableNameParser: Parser<string, string> = promiseCompose(
 );
 
 // Simple variable: $var
-const bashSimpleVariableParser: Parser<BashWordPartVariable, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('$'),
-		bashVariableNameParser,
-	]),
-	([, name]) => ({
-		type: 'variable' as const,
-		name,
-	}),
-);
+const bashSimpleVariableParser: Parser<BashWordPartVariable, string> = createObjectParser({
+	type: 'variable' as const,
+	_dollar: createExactSequenceParser('$'),
+	name: bashVariableNameParser,
+});
 
 // Command substitution: $(...)
-const bashCommandSubstitutionParser: Parser<BashWordPartCommandSubstitution, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('$('),
-		bashOptionalInlineWhitespaceParser,
-		createParserAccessorParser(() => bashCommandParser),
-		bashOptionalInlineWhitespaceParser,
-		createExactSequenceParser(')'),
-	]),
-	([, , command]) => ({
-		type: 'commandSubstitution' as const,
-		command,
-	}),
-);
+const bashCommandSubstitutionParser: Parser<BashWordPartCommandSubstitution, string> = createObjectParser({
+	type: 'commandSubstitution' as const,
+	_open: createExactSequenceParser('$('),
+	_ws1: bashOptionalInlineWhitespaceParser,
+	command: createParserAccessorParser(() => bashCommandParser),
+	_ws2: bashOptionalInlineWhitespaceParser,
+	_close: createExactSequenceParser(')'),
+});
 
 // Backtick substitution: `...`
-const bashBacktickSubstitutionParser: Parser<BashWordPartBacktickSubstitution, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('`'),
-		createParserAccessorParser(() => bashCommandParser),
-		createExactSequenceParser('`'),
-	]),
-	([, command]) => ({
-		type: 'backtickSubstitution' as const,
-		command,
-	}),
-);
+const bashBacktickSubstitutionParser: Parser<BashWordPartBacktickSubstitution, string> = createObjectParser({
+	type: 'backtickSubstitution' as const,
+	_open: createExactSequenceParser('`'),
+	command: createParserAccessorParser(() => bashCommandParser),
+	_close: createExactSequenceParser('`'),
+});
 
 // Double quoted string parts (inside "...")
 const bashDoubleQuotedPartParser: Parser<BashWordPart, string> = createDisjunctionParser([
@@ -140,17 +121,12 @@ const bashDoubleQuotedPartParser: Parser<BashWordPart, string> = createDisjuncti
 ]);
 
 // Double quoted string: "..."
-const bashDoubleQuotedParser: Parser<BashWordPartDoubleQuoted, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('"'),
-		createArrayParser(bashDoubleQuotedPartParser),
-		createExactSequenceParser('"'),
-	]),
-	([, parts]) => ({
-		type: 'doubleQuoted' as const,
-		parts,
-	}),
-);
+const bashDoubleQuotedParser: Parser<BashWordPartDoubleQuoted, string> = createObjectParser({
+	type: 'doubleQuoted' as const,
+	_open: createExactSequenceParser('"'),
+	parts: createArrayParser(bashDoubleQuotedPartParser),
+	_close: createExactSequenceParser('"'),
+});
 
 // Literal word part (unquoted)
 const bashLiteralWordPartParser: Parser<BashWordPartLiteral, string> = promiseCompose(
@@ -299,38 +275,28 @@ export const bashSimpleCommandParser: Parser<BashSimpleCommand, string> = promis
 setParserName(bashSimpleCommandParser, 'bashSimpleCommandParser');
 
 // Subshell: ( command )
-const bashSubshellParser: Parser<BashSubshell, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('('),
-		bashOptionalInlineWhitespaceParser,
-		createParserAccessorParser(() => bashCommandParser),
-		bashOptionalInlineWhitespaceParser,
-		createExactSequenceParser(')'),
-	]),
-	([, , body]) => ({
-		type: 'subshell' as const,
-		body,
-	}),
-);
+const bashSubshellParser: Parser<BashSubshell, string> = createObjectParser({
+	type: 'subshell' as const,
+	_open: createExactSequenceParser('('),
+	_ws1: bashOptionalInlineWhitespaceParser,
+	body: createParserAccessorParser(() => bashCommandParser),
+	_ws2: bashOptionalInlineWhitespaceParser,
+	_close: createExactSequenceParser(')'),
+});
 
 setParserName(bashSubshellParser, 'bashSubshellParser');
 
 // Brace group: { command; }
-const bashBraceGroupParser: Parser<BashBraceGroup, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('{'),
-		bashInlineWhitespaceParser,
-		createParserAccessorParser(() => bashCommandParser),
-		bashOptionalInlineWhitespaceParser,
-		createOptionalParser(createExactSequenceParser(';')),
-		bashOptionalInlineWhitespaceParser,
-		createExactSequenceParser('}'),
-	]),
-	([, , body]) => ({
-		type: 'braceGroup' as const,
-		body,
-	}),
-);
+const bashBraceGroupParser: Parser<BashBraceGroup, string> = createObjectParser({
+	type: 'braceGroup' as const,
+	_open: createExactSequenceParser('{'),
+	_ws1: bashInlineWhitespaceParser,
+	body: createParserAccessorParser(() => bashCommandParser),
+	_ws2: bashOptionalInlineWhitespaceParser,
+	_semi: createOptionalParser(createExactSequenceParser(';')),
+	_ws3: bashOptionalInlineWhitespaceParser,
+	_close: createExactSequenceParser('}'),
+});
 
 setParserName(bashBraceGroupParser, 'bashBraceGroupParser');
 
