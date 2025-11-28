@@ -14,6 +14,7 @@ import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createElementParser } from './elementParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { createSeparatedArrayParser } from './separatedArrayParser.js';
+import { createRegExpParser } from './regexpParser.js';
 
 const whitespaceParser: Parser<unknown, string> = createArrayParser(createUnionParser([
 	createExactSequenceParser(' '),
@@ -78,32 +79,10 @@ export const jsonStringParser: Parser<string, string> = promiseCompose(
 	([ , string ]) => string,
 );
 
-export const jsonNumberParser: Parser<number, string> = parserCreatorCompose(
-	() => createArrayParser(parserCreatorCompose(
-		() => elementParser,
-		character => async parserContext => {
-			parserContext.invariant(
-				(
-					character === '-'
-					|| (character >= '0' && character <= '9')
-					|| character === '.'
-					|| character === 'e'
-					|| character === 'E'
-					|| character === '+'
-				),
-				'Expected "-", "0" to "9", ".", "e", "E", "+", got "%s"',
-				character,
-			);
-
-			return character;
-		},
-	)()),
-	characters => async parserContext => {
-		parserContext.invariant(characters.length > 0, 'Expected at least one character');
-
-		return Number(characters.join(''));
-	},
-)();
+export const jsonNumberParser: Parser<number, string> = promiseCompose(
+	createRegExpParser(/-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/),
+	match => Number(match[0]),
+);
 
 const jsonTrueParser: Parser<true, string> = promiseCompose(createExactSequenceParser('true'), () => true);
 

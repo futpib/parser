@@ -24,11 +24,10 @@ import { operationFormats } from './dalvikBytecodeParser/operationFormats.js';
 import { createSeparatedNonEmptyArrayParser } from './separatedNonEmptyArrayParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { type IndexIntoMethodIds } from './dalvikExecutableParser/typedNumbers.js';
-import { createDebugLogInputParser } from './debugLogInputParser.js';
-import { createDebugLogParser } from './debugLogParser.js';
 import { createElementParser } from './elementParser.js';
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
+import { createRegExpParser } from './regexpParser.js';
 
 function shortyFromLongy(longy: string): string {
 	if (longy.startsWith('[')) {
@@ -189,31 +188,11 @@ const smaliIndentationParser: Parser<void, string> = promiseCompose(
 export const smaliCommentParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('#'),
-		(async (parserContext: ParserContext<string, string>) => {
-			const characters: string[] = [];
-
-			while (true) {
-				const character = await parserContext.peek(0);
-
-				parserContext.invariant(character !== undefined, 'Unexpected end of input');
-
-				invariant(character !== undefined, 'Unexpected end of input');
-
-				if (character !== '\n') {
-					characters.push(character);
-
-					parserContext.skip(1);
-
-					continue;
-				}
-
-				parserContext.skip(1);
-
-				break;
-			}
-
-			return characters.join('');
-		}),
+		promiseCompose(
+			createRegExpParser(/[^\n]*/),
+			match => match[0],
+		),
+		createExactSequenceParser('\n'),
 	]),
 	([
 		_hash,
@@ -255,85 +234,27 @@ const smaliLineEndPraser: Parser<undefined | string, string> = promiseCompose(
 	]) => newlineOrComment,
 );
 
-const smaliIdentifierParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
-	const characters: string[] = [];
-
-	while (true) {
-		const character = await parserContext.peek(0);
-
-		parserContext.invariant(character !== undefined, 'Unexpected end of input');
-
-		invariant(character !== undefined, 'Unexpected end of input');
-
-		if (
-			character === '_'
-			|| (
-				character >= 'a' && character <= 'z'
-			)
-			|| (
-				character >= 'A' && character <= 'Z'
-			)
-			|| (
-				character >= '0' && character <= '9'
-			)
-		) {
-			parserContext.skip(1);
-
-			characters.push(character);
-
-			continue;
-		}
-
-		parserContext.invariant(characters.length > 0, 'Expected at least one character');
-
-		break;
-	}
-
-	return characters.join('');
-};
+const smaliIdentifierParser: Parser<string, string> = promiseCompose(
+	createRegExpParser(/[a-zA-Z0-9_]+/),
+	match => match[0],
+);
 
 setParserName(smaliIdentifierParser, 'smaliIdentifierParser');
 
-const elementParser = createElementParser<string>();
-
 const smaliHexNumberParser: Parser<number | bigint, string> = promiseCompose(
-	createTupleParser([
-		createOptionalParser(createExactSequenceParser('-')),
-		createExactSequenceParser('0x'),
-		createArrayParser(parserCreatorCompose(
-			() => elementParser,
-			character => async parserContext => {
-				parserContext.invariant(
-					(
-						(character >= '0' && character <= '9')
-						|| (character >= 'a' && character <= 'f')
-						|| (character >= 'A' && character <= 'F')
-					),
-					'Expected "0" to "9", "a" to "f", "A" to "F", got "%s"',
-					character,
-				);
+	createRegExpParser(/-?0x([0-9a-fA-F]+)(L)?/),
+	match => {
+		const hexDigits = match[1]!;
+		const optionalL = match[2];
 
-				return character;
-			},
-		)()),
-		createOptionalParser(createExactSequenceParser('L')),
-	]),
-	([
-		optionalMinus,
-		_0x,
-		valueCharacters,
-		optionalL,
-	]) => {
-		const value = valueCharacters.join('');
-		
 		// If the 'L' suffix is present, use BigInt for long values
 		if (optionalL) {
-			const sign = optionalMinus ? -1n : 1n;
-			return sign * BigInt('0x' + value);
+			const sign = match[0].startsWith('-') ? -1n : 1n;
+			return sign * BigInt('0x' + hexDigits);
 		}
-		
-		const sign = optionalMinus ? -1 : 1;
-		return sign * Number.parseInt(value, 16);
+
+		const sign = match[0].startsWith('-') ? -1 : 1;
+		return sign * Number.parseInt(hexDigits, 16);
 	},
 );
 
@@ -1406,57 +1327,20 @@ const smaliParametersStringParser: Parser<string, string> = cloneParser(smaliQuo
 setParserName(smaliParametersStringParser, 'smaliParametersStringParser');
 
 const smaliParametersIntegerParser: Parser<number | bigint, string> = promiseCompose(
-	createTupleParser([
-		createOptionalParser(createExactSequenceParser('-')),
-		createExactSequenceParser('0x'),
-		async parserContext => {
-			const characters: string[] = [];
+	createRegExpParser(/-?0x([0-9a-fA-F]+)([Lts])?/),
+	match => {
+		const hexDigits = match[1]!;
+		const optionalSuffix = match[2];
 
-			while (true) {
-				const character = await parserContext.peek(0);
-
-				parserContext.invariant(character !== undefined, 'Unexpected end of input');
-
-				invariant(character !== undefined, 'Unexpected end of input');
-
-				if (
-					(character >= '0' && character <= '9')
-					|| (character >= 'a' && character <= 'f')
-					|| (character >= 'A' && character <= 'F')
-				) {
-					characters.push(character);
-
-					parserContext.skip(1);
-
-					continue;
-				}
-
-				break;
-			}
-
-			return characters.join('');
-		},
-		createOptionalParser(createUnionParser([
-			createExactSequenceParser('L'),
-			createExactSequenceParser('t'),
-			createExactSequenceParser('s'),
-		])),
-	]),
-	([
-		optionalMinus,
-		_0x,
-		value,
-		optionalSuffix,
-	]) => {
 		if (optionalSuffix === 'L') {
-			const sign = optionalMinus ? -1n : 1n;
+			const sign = match[0].startsWith('-') ? -1n : 1n;
 
-			return sign * BigInt('0x' + value);
+			return sign * BigInt('0x' + hexDigits);
 		}
 
-		const sign = optionalMinus ? -1 : 1;
+		const sign = match[0].startsWith('-') ? -1 : 1;
 
-		return sign * Number.parseInt(value, 16);
+		return sign * Number.parseInt(hexDigits, 16);
 	},
 );
 
