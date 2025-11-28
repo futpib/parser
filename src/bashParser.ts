@@ -129,13 +129,10 @@ const bashDoubleQuotedParser: Parser<BashWordPartDoubleQuoted, string> = createO
 });
 
 // Literal word part (unquoted)
-const bashLiteralWordPartParser: Parser<BashWordPartLiteral, string> = promiseCompose(
-	bashUnquotedWordCharsParser,
-	value => ({
-		type: 'literal' as const,
-		value,
-	}),
-);
+const bashLiteralWordPartParser: Parser<BashWordPartLiteral, string> = createObjectParser({
+	type: 'literal' as const,
+	value: bashUnquotedWordCharsParser,
+});
 
 // Escape sequence outside quotes
 const bashEscapeParser: Parser<BashWordPartLiteral, string> = promiseCompose(
@@ -158,10 +155,9 @@ const bashWordPartParser: Parser<BashWordPart, string> = createDisjunctionParser
 ]);
 
 // Word (sequence of word parts)
-export const bashWordParser: Parser<BashWord, string> = promiseCompose(
-	createNonEmptyArrayParser(bashWordPartParser),
-	parts => ({ parts }),
-);
+export const bashWordParser: Parser<BashWord, string> = createObjectParser({
+	parts: createNonEmptyArrayParser(bashWordPartParser),
+});
 
 setParserName(bashWordParser, 'bashWordParser');
 
@@ -217,8 +213,8 @@ const bashRedirectWithWhitespaceParser: Parser<BashRedirect, string> = promiseCo
 
 // Word or redirect - for interleaved parsing in simple commands
 const bashWordOrRedirectParser: Parser<{ type: 'word'; word: BashWord } | { type: 'redirect'; redirect: BashRedirect }, string> = createDisjunctionParser([
-	promiseCompose(bashRedirectWithWhitespaceParser, redirect => ({ type: 'redirect' as const, redirect })),
-	promiseCompose(bashWordWithWhitespaceParser, word => ({ type: 'word' as const, word })),
+	createObjectParser({ type: 'redirect' as const, redirect: bashRedirectWithWhitespaceParser }),
+	createObjectParser({ type: 'word' as const, word: bashWordWithWhitespaceParser }),
 ]);
 
 // Simple command: [assignments] [name] [args] [redirects]
@@ -343,15 +339,12 @@ const bashListSeparatorParser: Parser<'&&' | '||' | ';' | '&' | '\n', string> = 
 const bashCommandListParser: Parser<BashCommandList, string> = promiseCompose(
 	createTupleParser([
 		bashPipelineParser,
-		createArrayParser(promiseCompose(
-			createTupleParser([
-				bashOptionalInlineWhitespaceParser,
-				bashListSeparatorParser,
-				bashOptionalInlineWhitespaceParser,
-				bashPipelineParser,
-			]),
-			([, separator, , pipeline]) => ({ separator, pipeline }),
-		)),
+		createArrayParser(createObjectParser({
+			_ws1: bashOptionalInlineWhitespaceParser,
+			separator: bashListSeparatorParser,
+			_ws2: bashOptionalInlineWhitespaceParser,
+			pipeline: bashPipelineParser,
+		})),
 		createOptionalParser(promiseCompose(
 			createTupleParser([
 				bashOptionalInlineWhitespaceParser,

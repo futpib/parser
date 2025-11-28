@@ -657,46 +657,49 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 		smaliIdentifierParser,
 		createExactSequenceParser(' = '),
 		createDisjunctionParser([
-			promiseCompose(
-				createParserAccessorParser(() => smaliSubannotationParser),
-				value => ({ kind: 'raw' as const, value }),
-			),
-			promiseCompose(
-				smaliEnumValueParser,
-				value => ({ kind: 'enum' as const, value }),
-			),
-			promiseCompose(
-				smaliQuotedStringParser,
-				value => ({ kind: 'string' as const, value }),
-			),
-			promiseCompose(
-				smaliParametersMethodParser,
-				value => ({ kind: 'raw' as const, value }),
-			),
-			promiseCompose(
-				smaliTypeDescriptorParser,
-				value => ({ kind: 'type' as const, value }),
-			),
-			promiseCompose(
-				smaliNumberParser,
-				value => ({ kind: 'raw' as const, value }),
-			),
-			promiseCompose(
-				createExactSequenceParser('true'),
-				() => ({ kind: 'raw' as const, value: true }),
-			),
-			promiseCompose(
-				createExactSequenceParser('false'),
-				() => ({ kind: 'raw' as const, value: false }),
-			),
+			createObjectParser({
+				kind: 'raw' as const,
+				value: createParserAccessorParser(() => smaliSubannotationParser),
+			}),
+			createObjectParser({
+				kind: 'enum' as const,
+				value: smaliEnumValueParser,
+			}),
+			createObjectParser({
+				kind: 'string' as const,
+				value: smaliQuotedStringParser,
+			}),
+			createObjectParser({
+				kind: 'raw' as const,
+				value: smaliParametersMethodParser,
+			}),
+			createObjectParser({
+				kind: 'type' as const,
+				value: smaliTypeDescriptorParser,
+			}),
+			createObjectParser({
+				kind: 'raw' as const,
+				value: smaliNumberParser,
+			}),
+			createObjectParser({
+				kind: 'raw' as const,
+				value: true as const,
+				_true: createExactSequenceParser('true'),
+			}),
+			createObjectParser({
+				kind: 'raw' as const,
+				value: false as const,
+				_false: createExactSequenceParser('false'),
+			}),
 			promiseCompose(
 				createExactSequenceParser('null'),
 				() => ({ kind: 'raw' as const, value: null }),
 			),
-			promiseCompose(
-				createExactSequenceParser('{}'),
-				() => ({ kind: 'raw' as const, value: [] }),
-			),
+			createObjectParser({
+				kind: 'raw' as const,
+				value: [] as const,
+				_emptyBraces: createExactSequenceParser('{}'),
+			}),
 			promiseCompose(
 				createTupleParser([
 					createExactSequenceParser('{\n'),

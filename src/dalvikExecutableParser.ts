@@ -1864,16 +1864,16 @@ const dalvikExecutableDebugByteCodeValueParser: Parser<DalvikExecutableDebugByte
 	() => ubyteParser,
 	(value): Parser<DalvikExecutableDebugByteCodeValueItem, Uint8Array> => {
 		switch (value) {
-			case 0x01: { return promiseCompose(
-				uleb128NumberParser,
-				addressDiff => ({ type: 'advancePc', addressDiff }),
-			);
+			case 0x01: { return createObjectParser({
+				type: 'advancePc' as const,
+				addressDiff: uleb128NumberParser,
+			});
 			}
 
-			case 0x02: { return promiseCompose(
-				sleb128NumberParser,
-				lineDiff => ({ type: 'advanceLine', lineDiff }),
-			);
+			case 0x02: { return createObjectParser({
+				type: 'advanceLine' as const,
+				lineDiff: sleb128NumberParser,
+			});
 			}
 
 			case 0x03: { return promiseCompose(
