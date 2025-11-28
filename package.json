@@ -2,11 +2,13 @@
   "name": "@futpib/parser",
   "version": "1.0.4",
   "main": "build/index.js",
+  "types": "build/index.d.ts",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
+    "tsd": "tsd --files 'src/**/*.test-d.ts'",
     "test": "c8 ava",
     "prepack": "yarn build"
   },
@@ -20,6 +22,9 @@
     },
     "verbose": true,
     "timeout": "60s"
+  },
+  "tsd": {
+    "directory": "src"
   },
   "devDependencies": {
     "@ava/typescript": "^6.0.0",
@@ -41,6 +46,7 @@
     "mutf-8": "^1.2.2",
     "p-memoize": "^8.0.0",
     "tempy": "^3.1.0",
+    "tsd": "^0.33.0",
     "type-fest": "^5.0.0",
     "typescript": "^5.9.2",
     "xo": "^1.2.2"

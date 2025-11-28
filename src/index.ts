@@ -59,6 +59,10 @@ export {
 } from './tupleParser.js';
 
 export {
+	createObjectParser,
+} from './objectParser.js';
+
+export {
 	createExactSequenceParser,
 } from './exactSequenceParser.js';
 

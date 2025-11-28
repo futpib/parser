@@ -38,6 +38,7 @@ jobs:
             yarn-cache-${{ runner.os }}-
       - run: yarn install --immutable
       - run: yarn build
+      - run: yarn tsd
       - run: yarn test
       - name: Generate coverage report
         if: matrix.node-version == 24
