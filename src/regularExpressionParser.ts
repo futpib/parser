@@ -649,20 +649,20 @@ type Quantifier =
 	| { type: 'optional' }
 	| { type: 'repeat'; bounds: RepeatBounds };
 
-const starQuantifierParser: Parser<Quantifier, string> = promiseCompose(
-	createExactSequenceParser('*'),
-	() => ({ type: 'star' as const }),
-);
+const starQuantifierParser: Parser<Quantifier, string> = createObjectParser({
+	type: 'star' as const,
+	_marker: createExactSequenceParser('*'),
+});
 
-const plusQuantifierParser: Parser<Quantifier, string> = promiseCompose(
-	createExactSequenceParser('+'),
-	() => ({ type: 'plus' as const }),
-);
+const plusQuantifierParser: Parser<Quantifier, string> = createObjectParser({
+	type: 'plus' as const,
+	_marker: createExactSequenceParser('+'),
+});
 
-const optionalQuantifierParser: Parser<Quantifier, string> = promiseCompose(
-	createExactSequenceParser('?'),
-	() => ({ type: 'optional' as const }),
-);
+const optionalQuantifierParser: Parser<Quantifier, string> = createObjectParser({
+	type: 'optional' as const,
+	_marker: createExactSequenceParser('?'),
+});
 
 // Parse a number for quantifiers
 const numberParser: Parser<number, string> = parserCreatorCompose(

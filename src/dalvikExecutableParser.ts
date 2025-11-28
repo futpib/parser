@@ -1501,18 +1501,16 @@ const encodedArrayParser: Parser<DalvikExecutableTaggedEncodedValue[], Uint8Arra
 
 setParserName(encodedArrayParser, 'encodedArrayParser');
 
-const encodedValueArrayParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
-	createTupleParser([
-		parserCreatorCompose(
-			() => createEncodedValueArgParser(0x1C),
-			valueArg => parserContext => {
-				parserContext.invariant(valueArg === 0, '(encodedValueArrayParser) valueArg: %s', valueArg);
-			},
-		)(),
-		encodedArrayParser,
-	]),
-	([ _, array ]) => ({ type: 'array' as const, value: array }),
-);
+const encodedValueArrayParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = createObjectParser({
+	type: 'array' as const,
+	_tag: parserCreatorCompose(
+		() => createEncodedValueArgParser(0x1C),
+		valueArg => parserContext => {
+			parserContext.invariant(valueArg === 0, '(encodedValueArrayParser) valueArg: %s', valueArg);
+		},
+	)(),
+	value: encodedArrayParser,
+});
 
 setParserName(encodedValueArrayParser, 'encodedValueArrayParser');
 
@@ -1570,18 +1568,16 @@ const encodedAnnotationParser: Parser<DalvikExecutableEncodedAnnotation, Uint8Ar
 
 setParserName(encodedAnnotationParser, 'encodedAnnotationParser');
 
-const encodedValueAnnotationParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
-	createTupleParser([
-		parserCreatorCompose(
-			() => createEncodedValueArgParser(0x1D),
-			valueArg => parserContext => {
-				parserContext.invariant(valueArg === 0, '(encodedValueAnnotationParser) valueArg: %s', valueArg);
-			},
-		)(),
-		encodedAnnotationParser,
-	]),
-	([ _, annotation ]) => ({ type: 'annotation' as const, value: annotation }),
-);
+const encodedValueAnnotationParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = createObjectParser({
+	type: 'annotation' as const,
+	_tag: parserCreatorCompose(
+		() => createEncodedValueArgParser(0x1D),
+		valueArg => parserContext => {
+			parserContext.invariant(valueArg === 0, '(encodedValueAnnotationParser) valueArg: %s', valueArg);
+		},
+	)(),
+	value: encodedAnnotationParser,
+});
 
 setParserName(encodedValueAnnotationParser, 'encodedValueAnnotationParser');
 
