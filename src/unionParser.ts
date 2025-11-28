@@ -5,6 +5,20 @@ import { isParserParsingFailedError, ParserParsingFailedError } from './parserEr
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { type DeriveSequenceElement } from './sequence.js';
 
+// Infer Output type from a parser
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type InferOutput<T> = T extends Parser<infer O, any, any> ? O : never;
+
+// Infer Sequence type from a parser
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type InferSequence<T> = T extends Parser<any, infer S, any> ? S : never;
+
+// Union all output types from an array of parsers
+type UnionParserOutput<Parsers extends readonly unknown[]> = InferOutput<Parsers[number]>;
+
+// Infer Sequence from parser array
+type InferSequenceFromParserArray<T extends readonly unknown[]> = InferSequence<T[number]>;
+
 const bigintReplacer = (_key: string, value: unknown) => {
 	if (typeof value === 'bigint') {
 		return `${value}n`;
@@ -13,24 +27,45 @@ const bigintReplacer = (_key: string, value: unknown) => {
 	return value;
 };
 
-export const createUnionParser = <
+// Overload 1: inferred types from child parsers (new behavior)
+export function createUnionParser<
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const Parsers extends readonly Parser<any, any, any>[],
+>(
+	childParsers: Parsers,
+): Parser<UnionParserOutput<Parsers>, InferSequenceFromParserArray<Parsers>>;
+
+// Overload 2: explicit types (backwards compatibility)
+export function createUnionParser<
 	Output,
 	Sequence,
 	Element = DeriveSequenceElement<Sequence>,
 >(
-	childParsers: Array<Parser<unknown, Sequence, Element>>,
-): Parser<Output, Sequence, Element> => {
+	childParsers: Array<Parser<Output, Sequence, Element>>,
+): Parser<Output, Sequence, Element>;
+
+// Implementation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createUnionParser(
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	childParsers: readonly Parser<any, any, any>[],
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Parser<any, any, any> {
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
 	type TaskContext = {
-		childParser: Parser<unknown, Sequence, Element>;
-		childParserContext: ParserContext<Sequence, Element>;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		childParser: Parser<any, any, any>;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		childParserContext: ParserContext<any, any>;
 	};
 
-	const unionParser: Parser<Output, Sequence, Element> = async parserContext => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const unionParser: Parser<any, any, any> = async parserContext => {
 		let runningChildParserContexts: TaskContext[] = [];
 
-		const createChildParserTask = (childParser: Parser<unknown, Sequence, Element>) => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const createChildParserTask = (childParser: Parser<any, any, any>) => {
 			const childParserContext = parserContext.lookahead({
 				debugName: getParserName(childParser, 'anonymousUnionChild'),
 			});
@@ -42,7 +77,8 @@ export const createUnionParser = <
 
 			runningChildParserContexts.push(context);
 
-			const getChildParserPromise = (async () => childParser(childParserContext) as Promise<Output>);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const getChildParserPromise = (async () => childParser(childParserContext) as Promise<any>);
 
 			const promise = getChildParserPromise();
 
@@ -52,10 +88,12 @@ export const createUnionParser = <
 			};
 		};
 
-		const childParserResults = allSettledStream<Output, TaskContext>(childParsers.map(createChildParserTask));
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const childParserResults = allSettledStream<any, TaskContext>(childParsers.map(createChildParserTask));
 
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
-		const successfulParserOutputs: Output[] = [];
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const successfulParserOutputs: any[] = [];
 		const successfulTaskContexts: TaskContext[] = [];
 		let didUnlookahead = false;
 
@@ -127,4 +165,4 @@ export const createUnionParser = <
 	].join('');
 
 	return setParserName(unionParser, name);
-};
+}
