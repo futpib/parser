@@ -49,9 +49,9 @@ const uint32LengthPrefixedUint8ArrayParser = parserCreatorCompose(
 )();
 
 const javaKeyStoreImplementationParser: Parser<'JKS' | 'JCEKS', Uint8Array> = promiseCompose(
-	createUnionParser<Uint8Array, Uint8Array>([
-		createExactSequenceParser<Uint8Array>(Buffer.from('feedfeed', 'hex')),
-		createExactSequenceParser<Uint8Array>(Buffer.from('cececece', 'hex')),
+	createUnionParser([
+		createExactSequenceParser(Buffer.from('feedfeed', 'hex')),
+		createExactSequenceParser(Buffer.from('cececece', 'hex')),
 	]),
 	uint8Array => uint8Array[0] === 0xFE ? 'JKS' : 'JCEKS',
 );

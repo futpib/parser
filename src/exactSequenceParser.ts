@@ -1,13 +1,17 @@
 import { setParserName, type Parser } from './parser.js';
 import { inspect } from './inspect.js';
 
-export const createExactSequenceNaiveParser = <Sequence>(sequence: Sequence) => {
-	const exactSequenceParser: Parser<Sequence, Sequence, unknown> = async parserContext => {
-		const length = parserContext.length(sequence);
+// Derive the base sequence type from a literal (e.g., 'foo' -> string, Uint8Array -> Uint8Array)
+type DeriveBaseSequence<T> = T extends string ? string : T extends Uint8Array ? Uint8Array : T;
+
+export const createExactSequenceNaiveParser = <const Output>(sequence: Output) => {
+	type Sequence = DeriveBaseSequence<Output>;
+	const exactSequenceParser: Parser<Output, Sequence, unknown> = async parserContext => {
+		const length = parserContext.length(sequence as Sequence);
 
 		for (let index = 0; index < length; index++) {
 			const element = await parserContext.read(0);
-			const expectedElement = parserContext.at(sequence, index);
+			const expectedElement = parserContext.at(sequence as Sequence, index);
 
 			parserContext.invariant(
 				element === expectedElement,
@@ -26,14 +30,15 @@ export const createExactSequenceNaiveParser = <Sequence>(sequence: Sequence) => 
 	return exactSequenceParser;
 };
 
-export const createExactSequenceParser = <Sequence>(expectedSequence: Sequence) => {
-	const exactSequenceParser: Parser<Sequence, Sequence, unknown> = async parserContext => {
-		const length = parserContext.length(expectedSequence);
+export const createExactSequenceParser = <const Output>(expectedSequence: Output) => {
+	type Sequence = DeriveBaseSequence<Output>;
+	const exactSequenceParser: Parser<Output, Sequence, unknown> = async parserContext => {
+		const length = parserContext.length(expectedSequence as Sequence);
 
 		const actualSequence = await parserContext.readSequence(0, length);
 
 		parserContext.invariant(
-			parserContext.equals(actualSequence, expectedSequence),
+			parserContext.equals(actualSequence, expectedSequence as Sequence),
 			'Expected "%s", got "%s"',
 			() => inspect(expectedSequence),
 			() => inspect(actualSequence),

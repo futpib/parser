@@ -14,12 +14,15 @@ import { createUnionParser } from './unionParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 
 test('terminatedArrayParser of union parsers', async t => {
-	const parser: Parser<[ number[], number ], Uint8Array> = createTerminatedArrayParser(
-		createUnionParser([
-			createExactElementParser(1),
-			createExactElementParser(2),
-		]),
-		createExactElementParser(0),
+	const elementParser: Parser<number, Uint8Array> = createUnionParser([
+		createExactElementParser(1),
+		createExactElementParser(2),
+	]);
+	const terminatorParser: Parser<number, Uint8Array> = createExactElementParser(0);
+
+	const parser = createTerminatedArrayParser(
+		elementParser,
+		terminatorParser,
 	);
 
 	const input = new Uint8Array([ 0 ]);

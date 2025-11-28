@@ -31,26 +31,27 @@ test('union of union of union', async t => {
 });
 
 test('sync and async child parsers', async t => {
-	const parser = createArrayParser(createUnionParser<string, string>([
-		async parserContext => {
-			parserContext.invariant(
-				parserContext.position % 2 === 0,
-				'Expected an even position.',
-			);
+	const evenParser: Parser<string, string> = async parserContext => {
+		parserContext.invariant(
+			parserContext.position % 2 === 0,
+			'Expected an even position.',
+		);
 
-			return parserContext.read(0);
-		},
-		parserContext => {
-			parserContext.invariant(
-				parserContext.position % 2 === 1,
-				'Expected an odd position.',
-			);
+		return parserContext.read(0);
+	};
 
-			parserContext.skip(1);
+	const oddParser: Parser<string, string> = parserContext => {
+		parserContext.invariant(
+			parserContext.position % 2 === 1,
+			'Expected an odd position.',
+		);
 
-			return String.fromCodePoint('A'.codePointAt(0)! + parserContext.position - 1);
-		},
-	]));
+		parserContext.skip(1);
+
+		return String.fromCodePoint('A'.codePointAt(0)! + parserContext.position - 1);
+	};
+
+	const parser = createArrayParser(createUnionParser([evenParser, oddParser]));
 
 	const result = await runParser(parser, 'a?c?', stringParserInputCompanion, {
 		errorJoinMode: 'all',

@@ -832,7 +832,7 @@ const quantifiedParser: Parser<RegularExpression, string> = promiseCompose(
 );
 
 // Element in a sequence: either a quantified atom, anchor marker, or lookahead marker
-const sequenceElementParser: Parser<ParsedElement, string> = createUnionParser<ParsedElement, string>([
+const sequenceElementParser: Parser<ParsedElement, string> = createUnionParser([
 	startAnchorMarkerParser,
 	endAnchorMarkerParser,
 	positiveLookaheadMarkerParser,

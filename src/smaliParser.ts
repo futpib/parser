@@ -166,7 +166,7 @@ function convertToTaggedEncodedValue(wrappedValue: SmaliAnnotationElementValue):
 }
 
 
-const smaliNewlinesParser: Parser<void, string> = promiseCompose(
+const smaliNewlinesParser: Parser<undefined, string> = promiseCompose(
 	createNonEmptyArrayParser(createExactSequenceParser('\n')),
 	_newlines => undefined,
 );
@@ -232,7 +232,7 @@ const smaliIndentedCommentParser: Parser<string, string> = promiseCompose(
 );
 
 const smaliCommentsOrNewlinesParser: Parser<string[], string> = promiseCompose(
-	createArrayParser(createUnionParser<undefined | string, string, string>([
+	createArrayParser(createUnionParser([
 		smaliNewlinesParser,
 		smaliIndentedCommentParser,
 		smaliCommentParser,
@@ -243,7 +243,7 @@ const smaliCommentsOrNewlinesParser: Parser<string[], string> = promiseCompose(
 const smaliLineEndPraser: Parser<undefined | string, string> = promiseCompose(
 	createTupleParser([
 		createOptionalParser(smaliWhitespaceParser),
-		createUnionParser<undefined | string, string, string>([
+		createUnionParser([
 			smaliNewlinesParser,
 			smaliCommentParser,
 		]),
@@ -336,7 +336,7 @@ const smaliHexNumberParser: Parser<number | bigint, string> = promiseCompose(
 	},
 );
 
-const smaliNumberParser = createUnionParser<number, string>([
+const smaliNumberParser = createUnionParser([
 	promiseCompose(
 		createTupleParser([
 			createNegativeLookaheadParser(createUnionParser([
@@ -383,7 +383,7 @@ const smaliNumberParser = createUnionParser<number, string>([
 setParserName(smaliNumberParser, 'smaliNumberParser');
 
 // Parser for field initial values that can include BigInt
-const smaliFieldValueParser = createUnionParser<number | bigint, string>([
+const smaliFieldValueParser = createUnionParser([
 	promiseCompose(
 		createTupleParser([
 			createNegativeLookaheadParser(createUnionParser([
@@ -477,9 +477,9 @@ const smaliIdentifierContinuationParser: Parser<string, string> = async (parserC
 setParserName(smaliIdentifierContinuationParser, 'smaliIdentifierContinuationParser');
 
 // Helper to create an access flag parser with word boundary check
-const createAccessFlagParser = (keyword: string): Parser<typeof keyword, string> => promiseCompose(
+const createAccessFlagParser = <const T extends string>(keyword: T): Parser<T, string> => promiseCompose(
 	createTupleParser([
-		createExactSequenceParser(keyword),
+		createExactSequenceParser(keyword) as Parser<T, string>,
 		createNegativeLookaheadParser(smaliIdentifierContinuationParser),
 	]),
 	([flag]) => flag,
@@ -487,7 +487,7 @@ const createAccessFlagParser = (keyword: string): Parser<typeof keyword, string>
 
 const smaliAccessFlagsParser: Parser<DalvikExecutableAccessFlags, string> = promiseCompose(
 	createSeparatedArrayParser(
-		createUnionParser<keyof DalvikExecutableAccessFlags | 'declared-synchronized', string>([
+		createUnionParser([
 			createAccessFlagParser('public'),
 			createAccessFlagParser('protected'),
 			createAccessFlagParser('private'),
@@ -896,10 +896,10 @@ export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCom
 	createTupleParser([
 		smaliIndentationParser,
 		createExactSequenceParser('.annotation '),
-		createUnionParser<'build' | 'runtime' | 'system', string, string>([
-			createExactSequenceParser('build'),
-			createExactSequenceParser('runtime'),
-			createExactSequenceParser('system'),
+		createUnionParser([
+			createExactSequenceParser('build' as const),
+			createExactSequenceParser('runtime' as const),
+			createExactSequenceParser('system' as const),
 		]),
 		smaliSingleWhitespaceParser,
 		smaliTypeDescriptorParser,
@@ -949,7 +949,7 @@ export const smaliFieldParser: Parser<SmaliField, string> = promiseCompose(
 		createOptionalParser(promiseCompose(
 			createTupleParser([
 				createExactSequenceParser(' = '),
-				createUnionParser<number | bigint | string | boolean | null, string>([
+				createUnionParser([
 					smaliCharacterLiteralParser,
 					smaliFieldValueParser,
 					smaliQuotedStringParser,
@@ -1155,13 +1155,13 @@ function isSmaliRegister(value: unknown): value is SmaliRegister {
 }
 
 const smaliParametersRegisterParser: Parser<SmaliRegister, string> = promiseCompose(
-	createUnionParser<['v' | 'p', number], string>([
+	createUnionParser([
 		createTupleParser([
-			createExactSequenceParser('v'),
+			createExactSequenceParser('v' as const),
 			smaliNumberParser,
 		]),
 		createTupleParser([
-			createExactSequenceParser('p'),
+			createExactSequenceParser('p' as const),
 			smaliNumberParser,
 		]),
 	]),
@@ -1345,7 +1345,7 @@ const smaliCatchDirectiveParser: Parser<SmaliCatchDirective, string> = promiseCo
 	createTupleParser([
 		smaliIndentationParser,
 		createExactSequenceParser('.catch'),
-		createUnionParser<string | undefined, string, string>([
+		createUnionParser([
 			promiseCompose(
 				createExactSequenceParser('all'),
 				() => undefined as undefined,
@@ -1590,12 +1590,15 @@ type SmaliCodeOperationParameter =
 	| SmaliRegister
 	| SmaliRegister[]
 	| string
+	| number
+	| bigint
 	| DalvikExecutableMethod
+	| DalvikExecutableField
 ;
 
 const smaliCodeOperationParametersParser: Parser<SmaliCodeOperationParameter[], string> = createArrayParser(promiseCompose(
 	createTupleParser([
-		createUnionParser<SmaliCodeOperationParameter, string>([
+		createUnionParser([
 			smaliParametersRegisterParser,
 			smaliParametersRegistersParser,
 			smaliParametersStringParser,

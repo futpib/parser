@@ -18,20 +18,20 @@ import { createElementParser } from './elementParser.js';
 import { toAsyncIterable } from './toAsyncIterable.js';
 import { stringFromAsyncIterable } from './stringFromAsyncIterable.js';
 
-const aUnionParser = createUnionParser<string, string>([
+const aUnionParser = createUnionParser([
 	createExactSequenceNaiveParser('1'),
 	createExactSequenceNaiveParser('aa'),
 	createExactSequenceNaiveParser('AAA'),
 ]);
 
-const abDisjunctionParser = createDisjunctionParser<string, string>([
+const abDisjunctionParser = createDisjunctionParser([
 	aUnionParser,
 	createExactSequenceNaiveParser('2'),
 	createExactSequenceNaiveParser('bb'),
 	createExactSequenceNaiveParser('BBB'),
 ]);
 
-const abcUnionParser = createUnionParser<string, string>([
+const abcUnionParser = createUnionParser([
 	abDisjunctionParser,
 	createExactSequenceNaiveParser('final_3'),
 	createExactSequenceNaiveParser('final_cc'),
@@ -39,7 +39,7 @@ const abcUnionParser = createUnionParser<string, string>([
 ]);
 
 const sampleParser = promiseCompose(
-	createTupleParser<string, string, string, string>([
+	createTupleParser([
 		aUnionParser,
 		abDisjunctionParser,
 		abcUnionParser,

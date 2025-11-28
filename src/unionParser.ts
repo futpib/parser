@@ -27,30 +27,13 @@ const bigintReplacer = (_key: string, value: unknown) => {
 	return value;
 };
 
-// Overload 1: inferred types from child parsers (new behavior)
 export function createUnionParser<
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const Parsers extends readonly Parser<any, any, any>[],
 >(
 	childParsers: Parsers,
-): Parser<UnionParserOutput<Parsers>, InferSequenceFromParserArray<Parsers>>;
-
-// Overload 2: explicit types (backwards compatibility)
-export function createUnionParser<
-	Output,
-	Sequence,
-	Element = DeriveSequenceElement<Sequence>,
->(
-	childParsers: Array<Parser<Output, Sequence, Element>>,
-): Parser<Output, Sequence, Element>;
-
-// Implementation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createUnionParser(
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	childParsers: readonly Parser<any, any, any>[],
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-): Parser<any, any, any> {
+): Parser<UnionParserOutput<Parsers>, InferSequenceFromParserArray<Parsers>> {
 	parserImplementationInvariant(childParsers.length > 0, 'Union parser must have at least one child parser.');
 
 	type TaskContext = {

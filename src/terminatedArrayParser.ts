@@ -19,7 +19,7 @@ export const createTerminatedArrayParserNaive = <ElementOutput, TerminatorOutput
 		getParserName(terminatorParser, 'anonymousTerminator'),
 	);
 
-	const elementOrTerminatorParser = createUnionParser<ElementOutput | Terminated<TerminatorOutput>, Sequence>([
+	const elementOrTerminatorParser = createUnionParser([
 		elementParser,
 		promiseCompose(terminatorParser, terminatorValue => new Terminated(terminatorValue)),
 	]);
