@@ -24,7 +24,10 @@
     "timeout": "60s"
   },
   "tsd": {
-    "directory": "src"
+    "directory": "src",
+    "compilerOptions": {
+      "lib": ["ES2022", "DOM", "DOM.AsyncIterable"]
+    }
   },
   "devDependencies": {
     "@ava/typescript": "^6.0.0",
