@@ -24,12 +24,9 @@ type DalvikBytecodeFormat10t = {
 	branchOffset: number;
 };
 
-export const dalvikBytecodeFormat10tParser: Parser<DalvikBytecodeFormat10t, Uint8Array> = promiseCompose(
-	byteParser,
-	branchOffset => ({
-		branchOffset,
-	}),
-);
+export const dalvikBytecodeFormat10tParser: Parser<DalvikBytecodeFormat10t, Uint8Array> = createObjectParser({
+	branchOffset: byteParser,
+});
 
 type DalvikBytecodeFormat10x = void;
 
@@ -333,12 +330,9 @@ type DalvikBytecodeFormat30t = {
 	branchOffset: number;
 };
 
-export const dalvikBytecodeFormat30tParser: Parser<DalvikBytecodeFormat30t, Uint8Array> = promiseCompose(
-	intParser,
-	branchOffset => ({
-		branchOffset,
-	}),
-);
+export const dalvikBytecodeFormat30tParser: Parser<DalvikBytecodeFormat30t, Uint8Array> = createObjectParser({
+	branchOffset: intParser,
+});
 
 type DalvikBytecodeFormat31i = {
 	value: number;

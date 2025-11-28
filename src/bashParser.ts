@@ -166,19 +166,13 @@ export const bashWordParser: Parser<BashWord, string> = promiseCompose(
 setParserName(bashWordParser, 'bashWordParser');
 
 // Assignment: NAME=value or NAME=
-const bashAssignmentParser: Parser<BashAssignment, string> = promiseCompose(
-	createTupleParser([
-		promiseCompose(
-			createRegExpParser(/[a-zA-Z_][a-zA-Z0-9_]*=/),
-			match => match[0].slice(0, -1),
-		),
-		createOptionalParser(bashWordParser),
-	]),
-	([name, value]) => ({
-		name,
-		value: value ?? undefined,
-	}),
-);
+const bashAssignmentParser: Parser<BashAssignment, string> = createObjectParser({
+	name: promiseCompose(
+		createRegExpParser(/[a-zA-Z_][a-zA-Z0-9_]*=/),
+		match => match[0].slice(0, -1),
+	),
+	value: createOptionalParser(bashWordParser),
+});
 
 // Redirect operators
 const bashRedirectOperatorParser: Parser<BashRedirect['operator'], string> = createDisjunctionParser([
@@ -193,22 +187,15 @@ const bashRedirectOperatorParser: Parser<BashRedirect['operator'], string> = cre
 ]);
 
 // Redirect: [n]op word
-const bashRedirectParser: Parser<BashRedirect, string> = promiseCompose(
-	createTupleParser([
-		createOptionalParser(promiseCompose(
-			createRegExpParser(/[0-9]+/),
-			match => Number.parseInt(match[0], 10),
-		)),
-		bashRedirectOperatorParser,
-		bashOptionalInlineWhitespaceParser,
-		bashWordParser,
-	]),
-	([fd, operator, , target]) => ({
-		fd: fd ?? undefined,
-		operator,
-		target,
-	}),
-);
+const bashRedirectParser: Parser<BashRedirect, string> = createObjectParser({
+	fd: createOptionalParser(promiseCompose(
+		createRegExpParser(/[0-9]+/),
+		match => Number.parseInt(match[0], 10),
+	)),
+	operator: bashRedirectOperatorParser,
+	_ws: bashOptionalInlineWhitespaceParser,
+	target: bashWordParser,
+});
 
 // Word with optional trailing whitespace - for use in arrays
 const bashWordWithWhitespaceParser: Parser<BashWord, string> = promiseCompose(

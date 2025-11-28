@@ -87,13 +87,11 @@ type AndroidPackageSigningBlockSignatureV2Pair = {
 };
 
 const createAndroidPackageSigningBlockSignatureV2PairInnerParser = (length: number): Parser<AndroidPackageSigningBlockSignatureV2Pair, Uint8Array> => {
-	const androidPackageSigningBlockSignatureV2PairInnerParser = promiseCompose(
-		createTupleParser([
-			createExactSequenceParser<Uint8Array>(Buffer.from('1a870971', 'hex')),
-			androidPackageSignatureV2SignersParser,
-		]),
-		([ _magic, signers = [] ]) => ({ type: 'signatureV2' as const, signers }),
-	);
+	const androidPackageSigningBlockSignatureV2PairInnerParser = createObjectParser({
+		type: 'signatureV2' as const,
+		_magic: createExactSequenceParser<Uint8Array>(Buffer.from('1a870971', 'hex')),
+		signers: androidPackageSignatureV2SignersParser,
+	});
 
 	return setParserName(androidPackageSigningBlockSignatureV2PairInnerParser, 'androidPackageSigningBlockSignatureV2PairInnerParser');
 };
@@ -103,13 +101,13 @@ type AndroidPackageSigningBlockGenericPair = {
 	pair: AndroidPackageSigningBlockPair;
 };
 
-const createAndroidPackageSigningBlockGenericPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockGenericPair, Uint8Array> => promiseCompose(
-	createTupleParser([
-		uint32LEParser,
-		createFixedLengthSequenceParser(length - 4),
-	]),
-	([ id, value ]) => ({ type: 'generic', pair: { id, value } }),
-);
+const createAndroidPackageSigningBlockGenericPairInnerParser = (length: number): Parser<AndroidPackageSigningBlockGenericPair, Uint8Array> => createObjectParser({
+	type: 'generic' as const,
+	pair: createObjectParser({
+		id: uint32LEParser,
+		value: createFixedLengthSequenceParser<Uint8Array>(length - 4),
+	}),
+});
 
 type AndroidPackageSigningBlockPairType =
 	| AndroidPackageSigningBlockZeroPaddingPair
@@ -253,22 +251,11 @@ const androidPackageSignatureV2PublicKeyParser = createUint32LengthPrefixedParse
 
 setParserName(androidPackageSignatureV2PublicKeyParser, 'androidPackageSignatureV2PublicKeyParser');
 
-const androidPackageSignatureV2SignerParser = createUint32LengthPrefixedSliceBoundedParser(promiseCompose(
-	createTupleParser([
-		androidPackageSignatureV2SignedDataParser,
-		androidPackageSignatureV2SignaturesParser,
-		androidPackageSignatureV2PublicKeyParser,
-	]),
-	([
-		signedData,
-		signatures = [],
-		publicKey,
-	]): AndroidPackageSignatureV2Signer => ({
-		signedData,
-		signatures,
-		publicKey,
-	}),
-));
+const androidPackageSignatureV2SignerParser: Parser<AndroidPackageSignatureV2Signer, Uint8Array> = createUint32LengthPrefixedSliceBoundedParser(createObjectParser({
+	signedData: androidPackageSignatureV2SignedDataParser,
+	signatures: androidPackageSignatureV2SignaturesParser,
+	publicKey: androidPackageSignatureV2PublicKeyParser,
+}));
 
 setParserName(androidPackageSignatureV2SignerParser, 'androidPackageSignatureV2SignerParser');
 

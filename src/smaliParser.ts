@@ -1081,25 +1081,16 @@ function isSmaliRegister(value: unknown): value is SmaliRegister {
 	);
 }
 
-const smaliParametersRegisterParser: Parser<SmaliRegister, string> = promiseCompose(
-	createUnionParser([
-		createTupleParser([
-			createExactSequenceParser('v' as const),
-			smaliNumberParser,
-		]),
-		createTupleParser([
-			createExactSequenceParser('p' as const),
-			smaliNumberParser,
-		]),
-	]),
-	([
-		prefix,
-		index,
-	]) => ({
-		prefix,
-		index,
+const smaliParametersRegisterParser: Parser<SmaliRegister, string> = createUnionParser([
+	createObjectParser({
+		prefix: createExactSequenceParser('v' as const),
+		index: smaliNumberParser,
 	}),
-);
+	createObjectParser({
+		prefix: createExactSequenceParser('p' as const),
+		index: smaliNumberParser,
+	}),
+]);
 
 setParserName(smaliParametersRegisterParser, 'smaliParametersRegisterParser');
 
@@ -1268,52 +1259,33 @@ type SmaliCatchDirective = {
 	handlerLabel: string;
 };
 
-const smaliCatchDirectiveParser: Parser<SmaliCatchDirective, string> = promiseCompose(
-	createTupleParser([
-		smaliIndentationParser,
-		createExactSequenceParser('.catch'),
-		createUnionParser([
-			promiseCompose(
-				createExactSequenceParser('all'),
-				() => undefined as undefined,
-			),
-			promiseCompose(
-				createTupleParser([
-					createExactSequenceParser(' '),
-					smaliTypeDescriptorParser,
-				]),
-				([
-					_space,
-					type,
-				]) => type,
-			),
-		]),
-		createExactSequenceParser(' {'),
-		smaliCodeLabelParser,
-		createExactSequenceParser(' .. '),
-		smaliCodeLabelParser,
-		createExactSequenceParser('} '),
-		smaliCodeLabelParser,
-		smaliLineEndPraser,
+const smaliCatchDirectiveParser: Parser<SmaliCatchDirective, string> = createObjectParser({
+	_indentation: smaliIndentationParser,
+	_catch: createExactSequenceParser('.catch'),
+	type: createUnionParser([
+		promiseCompose(
+			createExactSequenceParser('all'),
+			() => undefined as undefined,
+		),
+		promiseCompose(
+			createTupleParser([
+				createExactSequenceParser(' '),
+				smaliTypeDescriptorParser,
+			]),
+			([
+				_space,
+				type,
+			]) => type,
+		),
 	]),
-	([
-		_indentation,
-		_catch,
-		type,
-		_openBrace,
-		startLabel,
-		_dots,
-		endLabel,
-		_closeBrace,
-		handlerLabel,
-		_newline,
-	]) => ({
-		type,
-		startLabel,
-		endLabel,
-		handlerLabel,
-	}),
-);
+	_openBrace: createExactSequenceParser(' {'),
+	startLabel: smaliCodeLabelParser,
+	_dots: createExactSequenceParser(' .. '),
+	endLabel: smaliCodeLabelParser,
+	_closeBrace: createExactSequenceParser('} '),
+	handlerLabel: smaliCodeLabelParser,
+	_newline: smaliLineEndPraser,
+});
 
 setParserName(smaliCatchDirectiveParser, 'smaliCatchDirectiveParser');
 
@@ -1569,29 +1541,18 @@ type SmaliOneLineCodeOperation = {
 	parameters: SmaliCodeOperationParameter[];
 };
 
-const smaliOneLineCodeOperationParser: Parser<SmaliOneLineCodeOperation, string> = promiseCompose(
-	createTupleParser([
-		smaliSingleIndentationParser,
-		smaliCodeOperationNameParser,
-		promiseCompose(
-			createOptionalParser(createTupleParser([
-				smaliSingleWhitespaceParser,
-				smaliCodeOperationParametersParser,
-			])),
-			undefinedOrParameters => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
-		),
-		smaliLineEndPraser,
-	]),
-	([
-		_indent,
-		operation,
-		parameters,
-		_newline,
-	]) => ({
-		operation,
-		parameters,
-	}),
-);
+const smaliOneLineCodeOperationParser: Parser<SmaliOneLineCodeOperation, string> = createObjectParser({
+	_indent: smaliSingleIndentationParser,
+	operation: smaliCodeOperationNameParser,
+	parameters: promiseCompose(
+		createOptionalParser(createTupleParser([
+			smaliSingleWhitespaceParser,
+			smaliCodeOperationParametersParser,
+		])),
+		undefinedOrParameters => undefinedOrParameters === undefined ? [] : undefinedOrParameters[1],
+	),
+	_newline: smaliLineEndPraser,
+});
 
 setParserName(smaliOneLineCodeOperationParser, 'smaliOneLineCodeOperationParser');
 
