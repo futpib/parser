@@ -126,7 +126,7 @@ const createAndroidPackageSigningBlockPairInnerParser = (length: number): Parser
 					length,
 				);
 			},
-			createDisjunctionParser<AndroidPackageSigningBlockPairType, Uint8Array>([
+			createDisjunctionParser([
 				createAndroidPackageSigningBlockZeroPaddingPairInnerParser(length),
 				createAndroidPackageSigningBlockSignatureV2PairInnerParser(length),
 				createAndroidPackageSigningBlockGenericPairInnerParser(length),

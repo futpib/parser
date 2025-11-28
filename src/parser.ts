@@ -17,6 +17,9 @@ export type Parser<
 > = (parserContext: ParserContext<Sequence, Element>) => Output | Promise<Output>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ParserOutput<P> = P extends Parser<infer O, any, any> ? O : never;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getParserName(parser: Parser<any, any, any>, default_ = 'anonymous'): string {
 	return parser.name || default_;
 }

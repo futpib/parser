@@ -1,4 +1,4 @@
-import { getParserName, setParserName, type Parser } from './parser.js';
+import { getParserName, setParserName, type Parser, type ParserOutput } from './parser.js';
 
 // Infer Sequence type from a parser
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9,7 +9,7 @@ type InferSequenceFromParsers<T> = InferSequence<T[keyof T]>;
 
 // Extract output type: Parser<O, S> → O, literal L → L
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ExtractOutput<P> = P extends Parser<infer O, any, any> ? O : P;
+type ExtractOutputOrLiteral<P> = P extends Parser<any, any, any> ? ParserOutput<P> : P;
 
 // Filter out underscore-prefixed keys
 type OmitUnderscoreKeys<T> = {
@@ -18,7 +18,7 @@ type OmitUnderscoreKeys<T> = {
 
 // Result type for object parser
 type ObjectParserOutput<Parsers extends Record<string, unknown>> = OmitUnderscoreKeys<{
-	[K in keyof Parsers]: ExtractOutput<Parsers[K]>
+	[K in keyof Parsers]: ExtractOutputOrLiteral<Parsers[K]>
 }>;
 
 export function createObjectParser<

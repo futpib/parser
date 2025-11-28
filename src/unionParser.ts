@@ -1,20 +1,15 @@
 import { allSettledStream } from './allSettledStream.js';
-import { getParserName, setParserName, type Parser } from './parser.js';
+import { getParserName, setParserName, type Parser, type ParserOutput } from './parser.js';
 import { type ParserContext } from './parserContext.js';
 import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
-import { type DeriveSequenceElement } from './sequence.js';
-
-// Infer Output type from a parser
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type InferOutput<T> = T extends Parser<infer O, any, any> ? O : never;
 
 // Infer Sequence type from a parser
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type InferSequence<T> = T extends Parser<any, infer S, any> ? S : never;
 
 // Union all output types from an array of parsers
-type UnionParserOutput<Parsers extends readonly unknown[]> = InferOutput<Parsers[number]>;
+type UnionParserOutput<Parsers extends readonly unknown[]> = ParserOutput<Parsers[number]>;
 
 // Infer Sequence from parser array
 type InferSequenceFromParserArray<T extends readonly unknown[]> = InferSequence<T[number]>;

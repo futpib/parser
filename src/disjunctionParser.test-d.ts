@@ -1,13 +1,13 @@
-import { expectAssignable, expectType } from 'tsd';
-import { createUnionParser } from './unionParser.js';
+import { expectAssignable } from 'tsd';
+import { createDisjunctionParser } from './disjunctionParser.js';
 import { type Parser, type ParserOutput } from './parser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 
-// Test: basic union of string parsers - output inferred as string
+// Test: basic disjunction of string parsers - output inferred as string
 {
-	const parser = createUnionParser([
+	const parser = createDisjunctionParser([
 		createExactElementParser('a'),
 		createExactElementParser('b'),
 	]);
@@ -18,12 +18,12 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 	expectAssignable<Output>(null! as string);
 }
 
-// Test: union preserves literal types when parsers have explicit literal output types
+// Test: disjunction preserves literal types when parsers have explicit literal output types
 {
 	const parserA: Parser<'a', string> = async () => 'a' as const;
 	const parserB: Parser<'b', string> = async () => 'b' as const;
 
-	const parser = createUnionParser([parserA, parserB]);
+	const parser = createDisjunctionParser([parserA, parserB]);
 
 	type Output = ParserOutput<typeof parser>;
 
@@ -32,12 +32,12 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 	expectAssignable<Output>(null! as 'a' | 'b');
 }
 
-// Test: union of parsers with different output types
+// Test: disjunction of parsers with different output types
 {
 	const stringParser: Parser<string, string> = createFixedLengthSequenceParser(3);
 	const numberParser: Parser<number, string> = () => 42;
 
-	const parser = createUnionParser([
+	const parser = createDisjunctionParser([
 		stringParser,
 		numberParser,
 	]);
@@ -49,14 +49,14 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 	expectAssignable<Output>(null! as string | number);
 }
 
-// Test: nested unions
+// Test: nested disjunctions
 {
-	const inner = createUnionParser([
+	const inner = createDisjunctionParser([
 		createExactElementParser('a'),
 		createExactElementParser('b'),
 	]);
 
-	const parser = createUnionParser([
+	const parser = createDisjunctionParser([
 		inner,
 		createExactElementParser('c'),
 	]);
@@ -69,7 +69,7 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 
 // Test: sequence type inferred from child parsers
 {
-	const parser = createUnionParser([
+	const parser = createDisjunctionParser([
 		createExactSequenceParser('hello'),
 		createExactSequenceParser('world'),
 	]);
@@ -80,9 +80,9 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 	expectAssignable<string>(null! as Output);
 }
 
-// Test: single parser in union
+// Test: single parser in disjunction
 {
-	const parser = createUnionParser([
+	const parser = createDisjunctionParser([
 		createExactSequenceParser('only'),
 	]);
 
@@ -92,12 +92,12 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 	expectAssignable<string>(null! as Output);
 }
 
-// Test: union of object-producing parsers
+// Test: disjunction of object-producing parsers
 {
 	const parser1: Parser<{ type: 'a'; value: number }, string> = async () => ({ type: 'a', value: 1 });
 	const parser2: Parser<{ type: 'b'; name: string }, string> = async () => ({ type: 'b', name: 'test' });
 
-	const parser = createUnionParser([parser1, parser2]);
+	const parser = createDisjunctionParser([parser1, parser2]);
 
 	type Output = ParserOutput<typeof parser>;
 

@@ -424,7 +424,7 @@ const smaliQuotedStringParser: Parser<string, string> = promiseCompose(
 const smaliCharacterLiteralParser: Parser<number, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('\''),
-		createDisjunctionParser<string, string>([
+		createDisjunctionParser([
 			// Handle escape sequences (must come before regular characters)
 			promiseCompose(createExactSequenceParser(String.raw`\\`), () => '\\'),
 			promiseCompose(createExactSequenceParser(String.raw`\'`), () => '\''),
@@ -2832,7 +2832,7 @@ type SmaliMethods = Pick<DalvikExecutableClassData<DalvikBytecode>, 'directMetho
 };
 
 const smaliMethodsParser: Parser<SmaliMethods, string> = promiseCompose(
-	createArrayParser<string[] | SmaliMethod<DalvikBytecode>, string>(createDisjunctionParser<string[] | SmaliMethod<DalvikBytecode>, string, string>([
+	createArrayParser(createDisjunctionParser([
 		smaliMethodParser,
 		smaliCommentsOrNewlinesParser,
 	])),

@@ -1,5 +1,6 @@
 export {
 	type Parser,
+	type ParserOutput,
 	runParser,
 	runParserWithRemainingInput,
 	setParserName,

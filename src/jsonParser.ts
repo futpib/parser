@@ -145,7 +145,7 @@ const jsonObjectParser: Parser<JsonObject, string> = promiseCompose(
 		whitespaceParser,
 		promiseCompose(
 			createTerminatedArrayParser(
-				createDisjunctionParser<[string, JsonValue], string>([
+				createDisjunctionParser([
 					promiseCompose(
 						createTupleParser([
 							createParserAccessorParser(() => jsonObjectEntryParser),

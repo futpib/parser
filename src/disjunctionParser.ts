@@ -1,19 +1,28 @@
-import { getParserName, setParserName, type Parser } from './parser.js';
+import { getParserName, setParserName, type Parser, type ParserOutput } from './parser.js';
 import { isParserParsingFailedError, ParserParsingFailedError } from './parserError.js';
 import { parserImplementationInvariant } from './parserImplementationInvariant.js';
 import { promiseSettled } from './promiseSettled.js';
-import { type DeriveSequenceElement } from './sequence.js';
 
-export const createDisjunctionParser = <
-	Output,
-	Sequence,
-	Element = DeriveSequenceElement<Sequence>,
+// Infer Sequence type from a parser
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type InferSequence<T> = T extends Parser<any, infer S, any> ? S : never;
+
+// Union all output types from an array of parsers
+type DisjunctionParserOutput<Parsers extends readonly unknown[]> = ParserOutput<Parsers[number]>;
+
+// Infer Sequence from parser array
+type InferSequenceFromParserArray<T extends readonly unknown[]> = InferSequence<T[number]>;
+
+export function createDisjunctionParser<
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const Parsers extends readonly Parser<any, any, any>[],
 >(
-	childParsers: Array<Parser<unknown, Sequence, Element>>,
-): Parser<Output, Sequence, Element> => {
+	childParsers: Parsers,
+): Parser<DisjunctionParserOutput<Parsers>, InferSequenceFromParserArray<Parsers>> {
 	parserImplementationInvariant(childParsers.length > 0, 'Disjunction parser must have at least one child parser.');
 
-	const disjunctionParser: Parser<Output, Sequence, Element> = async parserContext => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const disjunctionParser: Parser<any, any, any> = async parserContext => {
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 
 		for (const childParser of childParsers) {
@@ -21,7 +30,8 @@ export const createDisjunctionParser = <
 				debugName: getParserName(childParser, 'anonymousDisjunctionChild'),
 			});
 
-			const childParserResult = await promiseSettled<Output>(childParser(childParserContext) as Promise<Output>);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const childParserResult = await promiseSettled<any>(childParser(childParserContext) as Promise<any>);
 
 			if (childParserResult.status === 'fulfilled') {
 				const successfulParserOutput = childParserResult.value;
@@ -57,4 +67,4 @@ export const createDisjunctionParser = <
 	].join('');
 
 	return setParserName(disjunctionParser, name);
-};
+}

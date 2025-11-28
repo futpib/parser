@@ -1,12 +1,8 @@
 import { expectAssignable, expectNotAssignable, expectType } from 'tsd';
 import { createObjectParser } from './objectParser.js';
-import { type Parser } from './parser.js';
+import { type Parser, type ParserOutput } from './parser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
-
-// Helper to extract parser output type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ParserOutput<P> = P extends Parser<infer O, any, any> ? O : never;
 
 // Test: parsers only - extracts output types
 {
