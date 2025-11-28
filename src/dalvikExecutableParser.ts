@@ -4,6 +4,7 @@ import { type Iso } from 'monocle-ts';
 import { createExactElementParser } from './exactElementParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
+import { createObjectParser } from './objectParser.js';
 import { cloneParser, setParserName, type Parser } from './parser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -101,13 +102,10 @@ type SizeOffset = {
 	offset: number;
 };
 
-const sizeOffsetParser: Parser<SizeOffset, Uint8Array> = promiseCompose(
-	createTupleParser([
-		uintParser,
-		uintParser,
-	]),
-	([ size, offset ]) => ({ size, offset }),
-);
+const sizeOffsetParser: Parser<SizeOffset, Uint8Array> = createObjectParser({
+	size: uintParser,
+	offset: uintParser,
+});
 
 type DalvikExecutableHeaderItem = {
 	version: number;
@@ -723,13 +721,10 @@ type DalvikExecutableEncodedFieldDiff = {
 	accessFlags: DalvikExecutableAccessFlags;
 };
 
-const encodedFieldParser: Parser<DalvikExecutableEncodedFieldDiff, Uint8Array> = promiseCompose(
-	createTupleParser([
-		uleb128NumberParser,
-		uleb128FieldAccessFlagsParser,
-	]),
-	([ fieldIndexDiff, accessFlags ]) => ({ fieldIndexDiff, accessFlags }),
-);
+const encodedFieldParser: Parser<DalvikExecutableEncodedFieldDiff, Uint8Array> = createObjectParser({
+	fieldIndexDiff: uleb128NumberParser,
+	accessFlags: uleb128FieldAccessFlagsParser,
+});
 
 type DalvikExecutableEncodedField = {
 	fieldIndex: IndexIntoFieldIds;

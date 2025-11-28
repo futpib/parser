@@ -26,7 +26,11 @@
   "tsd": {
     "directory": "src",
     "compilerOptions": {
-      "lib": ["ES2022", "DOM", "DOM.AsyncIterable"]
+      "lib": [
+        "ES2022",
+        "DOM",
+        "DOM.AsyncIterable"
+      ]
     }
   },
   "devDependencies": {

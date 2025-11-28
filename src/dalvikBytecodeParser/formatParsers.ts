@@ -3,6 +3,7 @@ import {
 	byteParser, intParser, longParser, shortParser, ubyteParser, uintParser, ushortParser,
 } from '../dalvikExecutableParser/typeParsers.js';
 import { createElementParser } from '../elementParser.js';
+import { createObjectParser } from '../objectParser.js';
 import { type Parser, setParserName } from '../parser.js';
 import { promiseCompose } from '../promiseCompose.js';
 import { createTupleParser } from '../tupleParser.js';
@@ -89,18 +90,10 @@ type DalvikBytecodeFormat20t = {
 	branchOffset: number;
 };
 
-export const dalvikBytecodeFormat20tParser: Parser<DalvikBytecodeFormat20t, Uint8Array> = promiseCompose(
-	createTupleParser([
-		ubyteParser,
-		shortParser,
-	]),
-	([
-		_zero,
-		branchOffset,
-	]) => ({
-		branchOffset,
-	}),
-);
+export const dalvikBytecodeFormat20tParser: Parser<DalvikBytecodeFormat20t, Uint8Array> = createObjectParser({
+	_zero: ubyteParser,
+	branchOffset: shortParser,
+});
 
 type DalvikBytecodeFormat21c<Index> = {
 	index: Index;

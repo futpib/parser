@@ -5,6 +5,7 @@ import {
 	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableEncodedValue, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
+import { createObjectParser } from './objectParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
 import { type ParserContext } from './parserContext.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -554,20 +555,11 @@ const smaliClassDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<u
 
 setParserName(smaliClassDeclarationParser, 'smaliClassDeclarationParser');
 
-const smaliSuperDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<unknown>, 'superclass'>, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('.super '),
-		smaliTypeDescriptorParser,
-		smaliLineEndPraser,
-	]),
-	([
-		_super,
-		superclass,
-		_newline,
-	]) => ({
-		superclass,
-	}),
-);
+const smaliSuperDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<unknown>, 'superclass'>, string> = createObjectParser({
+	_super: createExactSequenceParser('.super '),
+	superclass: smaliTypeDescriptorParser,
+	_newline: smaliLineEndPraser,
+});
 
 setParserName(smaliSuperDeclarationParser, 'smaliSuperDeclarationParser');
 
@@ -586,20 +578,11 @@ const smaliInterfaceDeclarationParser: Parser<string, string> = promiseCompose(
 
 setParserName(smaliInterfaceDeclarationParser, 'smaliInterfaceDeclarationParser');
 
-const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<unknown>, 'sourceFile'>, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('.source '),
-		smaliQuotedStringParser,
-		smaliLineEndPraser,
-	]),
-	([
-		_source,
-		sourceFile,
-		_newline,
-	]) => ({
-		sourceFile,
-	}),
-);
+const smaliSourceDeclarationParser: Parser<Pick<DalvikExecutableClassDefinition<unknown>, 'sourceFile'>, string> = createObjectParser({
+	_source: createExactSequenceParser('.source '),
+	sourceFile: smaliQuotedStringParser,
+	_newline: smaliLineEndPraser,
+});
 
 // Wrapper type to distinguish different value types in smali annotation elements
 type SmaliAnnotationElementValue =
