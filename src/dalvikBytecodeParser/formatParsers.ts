@@ -523,19 +523,10 @@ type DalvikBytecodeFormat20bc = {
 	index: number;
 };
 
-export const dalvikBytecodeFormat20bcParser: Parser<DalvikBytecodeFormat20bc, Uint8Array> = promiseCompose(
-	createTupleParser([
-		ubyteParser,
-		ushortParser,
-	]),
-	([
-		kind,
-		index,
-	]) => ({
-		kind,
-		index,
-	}),
-);
+export const dalvikBytecodeFormat20bcParser: Parser<DalvikBytecodeFormat20bc, Uint8Array> = createObjectParser({
+	kind: ubyteParser,
+	index: ushortParser,
+});
 
 // Format 22cs: field access quick (deprecated)
 type DalvikBytecodeFormat22cs = {

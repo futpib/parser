@@ -125,58 +125,23 @@ type DalvikExecutableHeaderItem = {
 	data: SizeOffset;
 };
 
-const dalvikExecutableHeaderItemParser: Parser<DalvikExecutableHeaderItem, Uint8Array> = promiseCompose(
-	createTupleParser([
-		dalvikExecutableHeaderVersionParser,
-		uintParser,
-		createFixedLengthSequenceParser(20),
-		uintParser,
-		uintParser,
-		uintParser,
-		sizeOffsetParser,
-		uintParser,
-		sizeOffsetParser,
-		sizeOffsetParser,
-		sizeOffsetParser,
-		sizeOffsetParser,
-		sizeOffsetParser,
-		sizeOffsetParser,
-		sizeOffsetParser,
-	]),
-	([
-		version,
-		checksum,
-		sha1Hash,
-		fileSize,
-		headerSize,
-		endianTag,
-		link,
-		mapOffset,
-		stringIds,
-		typeIds,
-		prototypeIds,
-		fieldIds,
-		methodIds,
-		classDefinitions,
-		data,
-	]) => ({
-		version,
-		checksum,
-		sha1Hash,
-		fileSize,
-		headerSize,
-		endianTag,
-		link,
-		mapOffset,
-		stringIds,
-		typeIds,
-		prototypeIds,
-		fieldIds,
-		methodIds,
-		classDefinitions,
-		data,
-	}),
-);
+const dalvikExecutableHeaderItemParser: Parser<DalvikExecutableHeaderItem, Uint8Array> = createObjectParser({
+	version: dalvikExecutableHeaderVersionParser,
+	checksum: uintParser,
+	sha1Hash: createFixedLengthSequenceParser<Uint8Array>(20),
+	fileSize: uintParser,
+	headerSize: uintParser,
+	endianTag: uintParser,
+	link: sizeOffsetParser,
+	mapOffset: uintParser,
+	stringIds: sizeOffsetParser,
+	typeIds: sizeOffsetParser,
+	prototypeIds: sizeOffsetParser,
+	fieldIds: sizeOffsetParser,
+	methodIds: sizeOffsetParser,
+	classDefinitions: sizeOffsetParser,
+	data: sizeOffsetParser,
+});
 
 type DalvikExecutableStringIdItem = OffsetToStringDataItem;
 
@@ -2069,13 +2034,10 @@ type DalvikExecutableAnnotationItem = {
 	encodedAnnotation: DalvikExecutableEncodedAnnotation;
 };
 
-const dalvikExecutableAnnotationItemParser: Parser<DalvikExecutableAnnotationItem, Uint8Array> = promiseCompose(
-	createTupleParser([
-		dalvikExecutableAnnotationItemVisibilityParser,
-		encodedAnnotationParser,
-	]),
-	([ visibility, encodedAnnotation ]) => ({ visibility, encodedAnnotation }),
-);
+const dalvikExecutableAnnotationItemParser: Parser<DalvikExecutableAnnotationItem, Uint8Array> = createObjectParser({
+	visibility: dalvikExecutableAnnotationItemVisibilityParser,
+	encodedAnnotation: encodedAnnotationParser,
+});
 
 setParserName(dalvikExecutableAnnotationItemParser, 'dalvikExecutableAnnotationItemParser');
 
@@ -2279,15 +2241,12 @@ type DalvikExecutableMapItem = {
 	offset: number;
 };
 
-const dalvikExecutableMapItemParser: Parser<DalvikExecutableMapItem, Uint8Array> = promiseCompose(
-	createTupleParser([
-		dalvikExecutableMapItemTypeParser,
-		ushortParser,
-		uintParser,
-		uintParser,
-	]),
-	([ type, _unused, size, offset ]) => ({ type, size, offset }),
-);
+const dalvikExecutableMapItemParser: Parser<DalvikExecutableMapItem, Uint8Array> = createObjectParser({
+	type: dalvikExecutableMapItemTypeParser,
+	_unused: ushortParser,
+	size: uintParser,
+	offset: uintParser,
+});
 
 type DalvikExecutableMapList = DalvikExecutableMapItem[];
 

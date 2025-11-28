@@ -12,6 +12,7 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
+import { createObjectParser } from './objectParser.js';
 import {
 	type CharacterSet,
 	type CodePointRange,
@@ -759,24 +760,22 @@ const nonCaptureGroupParser: Parser<RegularExpression, string> = promiseCompose(
 type LookaheadMarker = { type: 'lookahead-marker'; isPositive: boolean; inner: RegularExpression };
 
 // Positive lookahead (?=...)
-const positiveLookaheadMarkerParser: Parser<LookaheadMarker, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('(?='),
-		createParserAccessorParser(() => alternationParser),
-		createExactSequenceParser(')'),
-	]),
-	([, inner]) => ({ type: 'lookahead-marker' as const, isPositive: true, inner }),
-);
+const positiveLookaheadMarkerParser: Parser<LookaheadMarker, string> = createObjectParser({
+	type: 'lookahead-marker' as const,
+	isPositive: true as const,
+	_open: createExactSequenceParser('(?='),
+	inner: createParserAccessorParser(() => alternationParser),
+	_close: createExactSequenceParser(')'),
+});
 
 // Negative lookahead (?!...)
-const negativeLookaheadMarkerParser: Parser<LookaheadMarker, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('(?!'),
-		createParserAccessorParser(() => alternationParser),
-		createExactSequenceParser(')'),
-	]),
-	([, inner]) => ({ type: 'lookahead-marker' as const, isPositive: false, inner }),
-);
+const negativeLookaheadMarkerParser: Parser<LookaheadMarker, string> = createObjectParser({
+	type: 'lookahead-marker' as const,
+	isPositive: false as const,
+	_open: createExactSequenceParser('(?!'),
+	inner: createParserAccessorParser(() => alternationParser),
+	_close: createExactSequenceParser(')'),
+});
 
 const groupParser: Parser<RegularExpression, string> = createUnionParser([
 	namedCaptureGroupParser,
