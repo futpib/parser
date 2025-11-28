@@ -71,6 +71,7 @@ import {
 	type DalvikExecutableCode,
 	type DalvikExecutableDebugInfo,
 	type DalvikExecutableEncodedValue,
+	dalvikExecutableMethodEquals,
 } from './dalvikExecutable.js';
 
 // https://source.android.com/docs/core/runtime/dex-format
@@ -3161,16 +3162,8 @@ const createDalvikExecutableParser = <Instructions>({
 			if (classDef.annotations?.parameterAnnotations && classDef.classData) {
 				const allMethods = [...(classDef.classData.directMethods ?? []), ...(classDef.classData.virtualMethods ?? [])];
 				classDef.annotations.parameterAnnotations.sort((a, b) => {
-					const indexA = allMethods.findIndex(m =>
-						m.method.class === a.method.class
-						&& m.method.name === a.method.name
-						&& m.method.prototype.shorty === a.method.prototype.shorty
-					);
-					const indexB = allMethods.findIndex(m =>
-						m.method.class === b.method.class
-						&& m.method.name === b.method.name
-						&& m.method.prototype.shorty === b.method.prototype.shorty
-					);
+					const indexA = allMethods.findIndex(m => dalvikExecutableMethodEquals(m.method, a.method));
+					const indexB = allMethods.findIndex(m => dalvikExecutableMethodEquals(m.method, b.method));
 					return indexA - indexB;
 				});
 			}
