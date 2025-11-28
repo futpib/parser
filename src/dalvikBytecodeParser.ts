@@ -2786,7 +2786,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 	createTupleParser([
 		() => {},
 		// CreateDebugLogInputParser(),
-		createElementSwitchParser<DalvikBytecodeOperation, Uint8Array>(
+		createElementSwitchParser(
 			dalvikBytecodeOperationOpcodeMap,
 			dalvikBytecodeOperationMultiByteParser,
 		),
@@ -2796,7 +2796,7 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 		operation,
 	]) =>
 		// Console.log(operation);
-		operation,
+		operation as DalvikBytecodeOperation | undefined,
 );
 
 setParserName(dalvikBytecodeOperationParser, 'dalvikBytecodeOperationParser');
