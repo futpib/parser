@@ -596,28 +596,14 @@ type SmaliAnnotationElement = {
 	value: SmaliAnnotationElementValue;
 };
 
-const smaliEnumValueParser: Parser<DalvikExecutableField, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('.enum '),
-		smaliTypeDescriptorParser,
-		createExactSequenceParser('->'),
-		smaliMemberNameParser,
-		createExactSequenceParser(':'),
-		smaliTypeDescriptorParser,
-	]),
-	([
-		_enum,
-		classType,
-		_arrow,
-		fieldName,
-		_colon,
-		fieldType,
-	]) => ({
-		class: classType,
-		type: fieldType,
-		name: fieldName,
-	}),
-);
+const smaliEnumValueParser: Parser<DalvikExecutableField, string> = createObjectParser({
+	_enum: createExactSequenceParser('.enum '),
+	class: smaliTypeDescriptorParser,
+	_arrow: createExactSequenceParser('->'),
+	name: smaliMemberNameParser,
+	_colon: createExactSequenceParser(':'),
+	type: smaliTypeDescriptorParser,
+});
 
 setParserName(smaliEnumValueParser, 'smaliEnumValueParser');
 
@@ -648,24 +634,12 @@ const smaliMethodPrototypeParser: Parser<DalvikExecutablePrototype, string> = pr
 
 setParserName(smaliMethodPrototypeParser, 'smaliMethodPrototypeParser');
 
-const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = promiseCompose(
-	createTupleParser([
-		smaliTypeDescriptorParser,
-		createExactSequenceParser('->'),
-		smaliMemberNameParser,
-		smaliMethodPrototypeParser,
-	]),
-	([
-		classPath,
-		_separator,
-		methodName,
-		prototype,
-	]) => ({
-		class: classPath,
-		prototype,
-		name: methodName,
-	}),
-);
+const smaliParametersMethodParser: Parser<DalvikExecutableMethod, string> = createObjectParser({
+	class: smaliTypeDescriptorParser,
+	_separator: createExactSequenceParser('->'),
+	name: smaliMemberNameParser,
+	prototype: smaliMethodPrototypeParser,
+});
 
 setParserName(smaliParametersMethodParser, 'smaliParametersMethodParser');
 
@@ -845,27 +819,14 @@ const smaliAnnotationElementParser: Parser<SmaliAnnotationElement, string> = pro
 setParserName(smaliAnnotationElementParser, 'smaliAnnotationElementParser');
 
 // Now define the subannotation parser
-smaliSubannotationParser = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('.subannotation '),
-		smaliTypeDescriptorParser,
-		smaliLineEndPraser,
-		createArrayParser(smaliAnnotationElementParser),
-		smaliIndentationParser,
-		createExactSequenceParser('.end subannotation'),
-	]),
-	([
-		_subannotation,
-		type,
-		_newline,
-		elements,
-		_indentation,
-		_endSubannotation,
-	]) => ({
-		type,
-		elements,
-	}),
-);
+smaliSubannotationParser = createObjectParser({
+	_subannotation: createExactSequenceParser('.subannotation '),
+	type: smaliTypeDescriptorParser,
+	_newline: smaliLineEndPraser,
+	elements: createArrayParser(smaliAnnotationElementParser),
+	_indentation: smaliIndentationParser,
+	_endSubannotation: createExactSequenceParser('.end subannotation'),
+});
 
 setParserName(smaliSubannotationParser, 'smaliSubannotationParser');
 
@@ -875,38 +836,21 @@ type SmaliAnnotation = {
 	visibility: 'build' | 'runtime' | 'system';
 };
 
-export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = promiseCompose(
-	createTupleParser([
-		smaliIndentationParser,
-		createExactSequenceParser('.annotation '),
-		createUnionParser([
-			createExactSequenceParser('build' as const),
-			createExactSequenceParser('runtime' as const),
-			createExactSequenceParser('system' as const),
-		]),
-		smaliSingleWhitespaceParser,
-		smaliTypeDescriptorParser,
-		smaliLineEndPraser,
-		createArrayParser(smaliAnnotationElementParser),
-		smaliIndentationParser,
-		createExactSequenceParser('.end annotation\n'),
+export const smaliAnnotationParser: Parser<SmaliAnnotation, string> = createObjectParser({
+	_indentation0: smaliIndentationParser,
+	_annotation: createExactSequenceParser('.annotation '),
+	visibility: createUnionParser([
+		createExactSequenceParser('build' as const),
+		createExactSequenceParser('runtime' as const),
+		createExactSequenceParser('system' as const),
 	]),
-	([
-		_indentation0,
-		_annotation,
-		visibility,
-		_space,
-		type,
-		_newline,
-		elements,
-		_indentation1,
-		_endAnnotation,
-	]) => ({
-		type,
-		elements,
-		visibility,
-	}),
-);
+	_space: smaliSingleWhitespaceParser,
+	type: smaliTypeDescriptorParser,
+	_newline: smaliLineEndPraser,
+	elements: createArrayParser(smaliAnnotationElementParser),
+	_indentation1: smaliIndentationParser,
+	_endAnnotation: createExactSequenceParser('.end annotation\n'),
+});
 
 setParserName(smaliAnnotationParser, 'smaliAnnotationParser');
 
@@ -1378,23 +1322,12 @@ type SmaliLabeledCatchDirective = {
 	catchDirective: SmaliCatchDirective;
 };
 
-const smaliLabeledCatchDirectiveParser: Parser<SmaliLabeledCatchDirective, string> = promiseCompose(
-	createTupleParser([
-		createArrayParser(smaliCodeLineParser),
-		createOptionalParser(smaliCodeLocalParser),
-		createArrayParser(smaliCodeLabelLineParser),
-		smaliCatchDirectiveParser,
-	]),
-	([
-		_lines,
-		_local,
-		labels,
-		catchDirective,
-	]) => ({
-		labels,
-		catchDirective,
-	}),
-);
+const smaliLabeledCatchDirectiveParser: Parser<SmaliLabeledCatchDirective, string> = createObjectParser({
+	_lines: createArrayParser(smaliCodeLineParser),
+	_local: createOptionalParser(smaliCodeLocalParser),
+	labels: createArrayParser(smaliCodeLabelLineParser),
+	catchDirective: smaliCatchDirectiveParser,
+});
 
 setParserName(smaliLabeledCatchDirectiveParser, 'smaliLabeledCatchDirectiveParser');
 
@@ -1546,26 +1479,13 @@ const smaliParametersTypeParser: Parser<string, string> = cloneParser(smaliTypeD
 
 setParserName(smaliParametersTypeParser, 'smaliParametersTypeParser');
 
-const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = promiseCompose(
-	createTupleParser([
-		smaliTypeDescriptorParser,
-		createExactSequenceParser('->'),
-		smaliMemberNameParser,
-		createExactSequenceParser(':'),
-		smaliTypeDescriptorParser,
-	]),
-	([
-		classPath,
-		_separator,
-		fieldName,
-		_colon,
-		type,
-	]) => ({
-		class: classPath,
-		name: fieldName,
-		type,
-	}),
-);
+const smaliParametersFieldParser: Parser<DalvikExecutableField, string> = createObjectParser({
+	class: smaliTypeDescriptorParser,
+	_separator: createExactSequenceParser('->'),
+	name: smaliMemberNameParser,
+	_colon: createExactSequenceParser(':'),
+	type: smaliTypeDescriptorParser,
+});
 
 setParserName(smaliParametersFieldParser, 'smaliParametersFieldParser');
 

@@ -26,6 +26,7 @@ import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createSliceBoundedParser } from './sliceBoundedParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createExactElementParser } from './exactElementParser.js';
+import { createObjectParser } from './objectParser.js';
 import { createParserConsumedSequenceParser } from './parserConsumedSequenceParser.js';
 import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createDebugLogParser } from './debugLogParser.js';
@@ -189,13 +190,10 @@ export const androidPackageSigningBlockParser: Parser<AndroidPackageSigningBlock
 	},
 ));
 
-const androidPackageSignatureV2DigestParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2Digest>(pairLength => promiseCompose(
-	createTupleParser([
-		uint32LEParser,
-		createUint32LengthPrefixedParser(digestLength => createFixedLengthSequenceParser(digestLength)),
-	]),
-	([ signatureAlgorithmId, digest ]) => ({ signatureAlgorithmId, digest }),
-));
+const androidPackageSignatureV2DigestParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2Digest>(pairLength => createObjectParser({
+	signatureAlgorithmId: uint32LEParser,
+	digest: createUint32LengthPrefixedParser(digestLength => createFixedLengthSequenceParser(digestLength)),
+}));
 
 const androidPackageSignatureV2DigestsParser = createUint32LengthPrefixedSliceBoundedArrayParser(androidPackageSignatureV2DigestParser);
 
@@ -209,13 +207,10 @@ const androidPackageSignatureV2CertificatesParser = createUint32LengthPrefixedSl
 
 setParserName(androidPackageSignatureV2CertificatesParser, 'androidPackageSignatureV2CertificatesParser');
 
-const androidPackageSignatureV2AdditionalAttributeParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2AdditionalAttribute>(pairLength => promiseCompose(
-	createTupleParser([
-		uint32LEParser,
-		createFixedLengthSequenceParser(pairLength - 4),
-	]),
-	([ id, value ]) => ({ id, value }),
-));
+const androidPackageSignatureV2AdditionalAttributeParser = createUint32LengthPrefixedParser<AndroidPackageSignatureV2AdditionalAttribute>(pairLength => createObjectParser({
+	id: uint32LEParser,
+	value: createFixedLengthSequenceParser<Uint8Array>(pairLength - 4),
+}));
 
 setParserName(androidPackageSignatureV2AdditionalAttributeParser, 'androidPackageSignatureV2AdditionalAttributeParser');
 
@@ -245,19 +240,10 @@ const androidPackageSignatureV2SignedDataParser = createUint32LengthPrefixedSlic
 
 setParserName(androidPackageSignatureV2SignedDataParser, 'androidPackageSignatureV2SignedDataParser');
 
-const androidPackageSignatureV2SignatureParser = createUint32LengthPrefixedParser(signatureLength => promiseCompose(
-	createTupleParser([
-		uint32LEParser,
-		createUint32LengthPrefixedParser(signatureLength => createFixedLengthSequenceParser(signatureLength)),
-	]),
-	([
-		signatureAlgorithmId,
-		signature,
-	]): AndroidPackageSignatureV2Signature => ({
-		signatureAlgorithmId,
-		signature,
-	}),
-));
+const androidPackageSignatureV2SignatureParser = createUint32LengthPrefixedParser(signatureLength => createObjectParser({
+	signatureAlgorithmId: uint32LEParser,
+	signature: createUint32LengthPrefixedParser(signatureLength => createFixedLengthSequenceParser(signatureLength)),
+}));
 
 const androidPackageSignatureV2SignaturesParser = createUint32LengthPrefixedSliceBoundedArrayParser(androidPackageSignatureV2SignatureParser);
 

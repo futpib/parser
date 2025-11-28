@@ -43,6 +43,7 @@ import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { createQuantifierParser } from './quantifierParser.js';
 import { createDebugLogInputParser } from './debugLogInputParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
+import { createObjectParser } from './objectParser.js';
 import { createTupleParser } from './tupleParser.js';
 
 // https://source.android.com/docs/core/runtime/dalvik-bytecode
@@ -69,12 +70,10 @@ type DalvikBytecodeOperationNoOperation = {
 	operation: 'nop';
 };
 
-const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNoOperation, Uint8Array> = promiseCompose(
-	createExactUshortParser(0x00_00), // nop is 2 bytes: 0x00 0x00
-	() => ({
-		operation: 'nop',
-	}),
-);
+const dalvikBytecodeOperationNoOperationParser: Parser<DalvikBytecodeOperationNoOperation, Uint8Array> = createObjectParser({
+	_opcode: createExactUshortParser(0x00_00), // nop is 2 bytes: 0x00 0x00
+	operation: 'nop' as const,
+});
 
 setParserName(dalvikBytecodeOperationNoOperationParser, 'dalvikBytecodeOperationNoOperationParser');
 
@@ -1945,15 +1944,11 @@ type DalvikBytecodeOperationReturnVoid = {
 	operation: 'return-void';
 };
 
-const dalvikBytecodeOperationReturnVoidParser: Parser<DalvikBytecodeOperationReturnVoid, Uint8Array> = promiseCompose(
-	createTupleParser([
-		createExactElementParser(0x0E),
-		dalvikBytecodeFormat10xParser,
-	]),
-	() => ({
-		operation: 'return-void',
-	}),
-);
+const dalvikBytecodeOperationReturnVoidParser: Parser<DalvikBytecodeOperationReturnVoid, Uint8Array> = createObjectParser({
+	_opcode: createExactElementParser(0x0E),
+	_format: dalvikBytecodeFormat10xParser,
+	operation: 'return-void' as const,
+});
 
 setParserName(dalvikBytecodeOperationReturnVoidParser, 'dalvikBytecodeOperationReturnVoidParser');
 

@@ -1,7 +1,11 @@
 import { getParserName, setParserName, type Parser, type ParserOutput, type ParserSequence } from './parser.js';
 
-// Extract Sequence from an object of parsers (finds first parser's sequence type)
-type InferSequenceFromParsers<T> = ParserSequence<T[keyof T]>;
+// Extract only parser values from an object (filter out literals)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExtractParsers<T> = T[keyof T] & Parser<any, any, any>;
+
+// Extract Sequence from an object of parsers (finds parser's sequence type, ignoring literals)
+type InferSequenceFromParsers<T> = ParserSequence<ExtractParsers<T>>;
 
 // Extract output type: Parser<O, S> → O, literal L → L
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -788,15 +788,15 @@ const groupParser: Parser<RegularExpression, string> = createUnionParser([
 type AnchorMarker = { type: 'start-anchor-marker' } | { type: 'end-anchor-marker' };
 type ParsedElement = RegularExpression | AnchorMarker | LookaheadMarker;
 
-const startAnchorMarkerParser: Parser<AnchorMarker, string> = promiseCompose(
-	createExactSequenceParser('^'),
-	() => ({ type: 'start-anchor-marker' as const }),
-);
+const startAnchorMarkerParser: Parser<AnchorMarker, string> = createObjectParser({
+	type: 'start-anchor-marker' as const,
+	_marker: createExactSequenceParser('^'),
+});
 
-const endAnchorMarkerParser: Parser<AnchorMarker, string> = promiseCompose(
-	createExactSequenceParser('$'),
-	() => ({ type: 'end-anchor-marker' as const }),
-);
+const endAnchorMarkerParser: Parser<AnchorMarker, string> = createObjectParser({
+	type: 'end-anchor-marker' as const,
+	_marker: createExactSequenceParser('$'),
+});
 
 // Atom: the basic unit that can be quantified (excluding anchors)
 const atomParser: Parser<RegularExpression, string> = createUnionParser([

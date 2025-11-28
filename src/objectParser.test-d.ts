@@ -127,3 +127,26 @@ import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js'
 	expectAssignable<{ value: null; name: string }>(null! as Output);
 	expectType<null>(null! as Output['value']);
 }
+
+// Test: underscore-prefixed parsers still contribute to sequence type inference
+{
+	const parser = createObjectParser({
+		_prefix: createExactSequenceParser<Uint8Array>(Buffer.from([0x00])),
+		operation: 'nop' as const,
+	});
+
+	// Parser should be assignable to Parser<{ operation: 'nop' }, Uint8Array>
+	expectAssignable<Parser<{ operation: 'nop' }, Uint8Array>>(parser);
+}
+
+// Test: sequence type inferred from underscore parser when no other parsers present
+{
+	const parser = createObjectParser({
+		_marker: createExactSequenceParser<string>('test'),
+		type: 'marker' as const,
+		value: 42 as const,
+	});
+
+	// Should infer string sequence from _marker parser
+	expectAssignable<Parser<{ type: 'marker'; value: 42 }, string>>(parser);
+}

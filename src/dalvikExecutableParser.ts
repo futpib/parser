@@ -854,13 +854,11 @@ const createEncodedValueArgParser = (valueType: number): Parser<number, Uint8Arr
 	byte => byte >> 5,
 );
 
-const encodedValueByteParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = promiseCompose(
-	createTupleParser([
-		createExactElementParser(0),
-		byteParser,
-	]),
-	([ _, value ]) => ({ type: 'byte' as const, value }),
-);
+const encodedValueByteParser: Parser<DalvikExecutableTaggedEncodedValue, Uint8Array> = createObjectParser({
+	type: 'byte' as const,
+	_tag: createExactElementParser(0),
+	value: byteParser,
+});
 
 setParserName(encodedValueByteParser, 'encodedValueByteParser');
 
