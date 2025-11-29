@@ -8,17 +8,49 @@ export const createRegExpParser = (
 		let window = 1;
 		let lastMatch: RegExpExecArray | undefined;
 		let reachedEndOfInput = false;
+		let inputLength: number | undefined;
 
 		while (true) {
 			const sequence = await parserContext.peekSequence(start, start + window);
 
 			if (sequence === undefined) {
-				reachedEndOfInput = true;
+				if (!reachedEndOfInput) {
+					reachedEndOfInput = true;
+
+					// Binary search to find actual input length
+					// We know: length >= start (we've peeked successfully before)
+					// We know: length < start + window (current peek failed)
+					let lo = start;
+					let hi = start + window;
+					while (hi - lo > 1) {
+						const mid = (lo + hi) >> 1;
+						const probe = await parserContext.peekSequence(0, mid);
+						if (probe !== undefined) {
+							lo = mid;
+						} else {
+							hi = mid;
+						}
+					}
+					inputLength = lo;
+
+					// Try matching against the full input
+					if (inputLength > 0) {
+						const fullInput = await parserContext.peekSequence(0, inputLength);
+						if (fullInput !== undefined) {
+							const match = regexp.exec(fullInput);
+							if (match !== null && match.index === 0) {
+								parserContext.skip(match[0].length);
+								return match;
+							}
+						}
+					}
+				}
+
 				window = Math.floor(window / 2);
 
 				if (window === 0) {
 					// Get the full sequence we've accumulated to verify matches
-					const fullSequence = await parserContext.peekSequence(0, start);
+					const fullSequence = await parserContext.peekSequence(0, inputLength ?? start);
 
 					// Verify any previous match is still valid with full context
 					// For lookahead/lookbehind assertions, additional input might invalidate a match
@@ -46,7 +78,7 @@ export const createRegExpParser = (
 				continue;
 			}
 
-			const fullSequence = await parserContext.peekSequence(0, start + window);
+			const fullSequence = await parserContext.peekSequence(0, inputLength ?? start + window);
 
 			if (fullSequence === undefined) {
 				continue;

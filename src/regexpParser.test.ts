@@ -184,3 +184,81 @@ test('regexpParser with negative lookahead should match single char', async t =>
 	t.is(position, 1); // Consumed 1 character
 	t.truthy(remainingInput); // There's remaining input (the space)
 });
+
+test('regexpParser should match exact 6-character input', async t => {
+	const regexpParser = createRegExpParser(/abcdef/);
+
+	const result = await runParser(
+		regexpParser,
+		'abcdef',
+		stringParserInputCompanion,
+	);
+
+	t.is(result[0], 'abcdef');
+});
+
+test('regexpParser should match quoted string of length 6', async t => {
+	const regexpParser = createRegExpParser(/"[^"]*"/);
+
+	const result = await runParser(
+		regexpParser,
+		'"abcd"', // 6 characters total
+		stringParserInputCompanion,
+	);
+
+	t.is(result[0], '"abcd"');
+});
+
+// Property-based tests for fixed-length patterns
+
+testProp(
+	'regexpParser should match exact n-character input for any length',
+	[fc.integer({ min: 1, max: 20 })],
+	async (t, length) => {
+		const input = 'a'.repeat(length);
+		const regex = new RegExp(`a{${length}}`);
+		const regexpParser = createRegExpParser(regex);
+
+		const result = await runParser(
+			regexpParser,
+			input,
+			stringParserInputCompanion,
+		);
+
+		t.is(result[0], input);
+	},
+);
+
+testProp(
+	'regexpParser should match quoted strings of any length',
+	[fc.integer({ min: 0, max: 20 })],
+	async (t, contentLength) => {
+		const content = 'x'.repeat(contentLength);
+		const input = `"${content}"`;
+		const regexpParser = createRegExpParser(/"[^"]*"/);
+
+		const result = await runParser(
+			regexpParser,
+			input,
+			stringParserInputCompanion,
+		);
+
+		t.is(result[0], input);
+	},
+);
+
+testProp(
+	'regexpParser greedy patterns should match any length input',
+	[fc.stringMatching(/^[a-z]+$/).filter(s => s.length > 0 && s.length <= 20)],
+	async (t, input) => {
+		const regexpParser = createRegExpParser(/[a-z]+/);
+
+		const result = await runParser(
+			regexpParser,
+			input,
+			stringParserInputCompanion,
+		);
+
+		t.is(result[0], input);
+	},
+);
