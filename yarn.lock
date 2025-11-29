@@ -234,6 +234,7 @@ __metadata:
     newtype-ts: "npm:^0.3.5"
     p-memoize: "npm:^8.0.0"
     p-mutex: "npm:^1.0.0"
+    s-expression: "npm:^3.1.1"
     tempy: "npm:^3.1.0"
     tsd: "npm:^0.33.0"
     type-fest: "npm:^5.2.0"
@@ -5787,6 +5788,13 @@ __metadata:
   dependencies:
     queue-microtask: "npm:^1.2.2"
   checksum: 10/cb4f97ad25a75ebc11a8ef4e33bb962f8af8516bb2001082ceabd8902e15b98f4b84b4f8a9b222e5d57fc3bd1379c483886ed4619367a7680dad65316993021d
+  languageName: node
+  linkType: hard
+
+"s-expression@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "s-expression@npm:3.1.1"
+  checksum: 10/6dbc9ccd29daf5f4ed518e968a8ad07af1dd7825623f9378cb818b62aa3695b9bafeeef98da49e8ea62b4eb0a58ee42f50ff755f6e698dd9214f5426e378b81b
   languageName: node
   linkType: hard
 
