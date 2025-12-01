@@ -207,12 +207,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@futpib/fetch-cid@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "@futpib/fetch-cid@npm:1.0.2"
+  dependencies:
+    env-paths: "npm:^3.0.0"
+    p-memoize: "npm:^8.0.0"
+  checksum: 10/868454cf19ca665da0ad8506974d0fc5813e30beda1cc23c0f108351f935715a0c1da6aeb0022b0d68bf1158de7cee0109c24bd4bedb1fc16cbd62dea09a4e13
+  languageName: node
+  linkType: hard
+
 "@futpib/parser@workspace:.":
   version: 0.0.0-use.local
   resolution: "@futpib/parser@workspace:."
   dependencies:
     "@ava/typescript": "npm:^6.0.0"
     "@fast-check/ava": "npm:^2.0.2"
+    "@futpib/fetch-cid": "npm:^1.0.2"
     "@gruhn/regex-utils": "npm:^2.7.3"
     "@types/invariant": "npm:^2.2.37"
     "@types/node": "npm:^24.10.1"
