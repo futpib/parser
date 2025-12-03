@@ -303,37 +303,82 @@ interface DalvikExecutableEncodedTypeAddressPair {
 	address: number;
 }
 
-const arbitraryDalvikExecutableEncodedTypeAddressPair: fc.Arbitrary<DalvikExecutableEncodedTypeAddressPair> = fc.record({
-	type: arbitraryDalvikClassName,
-	address: fc.nat({ max: 65535 }),
-});
+// Factory function to create arbitrary try blocks that are valid for given instruction count
+// Since addresses are now instruction indices, they must be within [0, instructionCount]
+function createArbitraryDalvikExecutableTry(instructionCount: number): fc.Arbitrary<DalvikExecutableTry> {
+	// If no instructions, we can't have meaningful try blocks
+	if (instructionCount === 0) {
+		// Return a try block that covers the "after last instruction" position (index 0)
+		const arbitraryEmptyHandler: fc.Arbitrary<DalvikExecutableEncodedCatchHandler> = fc.record({
+			handlers: fc.constant([]),
+			catchAllAddress: fc.constant(0),
+		});
+		return fc.record({
+			startAddress: fc.constant(0),
+			instructionCount: fc.constant(0),
+			handler: arbitraryEmptyHandler,
+		});
+	}
 
-const arbitraryDalvikExecutableEncodedCatchHandler: fc.Arbitrary<DalvikExecutableEncodedCatchHandler> = fc.record({
-	handlers: fc.array(arbitraryDalvikExecutableEncodedTypeAddressPair, { maxLength: 3 }),
-	catchAllAddress: fc.option(fc.nat({ max: 65535 }), { nil: undefined }),
-}).filter(handler => {
-	// A handler must have at least one typed handler OR a catch-all address
-	return handler.handlers.length > 0 || handler.catchAllAddress !== undefined;
-});
+	// Addresses must be in range [0, instructionCount] (inclusive, since handler can point to end)
+	const maxAddress = instructionCount;
 
-const arbitraryDalvikExecutableTry: fc.Arbitrary<DalvikExecutableTry> = fc.record({
-	startAddress: fc.nat({ max: 65535 }),
-	instructionCount: fc.nat({ max: 255 }),
-	handler: arbitraryDalvikExecutableEncodedCatchHandler,
-});
+	const arbitraryDalvikExecutableEncodedTypeAddressPair: fc.Arbitrary<DalvikExecutableEncodedTypeAddressPair> = fc.record({
+		type: arbitraryDalvikClassName,
+		address: fc.nat({ max: maxAddress }),
+	});
+
+	const arbitraryDalvikExecutableEncodedCatchHandler: fc.Arbitrary<DalvikExecutableEncodedCatchHandler> = fc.record({
+		handlers: fc.array(arbitraryDalvikExecutableEncodedTypeAddressPair, { maxLength: 3 }),
+		catchAllAddress: fc.option(fc.nat({ max: maxAddress }), { nil: undefined }),
+	}).filter(handler => {
+		// A handler must have at least one typed handler OR a catch-all address
+		return handler.handlers.length > 0 || handler.catchAllAddress !== undefined;
+	});
+
+	// startAddress + instructionCount must not exceed instructionCount (the total)
+	return fc.tuple(
+		fc.nat({ max: instructionCount }),
+		fc.nat({ max: instructionCount }),
+	).chain(([start, count]) => {
+		// Adjust count so start + count <= instructionCount
+		const adjustedCount = Math.min(count, instructionCount - start);
+		return fc.record({
+			startAddress: fc.constant(start),
+			instructionCount: fc.constant(adjustedCount),
+			handler: arbitraryDalvikExecutableEncodedCatchHandler,
+		});
+	});
+}
+
+// Helper function to get instruction count from instructions
+// This handles both array and non-array instruction types
+function getInstructionCount<Instructions>(instructions: Instructions): number {
+	if (Array.isArray(instructions)) {
+		return instructions.length;
+	}
+
+	return 0; // Non-array instructions default to 0
+}
 
 // Generic factory function for DalvikExecutable
 export const createArbitraryDalvikExecutable = <Instructions>(
 	arbitraryInstructions: fc.Arbitrary<Instructions>,
 ): fc.Arbitrary<DalvikExecutable<Instructions>> => {
 	// Code generator using provided instructions arbitrary
+	// First generate instructions, then generate valid tries based on instruction count
 	const arbitraryDalvikExecutableCode: fc.Arbitrary<DalvikExecutableCode<Instructions>> = fc.record({
 		registersSize: fc.nat({ max: 65535 }),
 		insSize: fc.nat({ max: 255 }),
 		outsSize: fc.nat({ max: 255 }),
 		debugInfo: fc.option(arbitraryDalvikExecutableDebugInfo, { nil: undefined }),
 		instructions: arbitraryInstructions,
-		tries: fc.array(arbitraryDalvikExecutableTry, { maxLength: 2 }),
+	}).chain(partialCode => {
+		const instructionCount = getInstructionCount(partialCode.instructions);
+		return fc.array(createArbitraryDalvikExecutableTry(instructionCount), { maxLength: 2 }).map(tries => ({
+			...partialCode,
+			tries,
+		}));
 	});
 
 	// Method with access and code

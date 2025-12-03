@@ -1994,41 +1994,16 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			}
 		}
 
-		const branchOffsetByBranchOffsetIndex = new Map<number, number>();
-
-		let operationOffset = 0;
-
-		for (const [ operationIndex, operation ] of instructions.entries()) {
-			const operationSize = getOperationFormatSize(operation);
-
-			branchOffsetByBranchOffsetIndex.set(
-				operationIndex,
-				operationOffset,
-			);
-
-			operationOffset += operationSize;
-		}
-
+		// Convert branchOffsetIndex (instruction-relative index from label) to branchOffset (instruction-relative offset)
+		// Now branchOffset represents instruction offsets, not code unit offsets
 		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (
 				'branchOffsetIndex' in operation
 				&& typeof operation.branchOffsetIndex === 'number'
 			) {
-				const operationOffset = branchOffsetByBranchOffsetIndex.get(operationIndex + operation.branchOffsetIndex);
-				invariant(
-					operationOffset !== undefined,
-					'Expected branch offset for operation index %s, but got undefined',
-					operation.branchOffsetIndex,
-				);
-
-				const branchOffset = branchOffsetByBranchOffsetIndex.get(operationIndex);
-				invariant(
-					branchOffset !== undefined,
-					'Expected branch offset for operation index %s, but got undefined',
-					operationIndex,
-				);
-
-				(operation as any).branchOffset = operationOffset - branchOffset;
+				// branchOffsetIndex is the relative instruction index from the label
+				// branchOffset is now the instruction-relative offset (same value)
+				(operation as any).branchOffset = operation.branchOffsetIndex;
 			}
 
 			if (
@@ -2051,22 +2026,11 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				const [ sourceOperation ] = sourceOperations;
 				const sourceOperationIndex = instructions.indexOf(sourceOperation);
 
+				// For payload instructions, branchOffsetIndices contains instruction-relative indices
+				// from the source switch instruction. Convert to instruction-relative offsets.
 				(operation as any).branchOffsets = operation.branchOffsetIndices.map((branchOffsetIndex: number) => {
-					const operationOffset = branchOffsetByBranchOffsetIndex.get(sourceOperationIndex + branchOffsetIndex);
-					invariant(
-						operationOffset !== undefined,
-						'Expected branch offset for operation index %s, but got undefined',
-						sourceOperationIndex + branchOffsetIndex,
-					);
-
-					const branchOffset = branchOffsetByBranchOffsetIndex.get(sourceOperationIndex);
-					invariant(
-						branchOffset !== undefined,
-						'Expected branch offset for operation index %s, but got undefined',
-						sourceOperationIndex,
-					);
-
-					return operationOffset - branchOffset;
+					// branchOffsetIndex is relative to the source operation
+					return branchOffsetIndex;
 				});
 			}
 		}
@@ -2110,6 +2074,7 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		}
 
 		// Build tries array from catch directives
+		// Now using instruction indices directly instead of code unit offsets
 		const triesByRange = new Map<string, {
 			startAddress: number;
 			instructionCount: number;
@@ -2127,15 +2092,11 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			invariant(endIndex !== undefined, 'Expected to find end label %s', catchDirective.endLabel);
 			invariant(handlerIndex !== undefined, 'Expected to find handler label %s', catchDirective.handlerLabel);
 
-			const startAddress = branchOffsetByBranchOffsetIndex.get(startIndex);
-			const endAddress = branchOffsetByBranchOffsetIndex.get(endIndex);
-			const handlerAddress = branchOffsetByBranchOffsetIndex.get(handlerIndex);
+			// Use instruction indices directly
+			const startAddress = startIndex;
+			const instructionCount = endIndex - startIndex;
+			const handlerAddress = handlerIndex;
 
-			invariant(startAddress !== undefined, 'Expected start address for index %s', startIndex);
-			invariant(endAddress !== undefined, 'Expected end address for index %s', endIndex);
-			invariant(handlerAddress !== undefined, 'Expected handler address for index %s', handlerIndex);
-
-			const instructionCount = endAddress - startAddress;
 			const rangeKey = `${startAddress}-${instructionCount}`;
 
 			let tryEntry = triesByRange.get(rangeKey);
@@ -2170,13 +2131,25 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			},
 		}));
 
+		// Build debug info from debug directives
+		// Debug info still uses code unit offsets (addressDiff), so we need to build the mapping
+		// IMPORTANT: Must be done BEFORE deleting branchOffsetIndices, as getOperationFormatSize uses it
+		const codeUnitOffsetByInstructionIndex = new Map<number, number>();
+		let codeUnitOffset = 0;
+		for (let i = 0; i < instructions.length; i++) {
+			codeUnitOffsetByInstructionIndex.set(i, codeUnitOffset);
+			codeUnitOffset += getOperationFormatSize(instructions[i]);
+		}
+		codeUnitOffsetByInstructionIndex.set(instructions.length, codeUnitOffset);
+		// Alias for backward compatibility with debug info code
+		const branchOffsetByBranchOffsetIndex = codeUnitOffsetByInstructionIndex;
+
 		for (const operation of instructions) {
 			delete (operation as any).labels;
 			delete (operation as any).branchOffsetIndex;
 			delete (operation as any).branchOffsetIndices;
 		}
 
-		// Build debug info from debug directives
 		type DebugByteCodeValue = DalvikExecutableDebugInfo['bytecode'][number];
 		let debugInfo: DalvikExecutableDebugInfo | undefined;
 		const debugBytecode: DebugByteCodeValue[] = [];

@@ -57,6 +57,11 @@ import {
 	createDalvikBytecodeParser, type DalvikBytecode, type DalvikBytecodeOperation, type DalvikBytecodeOperationResolvers, resolveDalvikBytecodeOperation,
 } from './dalvikBytecodeParser.js';
 import {
+	buildCodeUnitToIndexMap,
+	codeUnitToInstructionIndex,
+	convertBranchOffsetsToInstructionOffsets,
+} from './dalvikBytecodeParser/addressConversion.js';
+import {
 	byteParser, ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
 } from './dalvikExecutableParser/typeParsers.js';
 import {
@@ -2657,16 +2662,26 @@ const createDalvikExecutableParser = <Instructions>({
 			for (const [ offset, codeItem ] of codeItemByOffset) {
 				const debugInfo = debugInfoByOffset.get(codeItem.debugInfoOffset);
 
+				// Build code unit to instruction index mapping for address conversion
+				const rawInstructions = codeItem.instructions as DalvikBytecodeOperation[];
+				const codeUnitToIndexMap = Array.isArray(rawInstructions) ? buildCodeUnitToIndexMap(rawInstructions) : undefined;
+
+				// Convert branch offsets from code units to instruction offsets
+				const convertedInstructions = (Array.isArray(rawInstructions) && codeUnitToIndexMap)
+					? convertBranchOffsetsToInstructionOffsets(rawInstructions) as Instructions
+					: codeItem.instructions;
+
 				codeByOffset.set(offset, {
 					registersSize: codeItem.registersSize,
 					insSize: codeItem.insSize,
 					outsSize: codeItem.outsSize,
 					debugInfo,
-					instructions: codeItem.instructions,
+					instructions: convertedInstructions,
 					tries: codeItem.tryItems.map(tryItem => {
 						const handler_ = codeItem.handlers.get(tryItem.handlerOffset);
 						invariant(handler_, 'Handler must be there. Handler offset: %s', tryItem.handlerOffset);
 
+						// Convert handler addresses from code units to instruction indices
 						const handler = {
 							handlers: handler_.handlers.map(encodedHandler => {
 								const type = types.at(encodedHandler.typeIndex);
@@ -2674,15 +2689,27 @@ const createDalvikExecutableParser = <Instructions>({
 
 								return {
 									type,
-									address: encodedHandler.address,
+									address: codeUnitToIndexMap
+										? codeUnitToInstructionIndex(encodedHandler.address, codeUnitToIndexMap)
+										: encodedHandler.address,
 								};
 							}),
-							catchAllAddress: handler_.catchAllAddress,
+							catchAllAddress: (handler_.catchAllAddress !== undefined && codeUnitToIndexMap)
+								? codeUnitToInstructionIndex(handler_.catchAllAddress, codeUnitToIndexMap)
+								: handler_.catchAllAddress,
 						};
 
+						// Convert try block addresses from code units to instruction indices
+						const startAddressIndex = codeUnitToIndexMap
+							? codeUnitToInstructionIndex(tryItem.startAddress, codeUnitToIndexMap)
+							: tryItem.startAddress;
+						const endAddressIndex = codeUnitToIndexMap
+							? codeUnitToInstructionIndex(tryItem.startAddress + tryItem.instructionCount, codeUnitToIndexMap)
+							: tryItem.startAddress + tryItem.instructionCount;
+
 						return {
-							startAddress: tryItem.startAddress,
-							instructionCount: tryItem.instructionCount,
+							startAddress: startAddressIndex,
+							instructionCount: endAddressIndex - startAddressIndex,
 							handler,
 						};
 					}),

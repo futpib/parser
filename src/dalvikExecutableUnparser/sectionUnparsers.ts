@@ -27,6 +27,11 @@ import {
 } from '../dalvikExecutable.js';
 import { type DalvikBytecode } from '../dalvikBytecodeParser.js';
 import { dalvikBytecodeUnparser } from '../dalvikBytecodeUnparser.js';
+import {
+	buildIndexToCodeUnitMap,
+	instructionIndexToCodeUnit,
+	convertInstructionOffsetsToBranchOffsets,
+} from '../dalvikBytecodeParser/addressConversion.js';
 import { ubyteUnparser, ushortUnparser, uintUnparser } from '../dalvikBytecodeUnparser/formatUnparsers.js';
 import { type PoolBuilders } from './poolBuilders.js';
 import { WriteLater } from '../unparserContext.js';
@@ -540,21 +545,32 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 				callback({ debugInfoOffsetWriteLater });
 			}
 
-			const instructionsSizeInShorts = await calculateInstructionsSize(input.instructions);
+			// Convert branch offsets from instruction offsets back to code units
+			const instructionsWithCodeUnitOffsets = convertInstructionOffsetsToBranchOffsets(input.instructions);
+
+			const instructionsSizeInShorts = await calculateInstructionsSize(instructionsWithCodeUnitOffsets);
 			yield * uintUnparser(instructionsSizeInShorts, unparserContext);
 
-			yield * dalvikBytecodeUnparser(input.instructions, unparserContext);
+			yield * dalvikBytecodeUnparser(instructionsWithCodeUnitOffsets, unparserContext);
 
 			if (input.tries.length > 0 && instructionsSizeInShorts % 2 !== 0) {
 				yield * ushortUnparser(0, unparserContext);
 			}
 
 			if (input.tries.length > 0) {
+				// Build index to code unit mapping for address conversion
+				const indexToCodeUnitMap = buildIndexToCodeUnitMap(input.instructions);
+
 				const handlerOffsetWriteLaters: Array<WriteLater<Uint8Array, number>> = [];
 
 				for (const tryBlock of input.tries) {
-					yield * uintUnparser(tryBlock.startAddress, unparserContext);
-					yield * ushortUnparser(tryBlock.instructionCount, unparserContext);
+					// Convert instruction indices back to code unit offsets
+					const startAddressCodeUnit = instructionIndexToCodeUnit(tryBlock.startAddress, indexToCodeUnitMap);
+					const endAddressCodeUnit = instructionIndexToCodeUnit(tryBlock.startAddress + tryBlock.instructionCount, indexToCodeUnitMap);
+					const instructionCountCodeUnits = endAddressCodeUnit - startAddressCodeUnit;
+
+					yield * uintUnparser(startAddressCodeUnit, unparserContext);
+					yield * ushortUnparser(instructionCountCodeUnits, unparserContext);
 					const handlerOffsetWriteLater = yield * yieldAndCapture(unparserContext.writeLater(2));
 					handlerOffsetWriteLaters.push(handlerOffsetWriteLater);
 				}
@@ -578,11 +594,15 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 					for (const handlerItem of handler.handlers) {
 						const typeIndex = getTypeIndex(handlerItem.type);
 						yield * uleb128Unparser(typeIndex, unparserContext);
-						yield * uleb128Unparser(handlerItem.address, unparserContext);
+						// Convert handler address from instruction index to code unit offset
+						const handlerAddressCodeUnit = instructionIndexToCodeUnit(handlerItem.address, indexToCodeUnitMap);
+						yield * uleb128Unparser(handlerAddressCodeUnit, unparserContext);
 					}
 
 					if (handler.catchAllAddress !== undefined) {
-						yield * uleb128Unparser(handler.catchAllAddress, unparserContext);
+						// Convert catchAllAddress from instruction index to code unit offset
+						const catchAllAddressCodeUnit = instructionIndexToCodeUnit(handler.catchAllAddress, indexToCodeUnitMap);
+						yield * uleb128Unparser(catchAllAddressCodeUnit, unparserContext);
 					}
 				}
 			}
