@@ -32,7 +32,7 @@ test('sliceBoundedParser', async t => {
 test('sliceBoundedParser mustConsumeAll: true fail to cosume all', async t => {
 	const parser = createTupleParser([
 		createElementParser<string>(),
-		createSliceBoundedParser(createArrayParser(createExactElementParser('b' as string)), 2),
+		createSliceBoundedParser(createArrayParser(createExactElementParser<string>('b')), 2),
 		createElementParser(),
 	]);
 
@@ -45,7 +45,7 @@ test('sliceBoundedParser mustConsumeAll: true fail to cosume all', async t => {
 test('sliceBoundedParser mustConsumeAll: false', async t => {
 	const parser = createTupleParser([
 		createElementParser<string>(),
-		createSliceBoundedParser(createArrayParser(createExactElementParser('b' as string)), 2, false),
+		createSliceBoundedParser(createArrayParser(createExactElementParser<string>('b')), 2, false),
 		createElementParser(),
 	]);
 

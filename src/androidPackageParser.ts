@@ -221,7 +221,7 @@ const androidPackageSignatureV2SignedDataParser = createUint32LengthPrefixedSlic
 		androidPackageSignatureV2DigestsParser,
 		androidPackageSignatureV2CertificatesParser,
 		androidPackageSignatureV2AdditionalAttributesParser,
-		createArrayParser(createExactElementParser(0)),
+		createArrayParser(createExactElementParser<Uint8Array>(0)),
 	]),
 	([
 		digests,
@@ -323,7 +323,7 @@ export const androidPackageSignableSectionsParser: Parser<AndroidPackageSignable
 			createOptionalParser(zipArchiveDecryptionHeaderParser),
 			createOptionalParser(zipArchiveExtraDataRecordParser),
 		])),
-		createArrayParser(createExactElementParser(0)),
+		createArrayParser(createExactElementParser<Uint8Array>(0)),
 		createOptionalParser(createParserConsumedSequenceParser(androidPackageSigningBlockParser)),
 		createParserConsumedSequenceParser(createTupleParser([
 			createArrayParser(zipCentralDirectoryHeaderParser),
