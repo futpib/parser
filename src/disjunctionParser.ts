@@ -22,7 +22,7 @@ export function createDisjunctionParser<
 		const parserParsingFailedErrors: ParserParsingFailedError[] = [];
 
 		for (const childParser of childParsers) {
-			const childParserContext = parserContext.lookahead({
+			using childParserContext = parserContext.lookahead({
 				debugName: getParserName(childParser, 'anonymousDisjunctionChild'),
 			});
 
@@ -33,12 +33,9 @@ export function createDisjunctionParser<
 				const successfulParserOutput = childParserResult.value;
 
 				childParserContext.unlookahead();
-				childParserContext.dispose();
 
 				return successfulParserOutput;
 			}
-
-			childParserContext.dispose();
 
 			const error = childParserResult.reason;
 

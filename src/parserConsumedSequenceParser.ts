@@ -6,15 +6,13 @@ export const createParserConsumedSequenceParser = <Output, Sequence>(
 ): Parser<[Output, Sequence], Sequence> => {
 	const parserConsumedSequenceParser: Parser<[Output, Sequence], Sequence> = async parserContext => {
 		const initialPosition = parserContext.position;
-		const childParserContext = parserContext.lookahead();
 
 		let value: Output;
 		let consumedLength: number;
-		try {
+		{
+			using childParserContext = parserContext.lookahead();
 			value = await childParser(childParserContext);
 			consumedLength = childParserContext.position - initialPosition;
-		} finally {
-			childParserContext.dispose();
 		}
 
 		const consumedSequenceParser = createFixedLengthSequenceParser<Sequence>(consumedLength);

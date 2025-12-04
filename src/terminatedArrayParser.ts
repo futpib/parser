@@ -51,36 +51,36 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 		const elements: ElementOutput[] = [];
 
 		while (true) {
-			const terminatorParserContext = parserContext.lookahead({
+			using terminatorParserContext = parserContext.lookahead({
 				debugName: getParserName(terminatorParser, 'anonymousTerminator'),
 			});
 
 			try {
 				const terminatorValue = await terminatorParser(terminatorParserContext);
 
-				const elementParserContext = parserContext.lookahead({
-					debugName: getParserName(elementParser, 'anonymousElement'),
-				});
+				{
+					using elementParserContext = parserContext.lookahead({
+						debugName: getParserName(elementParser, 'anonymousElement'),
+					});
 
-				try {
-					await elementParser(elementParserContext);
+					try {
+						await elementParser(elementParserContext);
 
-					parserImplementationInvariant(
-						false,
-						[
-							'Both element and terminator parsers matched.',
-							'Element parser: %s',
-							'Terminator parser: %s',
-						],
-						getParserName(elementParser, 'anonymousElement'),
-						getParserName(terminatorParser, 'anonymousTerminator'),
-					);
-				} catch (error) {
-					if (!(isParserParsingFailedError(error))) {
-						throw error;
+						parserImplementationInvariant(
+							false,
+							[
+								'Both element and terminator parsers matched.',
+								'Element parser: %s',
+								'Terminator parser: %s',
+							],
+							getParserName(elementParser, 'anonymousElement'),
+							getParserName(terminatorParser, 'anonymousTerminator'),
+						);
+					} catch (error) {
+						if (!(isParserParsingFailedError(error))) {
+							throw error;
+						}
 					}
-				} finally {
-					elementParserContext.dispose();
 				}
 
 				terminatorParserContext.unlookahead();
@@ -90,8 +90,6 @@ export const createTerminatedArrayParser = <ElementOutput, TerminatorOutput, Seq
 				if (!(isParserParsingFailedError(error))) {
 					throw error;
 				}
-			} finally {
-				terminatorParserContext.dispose();
 			}
 
 			const element = await elementParser(parserContext);
@@ -113,7 +111,7 @@ export const createTerminatedArrayParserUnsafe = <ElementOutput, TerminatorOutpu
 		const elements: ElementOutput[] = [];
 
 		while (true) {
-			const terminatorParserContext = parserContext.lookahead({
+			using terminatorParserContext = parserContext.lookahead({
 				debugName: getParserName(terminatorParser, 'anonymousTerminator'),
 			});
 
@@ -127,8 +125,6 @@ export const createTerminatedArrayParserUnsafe = <ElementOutput, TerminatorOutpu
 				if (!(isParserParsingFailedError(error))) {
 					throw error;
 				}
-			} finally {
-				terminatorParserContext.dispose();
 			}
 
 			const element = await elementParser(parserContext);

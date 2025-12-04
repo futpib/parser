@@ -4,13 +4,9 @@ export const createLookaheadParser = <Output, Sequence>(
 	childParser: Parser<Output, Sequence>,
 ): Parser<Output, Sequence> => {
 	const lookaheadParser: Parser<Output, Sequence> = async parserContext => {
-		const childParserContext = parserContext.lookahead();
+		using childParserContext = parserContext.lookahead();
 
-		try {
-			return await childParser(childParserContext);
-		} finally {
-			childParserContext.dispose();
-		}
+		return childParser(childParserContext);
 	};
 
 	setParserName(lookaheadParser, `(?=${getParserName(childParser)})`);

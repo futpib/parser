@@ -5,7 +5,7 @@ export const createNegativeLookaheadParser = <Sequence>(
 	childParser: Parser<unknown, Sequence>,
 ): Parser<void, Sequence> => {
 	const negativeLookaheadParser: Parser<void, Sequence> = async parserContext => {
-		const childParserContext = parserContext.lookahead();
+		using childParserContext = parserContext.lookahead();
 
 		let childParserSuccess: boolean;
 
@@ -19,8 +19,6 @@ export const createNegativeLookaheadParser = <Sequence>(
 			}
 
 			childParserSuccess = false;
-		} finally {
-			childParserContext.dispose();
 		}
 
 		parserContext.invariant(

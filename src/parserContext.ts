@@ -46,6 +46,7 @@ export type ParserContext<Sequence, Element> = {
 	lookahead(options?: LookaheadOptions): ParserContext<Sequence, Element>;
 	unlookahead(): void;
 	dispose(): void;
+	[Symbol.dispose](): void;
 
 	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy>;
 	invariantJoin<T>(value: T, childErrors: ParserParsingFailedError[], format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy>;
@@ -298,6 +299,10 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 		parentParserContext._exclusiveChildParserContext = undefined;
 		this._parentParserContext = undefined;
+	}
+
+	[Symbol.dispose]() {
+		this.dispose();
 	}
 
 	invariant<T>(value: T, format: ValueOrAccessor<string | string[]>, ...formatArguments: unknown[]): Exclude<T, Falsy> {

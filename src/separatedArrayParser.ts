@@ -21,7 +21,7 @@ export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 		const elements: ElementOutput[] = [];
 
 		while (true) {
-			const elementParserContext = parserContext.lookahead();
+			using elementParserContext = parserContext.lookahead();
 			const initialPosition = elementParserContext.position;
 
 			try {
@@ -39,8 +39,6 @@ export const createSeparatedArrayParser = <ElementOutput, Sequence>(
 				}
 
 				throw error;
-			} finally {
-				elementParserContext.dispose();
 			}
 
 			parser = separatorThenElementParser;
