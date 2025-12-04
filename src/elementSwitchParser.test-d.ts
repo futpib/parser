@@ -1,5 +1,5 @@
 import { expectAssignable, expectType } from 'tsd';
-import { createElementSwitchParser } from './exactElementSwitchParser.js';
+import { createElementSwitchParser } from './elementSwitchParser.js';
 import { type Parser, type ParserOutput } from './parser.js';
 
 // Test: basic element switch with inferred output type

@@ -34,7 +34,7 @@ import {
 	type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds,
 } from './dalvikExecutableParser/typedNumbers.js';
 import { createExactElementParser } from './exactElementParser.js';
-import { createElementSwitchParser } from './exactElementSwitchParser.js';
+import { createElementSwitchParser } from './elementSwitchParser.js';
 import { type Parser, setParserName } from './parser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createSliceBoundedParser } from './sliceBoundedParser.js';

@@ -174,7 +174,7 @@ export {
 
 export {
 	createElementSwitchParser,
-} from './exactElementSwitchParser.js';
+} from './elementSwitchParser.js';
 
 export {
 	createParserConsumedSequenceParser,
