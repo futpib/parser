@@ -2,6 +2,7 @@ import { type Iso } from 'monocle-ts';
 import {
 	byteParser, intParser, longParser, shortParser, ubyteParser, uintParser, ushortParser,
 } from '../dalvikExecutableParser/typeParsers.js';
+import { type CodeUnit, isoCodeUnit } from '../dalvikExecutableParser/typedNumbers.js';
 import { createElementParser } from '../elementParser.js';
 import { createObjectParser } from '../objectParser.js';
 import { type Parser, setParserName } from '../parser.js';
@@ -21,12 +22,15 @@ export const nibblesParser: Parser<[ number, number ], Uint8Array> = promiseComp
 setParserName(nibblesParser, 'nibblesParser');
 
 type DalvikBytecodeFormat10t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
-export const dalvikBytecodeFormat10tParser: Parser<DalvikBytecodeFormat10t, Uint8Array> = createObjectParser({
-	branchOffset: byteParser,
-});
+export const dalvikBytecodeFormat10tParser: Parser<DalvikBytecodeFormat10t, Uint8Array> = promiseCompose(
+	byteParser,
+	branchOffset => ({
+		branchOffsetCodeUnit: isoCodeUnit.wrap(branchOffset),
+	}),
+);
 
 type DalvikBytecodeFormat10x = void;
 
@@ -84,13 +88,18 @@ export const dalvikBytecodeFormat12xParser: Parser<DalvikBytecodeFormat12x, Uint
 );
 
 type DalvikBytecodeFormat20t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
-export const dalvikBytecodeFormat20tParser: Parser<DalvikBytecodeFormat20t, Uint8Array> = createObjectParser({
-	_zero: ubyteParser,
-	branchOffset: shortParser,
-});
+export const dalvikBytecodeFormat20tParser: Parser<DalvikBytecodeFormat20t, Uint8Array> = promiseCompose(
+	createTupleParser([
+		ubyteParser,
+		shortParser,
+	]),
+	([ _zero, branchOffset ]) => ({
+		branchOffsetCodeUnit: isoCodeUnit.wrap(branchOffset),
+	}),
+);
 
 type DalvikBytecodeFormat21c<Index> = {
 	index: Index;
@@ -139,7 +148,7 @@ export const dalvikBytecodeFormat21hParser: Parser<DalvikBytecodeFormat21h, Uint
 );
 
 type DalvikBytecodeFormat21t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
@@ -152,7 +161,7 @@ export const createDalvikBytecodeFormat21tParser = (): Parser<DalvikBytecodeForm
 		register0,
 		branchOffset,
 	]) => ({
-		branchOffset,
+		branchOffsetCodeUnit: isoCodeUnit.wrap(branchOffset),
 		registers: [
 			register0,
 		],
@@ -259,7 +268,7 @@ export const createDalvikBytecodeFormat22sParser = (): Parser<DalvikBytecodeForm
 );
 
 type DalvikBytecodeFormat22t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
@@ -275,7 +284,7 @@ export const createDalvikBytecodeFormat22tParser = (): Parser<DalvikBytecodeForm
 		],
 		branchOffset,
 	]) => ({
-		branchOffset,
+		branchOffsetCodeUnit: isoCodeUnit.wrap(branchOffset),
 		registers: [
 			register0,
 			register1,
@@ -327,12 +336,15 @@ export const dalvikBytecodeFormat23xParser: Parser<DalvikBytecodeFormat23x, Uint
 );
 
 type DalvikBytecodeFormat30t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
-export const dalvikBytecodeFormat30tParser: Parser<DalvikBytecodeFormat30t, Uint8Array> = createObjectParser({
-	branchOffset: intParser,
-});
+export const dalvikBytecodeFormat30tParser: Parser<DalvikBytecodeFormat30t, Uint8Array> = promiseCompose(
+	intParser,
+	branchOffset => ({
+		branchOffsetCodeUnit: isoCodeUnit.wrap(branchOffset),
+	}),
+);
 
 type DalvikBytecodeFormat31i = {
 	value: number;
@@ -381,7 +393,7 @@ export const createDalvikBytecodeFormat31cParser = <Index>({
 );
 
 type DalvikBytecodeFormat31t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
@@ -394,7 +406,7 @@ export const dalvikBytecodeFormat31tParser: Parser<DalvikBytecodeFormat31t, Uint
 		register0,
 		branchOffset,
 	]) => ({
-		branchOffset,
+		branchOffsetCodeUnit: isoCodeUnit.wrap(branchOffset),
 		registers: [
 			register0,
 		],

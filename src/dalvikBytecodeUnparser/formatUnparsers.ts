@@ -1,4 +1,5 @@
 import { type Unparser } from '../unparser.js';
+import { type CodeUnit, isoCodeUnit } from '../dalvikExecutableParser/typedNumbers.js';
 
 // Basic type unparsers
 export const ubyteUnparser: Unparser<number, Uint8Array> = async function * (input) {
@@ -55,13 +56,13 @@ export const nibblesUnparser: Unparser<[ number, number ], Uint8Array> = async f
 	yield * ubyteUnparser(byte, unparserContext);
 };
 
-// Format 10t: branchOffset (1 byte signed)
+// Format 10t: branchOffsetCodeUnit (1 byte signed)
 type DalvikBytecodeFormat10t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
 export const dalvikBytecodeFormat10tUnparser: Unparser<DalvikBytecodeFormat10t, Uint8Array> = async function * (input, unparserContext) {
-	yield * byteUnparser(input.branchOffset, unparserContext);
+	yield * byteUnparser(isoCodeUnit.unwrap(input.branchOffsetCodeUnit), unparserContext);
 };
 
 // Format 10x: no data
@@ -104,14 +105,14 @@ export const dalvikBytecodeFormat12xReversedUnparser: Unparser<DalvikBytecodeFor
 	yield * nibblesUnparser([ input.registers[1], input.registers[0] ], unparserContext);
 };
 
-// Format 20t: zero byte + branchOffset (2 bytes signed)
+// Format 20t: zero byte + branchOffsetCodeUnit (2 bytes signed)
 type DalvikBytecodeFormat20t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
 export const dalvikBytecodeFormat20tUnparser: Unparser<DalvikBytecodeFormat20t, Uint8Array> = async function * (input, unparserContext) {
 	yield * ubyteUnparser(0, unparserContext);
-	yield * shortUnparser(input.branchOffset, unparserContext);
+	yield * shortUnparser(isoCodeUnit.unwrap(input.branchOffsetCodeUnit), unparserContext);
 };
 
 // Format 21c: register + index (2 bytes)
@@ -136,15 +137,15 @@ export const dalvikBytecodeFormat21hUnparser: Unparser<DalvikBytecodeFormat21h, 
 	yield * ushortUnparser(input.value, unparserContext);
 };
 
-// Format 21t: register + branchOffset (2 bytes signed)
+// Format 21t: register + branchOffsetCodeUnit (2 bytes signed)
 type DalvikBytecodeFormat21t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
 export const dalvikBytecodeFormat21tUnparser: Unparser<DalvikBytecodeFormat21t, Uint8Array> = async function * (input, unparserContext) {
 	yield * ubyteUnparser(input.registers[0], unparserContext);
-	yield * shortUnparser(input.branchOffset, unparserContext);
+	yield * shortUnparser(isoCodeUnit.unwrap(input.branchOffsetCodeUnit), unparserContext);
 };
 
 // Format 21s: register + value (2 bytes signed)
@@ -192,22 +193,22 @@ export const dalvikBytecodeFormat22sUnparser: Unparser<DalvikBytecodeFormat22s, 
 	yield * shortUnparser(input.value, unparserContext);
 };
 
-// Format 22t: two registers in nibbles + branchOffset (2 bytes signed)
+// Format 22t: two registers in nibbles + branchOffsetCodeUnit (2 bytes signed)
 type DalvikBytecodeFormat22t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
 export const dalvikBytecodeFormat22tUnparser: Unparser<DalvikBytecodeFormat22t, Uint8Array> = async function * (input, unparserContext) {
 	yield * nibblesUnparser([ input.registers[1], input.registers[0] ], unparserContext);
-	yield * shortUnparser(input.branchOffset, unparserContext);
+	yield * shortUnparser(isoCodeUnit.unwrap(input.branchOffsetCodeUnit), unparserContext);
 };
 
 // Format 22t for commutative operations (if-eq, if-ne): registers are already in sorted/canonical order
 // so we don't reverse them
 export const dalvikBytecodeFormat22tCommutativeUnparser: Unparser<DalvikBytecodeFormat22t, Uint8Array> = async function * (input, unparserContext) {
 	yield * nibblesUnparser([ input.registers[0], input.registers[1] ], unparserContext);
-	yield * shortUnparser(input.branchOffset, unparserContext);
+	yield * shortUnparser(isoCodeUnit.unwrap(input.branchOffsetCodeUnit), unparserContext);
 };
 
 // Format 22x: register + register (2 bytes)
@@ -231,13 +232,13 @@ export const dalvikBytecodeFormat23xUnparser: Unparser<DalvikBytecodeFormat23x, 
 	yield * ubyteUnparser(input.registers[2], unparserContext);
 };
 
-// Format 30t: zero byte + branchOffset (4 bytes signed)
+// Format 30t: zero byte + branchOffsetCodeUnit (4 bytes signed)
 type DalvikBytecodeFormat30t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
 export const dalvikBytecodeFormat30tUnparser: Unparser<DalvikBytecodeFormat30t, Uint8Array> = async function * (input, unparserContext) {
-	yield * intUnparser(input.branchOffset, unparserContext);
+	yield * intUnparser(isoCodeUnit.unwrap(input.branchOffsetCodeUnit), unparserContext);
 };
 
 // Format 31i: register + value (4 bytes signed)
@@ -262,15 +263,15 @@ export const dalvikBytecodeFormat31cUnparser: Unparser<DalvikBytecodeFormat31c, 
 	yield * uintUnparser(input.index, unparserContext);
 };
 
-// Format 31t: register + branchOffset (4 bytes signed)
+// Format 31t: register + branchOffsetCodeUnit (4 bytes signed)
 type DalvikBytecodeFormat31t = {
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
 export const dalvikBytecodeFormat31tUnparser: Unparser<DalvikBytecodeFormat31t, Uint8Array> = async function * (input, unparserContext) {
 	yield * ubyteUnparser(input.registers[0], unparserContext);
-	yield * intUnparser(input.branchOffset, unparserContext);
+	yield * intUnparser(isoCodeUnit.unwrap(input.branchOffsetCodeUnit), unparserContext);
 };
 
 // Format 32x: two registers (2 bytes each)
@@ -374,19 +375,19 @@ export const dalvikBytecodeFormat4rccUnparser: Unparser<DalvikBytecodeFormat4rcc
 type DalvikBytecodeOperationPackedSwitchPayload = {
 	operation: 'packed-switch-payload';
 	value: number;
-	branchOffsets: number[];
+	branchOffsetsCodeUnit: CodeUnit[];
 };
 
 export const dalvikBytecodeOperationPackedSwitchPayloadUnparser: Unparser<DalvikBytecodeOperationPackedSwitchPayload, Uint8Array> = async function * (input, unparserContext) {
 	// Ident (0x0100) - little-endian
 	yield * ushortUnparser(0x01_00, unparserContext);
 	// Size
-	yield * ushortUnparser(input.branchOffsets.length, unparserContext);
+	yield * ushortUnparser(input.branchOffsetsCodeUnit.length, unparserContext);
 	// First key value
 	yield * intUnparser(input.value, unparserContext);
 	// Branch offsets
-	for (const offset of input.branchOffsets) {
-		yield * intUnparser(offset, unparserContext);
+	for (const offset of input.branchOffsetsCodeUnit) {
+		yield * intUnparser(isoCodeUnit.unwrap(offset), unparserContext);
 	}
 };
 
@@ -394,7 +395,7 @@ export const dalvikBytecodeOperationPackedSwitchPayloadUnparser: Unparser<Dalvik
 type DalvikBytecodeOperationSparseSwitchPayload = {
 	operation: 'sparse-switch-payload';
 	keys: number[];
-	branchOffsets: number[];
+	branchOffsetsCodeUnit: CodeUnit[];
 };
 
 export const dalvikBytecodeOperationSparseSwitchPayloadUnparser: Unparser<DalvikBytecodeOperationSparseSwitchPayload, Uint8Array> = async function * (input, unparserContext) {
@@ -407,8 +408,8 @@ export const dalvikBytecodeOperationSparseSwitchPayloadUnparser: Unparser<Dalvik
 		yield * intUnparser(key, unparserContext);
 	}
 	// Branch offsets
-	for (const offset of input.branchOffsets) {
-		yield * intUnparser(offset, unparserContext);
+	for (const offset of input.branchOffsetsCodeUnit) {
+		yield * intUnparser(isoCodeUnit.unwrap(offset), unparserContext);
 	}
 };
 

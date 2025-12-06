@@ -14,11 +14,11 @@ import {
 	isDalvikExecutableField,
 	isDalvikExecutableMethod,
 } from '../dalvikExecutable.js';
-import { type DalvikBytecode } from '../dalvikBytecodeParser.js';
+import { type ResolvedDalvikBytecodeOperation } from '../dalvikBytecodeParser/addressConversion.js';
 import { type PoolBuilders } from './poolBuilders.js';
 
 export function scanForPoolReferences(
-	dalvikExecutable: DalvikExecutable<DalvikBytecode>,
+	dalvikExecutable: DalvikExecutable<ResolvedDalvikBytecodeOperation[]>,
 	poolBuilders: PoolBuilders,
 ): void {
 	const { stringPool, typePool, protoPool, fieldPool, methodPool } = poolBuilders;
@@ -198,7 +198,7 @@ export function scanForPoolReferences(
 		}
 	}
 
-	function scanCode(code: undefined | DalvikExecutableCode<DalvikBytecode>): void {
+	function scanCode(code: undefined | DalvikExecutableCode<ResolvedDalvikBytecodeOperation[]>): void {
 		if (!code) {
 			return;
 		}
@@ -249,12 +249,12 @@ export function scanForPoolReferences(
 		}
 	}
 
-	function scanMethod(method: DalvikExecutableMethodWithAccess<DalvikBytecode>): void {
+	function scanMethod(method: DalvikExecutableMethodWithAccess<ResolvedDalvikBytecodeOperation[]>): void {
 		addMethod(method.method);
 		scanCode(method.code);
 	}
 
-	function scanClassData(classData: undefined | DalvikExecutableClassData<DalvikBytecode>): void {
+	function scanClassData(classData: undefined | DalvikExecutableClassData<ResolvedDalvikBytecodeOperation[]>): void {
 		if (!classData) {
 			return;
 		}
@@ -276,7 +276,7 @@ export function scanForPoolReferences(
 		}
 	}
 
-	function scanClassDefinition(classDef: DalvikExecutableClassDefinition<DalvikBytecode>): void {
+	function scanClassDefinition(classDef: DalvikExecutableClassDefinition<ResolvedDalvikBytecodeOperation[]>): void {
 		addType(classDef.class);
 		addType(classDef.superclass);
 

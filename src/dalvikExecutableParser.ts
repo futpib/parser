@@ -60,7 +60,9 @@ import {
 	buildCodeUnitToIndexMap,
 	codeUnitToInstructionIndex,
 	convertBranchOffsetsToInstructionOffsets,
+	unwrapBranchOffsets,
 } from './dalvikBytecodeParser/addressConversion.js';
+import { isoCodeUnit, isoInstructionIndex } from './dalvikExecutableParser/typedNumbers.js';
 import {
 	byteParser, ubyteParser, uintParser, uleb128p1NumberParser, ushortParser,
 } from './dalvikExecutableParser/typeParsers.js';
@@ -2667,8 +2669,9 @@ const createDalvikExecutableParser = <Instructions>({
 				const codeUnitToIndexMap = Array.isArray(rawInstructions) ? buildCodeUnitToIndexMap(rawInstructions) : undefined;
 
 				// Convert branch offsets from code units to instruction offsets
+				// Tier 1 (CodeUnit) -> Tier 2 (InstructionIndex) -> Tier 3 (plain numbers)
 				const convertedInstructions = (Array.isArray(rawInstructions) && codeUnitToIndexMap)
-					? convertBranchOffsetsToInstructionOffsets(rawInstructions) as Instructions
+					? unwrapBranchOffsets(convertBranchOffsetsToInstructionOffsets(rawInstructions)) as Instructions
 					: codeItem.instructions;
 
 				codeByOffset.set(offset, {
@@ -2681,7 +2684,7 @@ const createDalvikExecutableParser = <Instructions>({
 						const handler_ = codeItem.handlers.get(tryItem.handlerOffset);
 						invariant(handler_, 'Handler must be there. Handler offset: %s', tryItem.handlerOffset);
 
-						// Convert handler addresses from code units to instruction indices
+						// Convert handler addresses from code units to instruction indices (unwrapped for Tier 3)
 						const handler = {
 							handlers: handler_.handlers.map(encodedHandler => {
 								const type = types.at(encodedHandler.typeIndex);
@@ -2690,21 +2693,21 @@ const createDalvikExecutableParser = <Instructions>({
 								return {
 									type,
 									address: codeUnitToIndexMap
-										? codeUnitToInstructionIndex(encodedHandler.address, codeUnitToIndexMap)
+										? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(encodedHandler.address), codeUnitToIndexMap))
 										: encodedHandler.address,
 								};
 							}),
 							catchAllAddress: (handler_.catchAllAddress !== undefined && codeUnitToIndexMap)
-								? codeUnitToInstructionIndex(handler_.catchAllAddress, codeUnitToIndexMap)
+								? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(handler_.catchAllAddress), codeUnitToIndexMap))
 								: handler_.catchAllAddress,
 						};
 
-						// Convert try block addresses from code units to instruction indices
+						// Convert try block addresses from code units to instruction indices (unwrapped for Tier 3)
 						const startAddressIndex = codeUnitToIndexMap
-							? codeUnitToInstructionIndex(tryItem.startAddress, codeUnitToIndexMap)
+							? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(tryItem.startAddress), codeUnitToIndexMap))
 							: tryItem.startAddress;
 						const endAddressIndex = codeUnitToIndexMap
-							? codeUnitToInstructionIndex(tryItem.startAddress + tryItem.instructionCount, codeUnitToIndexMap)
+							? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(tryItem.startAddress + tryItem.instructionCount), codeUnitToIndexMap))
 							: tryItem.startAddress + tryItem.instructionCount;
 
 						return {

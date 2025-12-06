@@ -31,6 +31,7 @@ import {
 } from './dalvikExecutableParser/typeParsers.js';
 import { type DalvikExecutableField, type DalvikExecutableMethod } from './dalvikExecutable.js';
 import {
+	type CodeUnit, isoCodeUnit,
 	type IndexIntoCallSiteIds, type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoCallSiteIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds,
 } from './dalvikExecutableParser/typedNumbers.js';
 import { createExactElementParser } from './exactElementParser.js';
@@ -305,7 +306,7 @@ setParserName(dalvikBytecodeOperationInvokeCustomRangeParser, 'dalvikBytecodeOpe
 
 type DalvikBytecodeOperationGoto = {
 	operation: 'goto';
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
 const dalvikBytecodeOperationGotoParser: Parser<DalvikBytecodeOperationGoto, Uint8Array> = promiseCompose(
@@ -313,15 +314,15 @@ const dalvikBytecodeOperationGotoParser: Parser<DalvikBytecodeOperationGoto, Uin
 		createExactElementParser(0x28),
 		dalvikBytecodeFormat10tParser,
 	]),
-	([ _opcode, { branchOffset } ]) => ({
+	([ _opcode, { branchOffsetCodeUnit } ]) => ({
 		operation: 'goto',
-		branchOffset,
+		branchOffsetCodeUnit,
 	}),
 );
 
 type DalvikBytecodeOperationGoto16 = {
 	operation: 'goto/16';
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
 const dalvikBytecodeOperationGoto16Parser: Parser<DalvikBytecodeOperationGoto16, Uint8Array> = promiseCompose(
@@ -329,15 +330,15 @@ const dalvikBytecodeOperationGoto16Parser: Parser<DalvikBytecodeOperationGoto16,
 		createExactElementParser(0x29),
 		dalvikBytecodeFormat20tParser,
 	]),
-	([ _opcode, { branchOffset } ]) => ({
+	([ _opcode, { branchOffsetCodeUnit } ]) => ({
 		operation: 'goto/16',
-		branchOffset,
+		branchOffsetCodeUnit,
 	}),
 );
 
 type DalvikBytecodeOperationGoto32 = {
 	operation: 'goto/32';
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 };
 
 const dalvikBytecodeOperationGoto32Parser: Parser<DalvikBytecodeOperationGoto32, Uint8Array> = promiseCompose(
@@ -345,15 +346,15 @@ const dalvikBytecodeOperationGoto32Parser: Parser<DalvikBytecodeOperationGoto32,
 		createExactElementParser(0x2A),
 		dalvikBytecodeFormat30tParser,
 	]),
-	([ _opcode, { branchOffset } ]) => ({
+	([ _opcode, { branchOffsetCodeUnit } ]) => ({
 		operation: 'goto/32',
-		branchOffset,
+		branchOffsetCodeUnit,
 	}),
 );
 
 type DalvikBytecodeOperationPackedSwitch = {
 	operation: 'packed-switch';
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
@@ -362,9 +363,9 @@ const dalvikBytecodeOperationPackedSwitchParser: Parser<DalvikBytecodeOperationP
 		createExactElementParser(0x2B),
 		dalvikBytecodeFormat31tParser,
 	]),
-	([ _opcode, { branchOffset, registers } ]) => ({
+	([ _opcode, { branchOffsetCodeUnit, registers } ]) => ({
 		operation: 'packed-switch',
-		branchOffset,
+		branchOffsetCodeUnit,
 		registers,
 	}),
 );
@@ -374,7 +375,7 @@ setParserName(dalvikBytecodeOperationPackedSwitchParser, 'dalvikBytecodeOperatio
 type DalvikBytecodeOperationPackedSwitchPayload = {
 	operation: 'packed-switch-payload';
 	value: number;
-	branchOffsets: number[];
+	branchOffsetsCodeUnit: CodeUnit[];
 };
 
 const dalvikBytecodeOperationPackedSwitchPayloadParser: Parser<DalvikBytecodeOperationPackedSwitchPayload, Uint8Array> = parserCreatorCompose(
@@ -397,7 +398,7 @@ const dalvikBytecodeOperationPackedSwitchPayloadParser: Parser<DalvikBytecodeOpe
 		branchOffsets => ({
 			operation: 'packed-switch-payload' as const,
 			value,
-			branchOffsets,
+			branchOffsetsCodeUnit: branchOffsets.map(isoCodeUnit.wrap),
 		}),
 	),
 )();
@@ -406,7 +407,7 @@ setParserName(dalvikBytecodeOperationPackedSwitchPayloadParser, 'dalvikBytecodeO
 
 type DalvikBytecodeOperationSparseSwitch = {
 	operation: 'sparse-switch';
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
@@ -415,9 +416,9 @@ const dalvikBytecodeOperationSparseSwitchParser: Parser<DalvikBytecodeOperationS
 		createExactElementParser(0x2C),
 		dalvikBytecodeFormat31tParser,
 	]),
-	([ _opcode, { branchOffset, registers } ]) => ({
+	([ _opcode, { branchOffsetCodeUnit, registers } ]) => ({
 		operation: 'sparse-switch',
-		branchOffset,
+		branchOffsetCodeUnit,
 		registers,
 	}),
 );
@@ -427,7 +428,7 @@ setParserName(dalvikBytecodeOperationSparseSwitchParser, 'dalvikBytecodeOperatio
 type DalvikBytecodeOperationSparseSwitchPayload = {
 	operation: 'sparse-switch-payload';
 	keys: number[];
-	branchOffsets: number[];
+	branchOffsetsCodeUnit: CodeUnit[];
 };
 
 const dalvikBytecodeOperationSparseSwitchPayloadParser: Parser<DalvikBytecodeOperationSparseSwitchPayload, Uint8Array> = parserCreatorCompose(
@@ -454,7 +455,7 @@ const dalvikBytecodeOperationSparseSwitchPayloadParser: Parser<DalvikBytecodeOpe
 		([ keys, branchOffsets ]) => ({
 			operation: 'sparse-switch-payload' as const,
 			keys,
-			branchOffsets,
+			branchOffsetsCodeUnit: branchOffsets.map(isoCodeUnit.wrap),
 		}),
 	),
 )();
@@ -1591,16 +1592,16 @@ setParserName(dalvikBytecodeOperationUnaryOperationParser, 'dalvikBytecodeOperat
 const createDalvikBytecodeOperationIfTestCommutative = <T extends string>(operation: T, opcode: number): Parser<{
 	operation: T;
 	registers: number[];
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
 		createExactElementParser(opcode),
 		createDalvikBytecodeFormat22tParser(),
 	]),
-	([ _opcode, { registers, branchOffset } ]) => ({
+	([ _opcode, { registers, branchOffsetCodeUnit } ]) => ({
 		operation,
 		registers: registers.sort((a, b) => a - b),
-		branchOffset,
+		branchOffsetCodeUnit,
 	}),
 );
 
@@ -1608,16 +1609,16 @@ const createDalvikBytecodeOperationIfTestCommutative = <T extends string>(operat
 const createDalvikBytecodeOperationIfTest = <T extends string>(operation: T, opcode: number): Parser<{
 	operation: T;
 	registers: number[];
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
 		createExactElementParser(opcode),
 		createDalvikBytecodeFormat22tParser(),
 	]),
-	([ _opcode, { registers, branchOffset } ]) => ({
+	([ _opcode, { registers, branchOffsetCodeUnit } ]) => ({
 		operation,
 		registers: registers.reverse(),
-		branchOffset,
+		branchOffsetCodeUnit,
 	}),
 );
 
@@ -1668,16 +1669,16 @@ setParserName(dalvikBytecodeOperationIfTestParser, 'dalvikBytecodeOperationIfTes
 const createDalvikBytecodeOperationIfTestZero = <T extends string>(operation: T, opcode: number): Parser<{
 	operation: T;
 	registers: number[];
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 }, Uint8Array> => promiseCompose(
 	createTupleParser([
 		createExactElementParser(opcode),
 		createDalvikBytecodeFormat21tParser(),
 	]),
-	([ _opcode, { registers, branchOffset } ]) => ({
+	([ _opcode, { registers, branchOffsetCodeUnit } ]) => ({
 		operation,
 		registers,
-		branchOffset,
+		branchOffsetCodeUnit,
 	}),
 );
 
@@ -1903,7 +1904,7 @@ setParserName(dalvikBytecodeOperationFilledNewArrayRangeParser, 'dalvikBytecodeO
 
 type DalvikBytecodeOperationFillArrayData = {
 	operation: 'fill-array-data';
-	branchOffset: number;
+	branchOffsetCodeUnit: CodeUnit;
 	registers: number[];
 };
 
@@ -1912,9 +1913,9 @@ const dalvikBytecodeOperationFillArrayDataParser: Parser<DalvikBytecodeOperation
 		createExactElementParser(0x26),
 		dalvikBytecodeFormat31tParser,
 	]),
-	([ _opcode, { branchOffset, registers } ]) => ({
+	([ _opcode, { branchOffsetCodeUnit, registers } ]) => ({
 		operation: 'fill-array-data',
-		branchOffset,
+		branchOffsetCodeUnit,
 		registers,
 	}),
 );

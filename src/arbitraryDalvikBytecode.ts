@@ -9,11 +9,13 @@ import {
 	type IndexIntoMethodIds,
 	type IndexIntoFieldIds,
 	type IndexIntoPrototypeIds,
+	type CodeUnit,
 	isoIndexIntoStringIds,
 	isoIndexIntoTypeIds,
 	isoIndexIntoMethodIds,
 	isoIndexIntoFieldIds,
 	isoIndexIntoPrototypeIds,
+	isoCodeUnit,
 } from './dalvikExecutableParser/typedNumbers.js';
 
 // Arbitrary generators for typed indexes
@@ -49,10 +51,16 @@ const arbitraryShortValue = fc.integer({ min: -32768, max: 32767 }); // 16-bit s
 const arbitraryIntValue = fc.integer({ min: -2147483648, max: 2147483647 }); // 32-bit signed
 const arbitraryLongValue = fc.bigInt({ min: -9223372036854775808n, max: 9223372036854775807n }); // 64-bit signed
 
-// Arbitrary branch offsets (relative)
-const arbitraryBranchOffset8 = fc.integer({ min: -128, max: 127 });
-const arbitraryBranchOffset16 = fc.integer({ min: -32768, max: 32767 });
-const arbitraryBranchOffset32 = fc.integer({ min: -2147483648, max: 2147483647 });
+// Arbitrary branch offsets (relative) - wrapped as CodeUnit
+const arbitraryBranchOffsetCodeUnit8: fc.Arbitrary<CodeUnit> = fc
+	.integer({ min: -128, max: 127 })
+	.map(n => isoCodeUnit.wrap(n));
+const arbitraryBranchOffsetCodeUnit16: fc.Arbitrary<CodeUnit> = fc
+	.integer({ min: -32768, max: 32767 })
+	.map(n => isoCodeUnit.wrap(n));
+const arbitraryBranchOffsetCodeUnit32: fc.Arbitrary<CodeUnit> = fc
+	.integer({ min: -2147483648, max: 2147483647 })
+	.map(n => isoCodeUnit.wrap(n));
 
 // No-operation
 const arbitraryNop = fc.constant<DalvikBytecodeOperation>({
@@ -265,36 +273,36 @@ const arbitraryThrow = fc.record({
 // Goto operations
 const arbitraryGoto = fc.record({
 	operation: fc.constant('goto' as const),
-	branchOffset: arbitraryBranchOffset8,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit8,
 });
 
 const arbitraryGoto16 = fc.record({
 	operation: fc.constant('goto/16' as const),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryGoto32 = fc.record({
 	operation: fc.constant('goto/32' as const),
-	branchOffset: arbitraryBranchOffset32,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit32,
 });
 
 // Switch operations
 const arbitraryPackedSwitch = fc.record({
 	operation: fc.constant('packed-switch' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset32,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit32,
 });
 
 const arbitrarySparseSwitch = fc.record({
 	operation: fc.constant('sparse-switch' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset32,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit32,
 });
 
 const arbitraryFillArrayData = fc.record({
 	operation: fc.constant('fill-array-data' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset32,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit32,
 });
 
 // Payload operations
@@ -304,7 +312,7 @@ const arbitraryPackedSwitchPayload = fc
 		fc.record({
 			operation: fc.constant('packed-switch-payload' as const),
 			value: arbitraryIntValue,
-			branchOffsets: fc.array(arbitraryBranchOffset32, { minLength: size, maxLength: size }),
+			branchOffsetsCodeUnit: fc.array(arbitraryBranchOffsetCodeUnit32, { minLength: size, maxLength: size }),
 		})
 	);
 
@@ -314,7 +322,7 @@ const arbitrarySparseSwitchPayload = fc
 		fc.record({
 			operation: fc.constant('sparse-switch-payload' as const),
 			keys: fc.array(arbitraryIntValue, { minLength: size, maxLength: size }),
-			branchOffsets: fc.array(arbitraryBranchOffset32, { minLength: size, maxLength: size }),
+			branchOffsetsCodeUnit: fc.array(arbitraryBranchOffsetCodeUnit32, { minLength: size, maxLength: size }),
 		})
 	);
 
@@ -337,74 +345,74 @@ const arbitraryFillArrayDataPayload = fc
 const arbitraryIfEqual = fc.record({
 	operation: fc.constant('if-eq' as const),
 	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4).map(([a, b]) => [a, b].sort((x, y) => x - y)),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfNotEqual = fc.record({
 	operation: fc.constant('if-ne' as const),
 	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4).map(([a, b]) => [a, b].sort((x, y) => x - y)),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfLessThan = fc.record({
 	operation: fc.constant('if-lt' as const),
 	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfGreaterThanOrEqualTo = fc.record({
 	operation: fc.constant('if-ge' as const),
 	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfGreaterThan = fc.record({
 	operation: fc.constant('if-gt' as const),
 	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfLessThanOrEqualTo = fc.record({
 	operation: fc.constant('if-le' as const),
 	registers: fc.tuple(arbitraryRegister4, arbitraryRegister4),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 // If-test-zero operations (Format 21t)
 const arbitraryIfEqualZero = fc.record({
 	operation: fc.constant('if-eqz' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfNotEqualZero = fc.record({
 	operation: fc.constant('if-nez' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfLessThanZero = fc.record({
 	operation: fc.constant('if-ltz' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfGreaterThanOrEqualToZero = fc.record({
 	operation: fc.constant('if-gez' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfGreaterThanZero = fc.record({
 	operation: fc.constant('if-gtz' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 const arbitraryIfLessThanOrEqualToZero = fc.record({
 	operation: fc.constant('if-lez' as const),
 	registers: fc.tuple(arbitraryRegister8),
-	branchOffset: arbitraryBranchOffset16,
+	branchOffsetCodeUnit: arbitraryBranchOffsetCodeUnit16,
 });
 
 // Array element operations (Format 23x)

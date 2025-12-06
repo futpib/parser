@@ -25,13 +25,16 @@ import {
 	isDalvikExecutableField,
 	isDalvikExecutableMethod,
 } from '../dalvikExecutable.js';
-import { type DalvikBytecode } from '../dalvikBytecodeParser.js';
+import { type DalvikBytecodeOperation } from '../dalvikBytecodeParser.js';
 import { dalvikBytecodeUnparser } from '../dalvikBytecodeUnparser.js';
 import {
-	buildIndexToCodeUnitMap,
+	type ResolvedDalvikBytecodeOperation,
+	buildIndexToCodeUnitMapFromResolved,
 	instructionIndexToCodeUnit,
+	wrapBranchOffsets,
 	convertInstructionOffsetsToBranchOffsets,
 } from '../dalvikBytecodeParser/addressConversion.js';
+import { isoCodeUnit, isoInstructionIndex } from '../dalvikExecutableParser/typedNumbers.js';
 import { ubyteUnparser, ushortUnparser, uintUnparser } from '../dalvikBytecodeUnparser/formatUnparsers.js';
 import { type PoolBuilders } from './poolBuilders.js';
 import { WriteLater } from '../unparserContext.js';
@@ -526,7 +529,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		yield * ubyteUnparser(0x00, unparserContext);
 	};
 
-	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: WriteLater<Uint8Array, number> }) => void): Unparser<DalvikExecutableCode<DalvikBytecode>, Uint8Array> => {
+	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: WriteLater<Uint8Array, number> }) => void): Unparser<DalvikExecutableCode<ResolvedDalvikBytecodeOperation[]>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * ushortUnparser(input.registersSize, unparserContext);
 			yield * ushortUnparser(input.insSize, unparserContext);
@@ -546,7 +549,9 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 			}
 
 			// Convert branch offsets from instruction offsets back to code units
-			const instructionsWithCodeUnitOffsets = convertInstructionOffsetsToBranchOffsets(input.instructions);
+			// Tier 3 (plain numbers) -> Tier 2 (InstructionIndex) -> Tier 1 (CodeUnit)
+			const instructionsWithIndexOffsets = wrapBranchOffsets(input.instructions);
+			const instructionsWithCodeUnitOffsets = convertInstructionOffsetsToBranchOffsets(instructionsWithIndexOffsets);
 
 			const instructionsSizeInShorts = await calculateInstructionsSize(instructionsWithCodeUnitOffsets);
 			yield * uintUnparser(instructionsSizeInShorts, unparserContext);
@@ -559,14 +564,14 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 
 			if (input.tries.length > 0) {
 				// Build index to code unit mapping for address conversion
-				const indexToCodeUnitMap = buildIndexToCodeUnitMap(input.instructions);
+				const indexToCodeUnitMap = buildIndexToCodeUnitMapFromResolved(input.instructions);
 
 				const handlerOffsetWriteLaters: Array<WriteLater<Uint8Array, number>> = [];
 
 				for (const tryBlock of input.tries) {
 					// Convert instruction indices back to code unit offsets
-					const startAddressCodeUnit = instructionIndexToCodeUnit(tryBlock.startAddress, indexToCodeUnitMap);
-					const endAddressCodeUnit = instructionIndexToCodeUnit(tryBlock.startAddress + tryBlock.instructionCount, indexToCodeUnitMap);
+					const startAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(tryBlock.startAddress), indexToCodeUnitMap));
+					const endAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(tryBlock.startAddress + tryBlock.instructionCount), indexToCodeUnitMap));
 					const instructionCountCodeUnits = endAddressCodeUnit - startAddressCodeUnit;
 
 					yield * uintUnparser(startAddressCodeUnit, unparserContext);
@@ -595,13 +600,13 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 						const typeIndex = getTypeIndex(handlerItem.type);
 						yield * uleb128Unparser(typeIndex, unparserContext);
 						// Convert handler address from instruction index to code unit offset
-						const handlerAddressCodeUnit = instructionIndexToCodeUnit(handlerItem.address, indexToCodeUnitMap);
+						const handlerAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(handlerItem.address), indexToCodeUnitMap));
 						yield * uleb128Unparser(handlerAddressCodeUnit, unparserContext);
 					}
 
 					if (handler.catchAllAddress !== undefined) {
 						// Convert catchAllAddress from instruction index to code unit offset
-						const catchAllAddressCodeUnit = instructionIndexToCodeUnit(handler.catchAllAddress, indexToCodeUnitMap);
+						const catchAllAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(handler.catchAllAddress), indexToCodeUnitMap));
 						yield * uleb128Unparser(catchAllAddressCodeUnit, unparserContext);
 					}
 				}
@@ -609,7 +614,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		};
 	};
 
-	async function calculateInstructionsSize(instructions: DalvikBytecode): Promise<number> {
+	async function calculateInstructionsSize(instructions: DalvikBytecodeOperation[]): Promise<number> {
 		let totalSize = 0;
 
 		const mockContext: UnparserContext<Uint8Array, number> = {
@@ -627,7 +632,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		return Math.floor(totalSize / 2);
 	}
 
-	const classDataUnparser = (codeOffsetMap: Map<DalvikExecutableCode<DalvikBytecode>, number>): Unparser<DalvikExecutableClassData<DalvikBytecode>, Uint8Array> => {
+	const classDataUnparser = (codeOffsetMap: Map<DalvikExecutableCode<ResolvedDalvikBytecodeOperation[]>, number>): Unparser<DalvikExecutableClassData<ResolvedDalvikBytecodeOperation[]>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * uleb128Unparser(input.staticFields.length, unparserContext);
 			yield * uleb128Unparser(input.instanceFields.length, unparserContext);

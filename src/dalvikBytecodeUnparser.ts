@@ -2,6 +2,7 @@ import { type Unparser, type UnparserResult } from './unparser.js';
 import { type UnparserContext } from './unparserContext.js';
 import { type DalvikBytecode, type DalvikBytecodeOperation } from './dalvikBytecodeParser.js';
 import {
+	type CodeUnit,
 	isoIndexIntoStringIds,
 	isoIndexIntoTypeIds,
 	isoIndexIntoMethodIds,
@@ -319,15 +320,15 @@ export const dalvikBytecodeUnparser: Unparser<DalvikBytecode, Uint8Array> = asyn
 };
 
 // Type guards for payload operations
-function isPackedSwitchPayload(op: DalvikBytecodeOperation): op is { operation: 'packed-switch-payload'; value: number; branchOffsets: number[] } {
+function isPackedSwitchPayload(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { operation: 'packed-switch-payload' } {
 	return typeof op === 'object' && op !== null && 'operation' in op && op.operation === 'packed-switch-payload';
 }
 
-function isSparseSwitchPayload(op: DalvikBytecodeOperation): op is { operation: 'sparse-switch-payload'; keys: number[]; branchOffsets: number[] } {
+function isSparseSwitchPayload(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { operation: 'sparse-switch-payload' } {
 	return typeof op === 'object' && op !== null && 'operation' in op && op.operation === 'sparse-switch-payload';
 }
 
-function isFillArrayDataPayload(op: DalvikBytecodeOperation): op is { operation: 'fill-array-data-payload'; elementWidth: number; data: number[] } {
+function isFillArrayDataPayload(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { operation: 'fill-array-data-payload' } {
 	return typeof op === 'object' && op !== null && 'operation' in op && op.operation === 'fill-array-data-payload';
 }
 
@@ -382,8 +383,8 @@ function hasValue(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & 
 	return 'value' in op;
 }
 
-function hasBranchOffset(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { branchOffset: number } {
-	return 'branchOffset' in op;
+function hasBranchOffsetCodeUnit(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { branchOffsetCodeUnit: CodeUnit } {
+	return 'branchOffsetCodeUnit' in op;
 }
 
 async function * unparseOperationData(operation: DalvikBytecodeOperation, unparserContext: UnparserContext<Uint8Array, number>): UnparserResult<Uint8Array, number> {
@@ -601,59 +602,59 @@ async function * unparseOperationData(operation: DalvikBytecodeOperation, unpars
 
 	// Format 10t (goto)
 	if (operationName === 'goto') {
-		if (!hasBranchOffset(operation)) {
-			throw new Error(`Operation ${operationName} missing branchOffset field`);
+		if (!hasBranchOffsetCodeUnit(operation)) {
+			throw new Error(`Operation ${operationName} missing branchOffsetCodeUnit field`);
 		}
-		yield * dalvikBytecodeFormat10tUnparser({ branchOffset: operation.branchOffset }, unparserContext);
+		yield * dalvikBytecodeFormat10tUnparser({ branchOffsetCodeUnit: operation.branchOffsetCodeUnit }, unparserContext);
 		return;
 	}
 
 	// Format 20t (goto/16)
 	if (operationName === 'goto/16') {
-		if (!hasBranchOffset(operation)) {
-			throw new Error(`Operation ${operationName} missing branchOffset field`);
+		if (!hasBranchOffsetCodeUnit(operation)) {
+			throw new Error(`Operation ${operationName} missing branchOffsetCodeUnit field`);
 		}
-		yield * dalvikBytecodeFormat20tUnparser({ branchOffset: operation.branchOffset }, unparserContext);
+		yield * dalvikBytecodeFormat20tUnparser({ branchOffsetCodeUnit: operation.branchOffsetCodeUnit }, unparserContext);
 		return;
 	}
 
 	// Format 30t (goto/32)
 	if (operationName === 'goto/32') {
-		if (!hasBranchOffset(operation)) {
-			throw new Error(`Operation ${operationName} missing branchOffset field`);
+		if (!hasBranchOffsetCodeUnit(operation)) {
+			throw new Error(`Operation ${operationName} missing branchOffsetCodeUnit field`);
 		}
-		yield * dalvikBytecodeFormat30tUnparser({ branchOffset: operation.branchOffset }, unparserContext);
+		yield * dalvikBytecodeFormat30tUnparser({ branchOffsetCodeUnit: operation.branchOffsetCodeUnit }, unparserContext);
 		return;
 	}
 
 	// Format 22t (if-* operations)
 	if (operationName.startsWith('if-') && !operationName.endsWith('z')) {
-		if (!hasBranchOffset(operation) || !hasRegisters(operation)) {
-			throw new Error(`Operation ${operationName} missing branchOffset or registers field`);
+		if (!hasBranchOffsetCodeUnit(operation) || !hasRegisters(operation)) {
+			throw new Error(`Operation ${operationName} missing branchOffsetCodeUnit or registers field`);
 		}
 		// Commutative operations (if-eq, if-ne) have sorted registers, so don't reverse
 		const isCommutative = operationName === 'if-eq' || operationName === 'if-ne';
 		const unparser = isCommutative ? dalvikBytecodeFormat22tCommutativeUnparser : dalvikBytecodeFormat22tUnparser;
-		yield * unparser({ branchOffset: operation.branchOffset, registers: operation.registers }, unparserContext);
+		yield * unparser({ branchOffsetCodeUnit: operation.branchOffsetCodeUnit, registers: operation.registers }, unparserContext);
 		return;
 	}
 
 	// Format 21t (if-*z operations)
 	if (operationName.startsWith('if-') && operationName.endsWith('z')) {
-		if (!hasBranchOffset(operation) || !hasRegisters(operation)) {
-			throw new Error(`Operation ${operationName} missing branchOffset or registers field`);
+		if (!hasBranchOffsetCodeUnit(operation) || !hasRegisters(operation)) {
+			throw new Error(`Operation ${operationName} missing branchOffsetCodeUnit or registers field`);
 		}
-		yield * dalvikBytecodeFormat21tUnparser({ branchOffset: operation.branchOffset, registers: operation.registers }, unparserContext);
+		yield * dalvikBytecodeFormat21tUnparser({ branchOffsetCodeUnit: operation.branchOffsetCodeUnit, registers: operation.registers }, unparserContext);
 		return;
 	}
 
 	// Format 31t (packed-switch, sparse-switch, fill-array-data)
 	if (operationName === 'packed-switch' || operationName === 'sparse-switch' ||
 	    operationName === 'fill-array-data') {
-		if (!hasBranchOffset(operation) || !hasRegisters(operation)) {
-			throw new Error(`Operation ${operationName} missing branchOffset or registers field`);
+		if (!hasBranchOffsetCodeUnit(operation) || !hasRegisters(operation)) {
+			throw new Error(`Operation ${operationName} missing branchOffsetCodeUnit or registers field`);
 		}
-		yield * dalvikBytecodeFormat31tUnparser({ branchOffset: operation.branchOffset, registers: operation.registers }, unparserContext);
+		yield * dalvikBytecodeFormat31tUnparser({ branchOffsetCodeUnit: operation.branchOffsetCodeUnit, registers: operation.registers }, unparserContext);
 		return;
 	}
 

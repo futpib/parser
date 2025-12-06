@@ -18,6 +18,14 @@ export const isoIndexIntoMethodIds = iso<IndexIntoMethodIds>();
 export type IndexIntoCallSiteIds = {} & Newtype<{ readonly IndexIntoCallSiteIds: unique symbol }, number>;
 export const isoIndexIntoCallSiteIds = iso<IndexIntoCallSiteIds>();
 
+// Code unit addresses/offsets (raw DEX format, 16-bit code units)
+export type CodeUnit = {} & Newtype<{ readonly CodeUnit: unique symbol }, number>;
+export const isoCodeUnit = iso<CodeUnit>();
+
+// Instruction index addresses/offsets (converted format, instruction-relative)
+export type InstructionIndex = {} & Newtype<{ readonly InstructionIndex: unique symbol }, number>;
+export const isoInstructionIndex = iso<InstructionIndex>();
+
 export type OffsetToStringDataItem = {} & Newtype<{ readonly OffsetToStringDataItem: unique symbol }, number>;
 export const isoOffsetToStringDataItem = iso<OffsetToStringDataItem>();
 

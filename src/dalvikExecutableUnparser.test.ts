@@ -8,17 +8,18 @@ import { runUnparser } from './unparser.js';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
-import { type DalvikBytecodeOperation } from './dalvikBytecodeParser.js';
+import { type ResolvedDalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
 
 const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
 
 // Use minimal bytecode for testing - simple nop and return-void instructions
+// These operations have no branch offsets, so they work the same in all tiers
 const arbitraryMinimalBytecode = fc.array(
 	fc.oneof(
-		fc.constant<DalvikBytecodeOperation>({
+		fc.constant<ResolvedDalvikBytecodeOperation>({
 			operation: 'nop',
 		}),
-		fc.constant<DalvikBytecodeOperation>({
+		fc.constant<ResolvedDalvikBytecodeOperation>({
 			operation: 'return-void',
 		}),
 	),
@@ -37,7 +38,7 @@ testProp(
 		);
 		const bytes = await uint8ArrayAsyncIterableToUint8Array(unparsedIterable);
 
-		// Re-parse
+		// Re-parse (parser now outputs Tier 3 directly)
 		const reparsed = await runParser(
 			dalvikExecutableParser,
 			bytes,

@@ -1,6 +1,7 @@
 import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
+import { type ResolvedDalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
 import {
 	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableEncodedValue, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
@@ -1602,7 +1603,11 @@ const smaliLooseCodeOperationParser: Parser<SmaliLooseCodeOperation, string> = c
 
 setParserName(smaliLooseCodeOperationParser, 'smaliLooseCodeOperationParser');
 
-type SmaliCodeOperationFromDalvikBytecodeOperation<T extends DalvikBytecodeOperation> =
+// SmaliCodeOperation transforms ResolvedDalvikBytecodeOperation:
+// - branchOffset -> branchOffsetIndex (intermediate form during parsing)
+// - branchOffsets -> branchOffsetIndices (intermediate form during parsing)
+// - methodIndex -> method (resolved)
+type SmaliCodeOperationFromResolvedOperation<T extends ResolvedDalvikBytecodeOperation> =
 	T extends { branchOffsets: number[] }
 		? Simplify<Omit<T, 'branchOffsets'> & { branchOffsetIndices: number[] }>
 		: T extends { branchOffset: number }
@@ -1612,7 +1617,7 @@ type SmaliCodeOperationFromDalvikBytecodeOperation<T extends DalvikBytecodeOpera
 				: T
 ;
 
-type SmaliCodeOperation = SmaliCodeOperationFromDalvikBytecodeOperation<DalvikBytecodeOperation>;
+type SmaliCodeOperation = SmaliCodeOperationFromResolvedOperation<ResolvedDalvikBytecodeOperation>;
 
 export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = promiseCompose(
 	smaliLooseCodeOperationParser,
