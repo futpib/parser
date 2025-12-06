@@ -288,19 +288,19 @@ const arbitraryDalvikExecutableDebugInfo: fc.Arbitrary<DalvikExecutableDebugInfo
 
 // Try-catch handler generators
 interface DalvikExecutableTry {
-	startAddress: number;
+	startInstructionIndex: number;
 	instructionCount: number;
 	handler: DalvikExecutableEncodedCatchHandler;
 }
 
 interface DalvikExecutableEncodedCatchHandler {
 	handlers: DalvikExecutableEncodedTypeAddressPair[];
-	catchAllAddress: undefined | number;
+	catchAllInstructionIndex: undefined | number;
 }
 
 interface DalvikExecutableEncodedTypeAddressPair {
 	type: string;
-	address: number;
+	handlerInstructionIndex: number;
 }
 
 // Factory function to create arbitrary try blocks that are valid for given instruction count
@@ -311,10 +311,10 @@ function createArbitraryDalvikExecutableTry(instructionCount: number): fc.Arbitr
 		// Return a try block that covers the "after last instruction" position (index 0)
 		const arbitraryEmptyHandler: fc.Arbitrary<DalvikExecutableEncodedCatchHandler> = fc.record({
 			handlers: fc.constant([]),
-			catchAllAddress: fc.constant(0),
+			catchAllInstructionIndex: fc.constant(0),
 		});
 		return fc.record({
-			startAddress: fc.constant(0),
+			startInstructionIndex: fc.constant(0),
 			instructionCount: fc.constant(0),
 			handler: arbitraryEmptyHandler,
 		});
@@ -325,18 +325,18 @@ function createArbitraryDalvikExecutableTry(instructionCount: number): fc.Arbitr
 
 	const arbitraryDalvikExecutableEncodedTypeAddressPair: fc.Arbitrary<DalvikExecutableEncodedTypeAddressPair> = fc.record({
 		type: arbitraryDalvikClassName,
-		address: fc.nat({ max: maxAddress }),
+		handlerInstructionIndex: fc.nat({ max: maxAddress }),
 	});
 
 	const arbitraryDalvikExecutableEncodedCatchHandler: fc.Arbitrary<DalvikExecutableEncodedCatchHandler> = fc.record({
 		handlers: fc.array(arbitraryDalvikExecutableEncodedTypeAddressPair, { maxLength: 3 }),
-		catchAllAddress: fc.option(fc.nat({ max: maxAddress }), { nil: undefined }),
+		catchAllInstructionIndex: fc.option(fc.nat({ max: maxAddress }), { nil: undefined }),
 	}).filter(handler => {
 		// A handler must have at least one typed handler OR a catch-all address
-		return handler.handlers.length > 0 || handler.catchAllAddress !== undefined;
+		return handler.handlers.length > 0 || handler.catchAllInstructionIndex !== undefined;
 	});
 
-	// startAddress + instructionCount must not exceed instructionCount (the total)
+	// startInstructionIndex + instructionCount must not exceed instructionCount (the total)
 	return fc.tuple(
 		fc.nat({ max: instructionCount }),
 		fc.nat({ max: instructionCount }),
@@ -344,7 +344,7 @@ function createArbitraryDalvikExecutableTry(instructionCount: number): fc.Arbitr
 		// Adjust count so start + count <= instructionCount
 		const adjustedCount = Math.min(count, instructionCount - start);
 		return fc.record({
-			startAddress: fc.constant(start),
+			startInstructionIndex: fc.constant(start),
 			instructionCount: fc.constant(adjustedCount),
 			handler: arbitraryDalvikExecutableEncodedCatchHandler,
 		});

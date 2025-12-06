@@ -67,19 +67,19 @@ export type DalvikExecutableEncodedValue =
 	| { type: 'boolean'; value: boolean };
 
 type DalvikExecutableTry = {
-	startAddress: number;
+	startInstructionIndex: number;
 	instructionCount: number;
 	handler: DalvikExecutableEncodedCatchHandler;
 };
 
 type DalvikExecutableEncodedTypeAddressPair = {
 	type: string;
-	address: number;
+	handlerInstructionIndex: number;
 };
 
 type DalvikExecutableEncodedCatchHandler = {
 	handlers: DalvikExecutableEncodedTypeAddressPair[];
-	catchAllAddress: undefined | number;
+	catchAllInstructionIndex: undefined | number;
 };
 
 export type DalvikExecutableCode<Instructions> = {

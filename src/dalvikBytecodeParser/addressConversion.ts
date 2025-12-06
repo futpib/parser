@@ -20,13 +20,13 @@ export type IndexToCodeUnitMap = Map<InstructionIndex, CodeUnit>;
 
 /**
  * Get the branch offsets array length from an operation, regardless of tier.
- * Works with all field name variants: branchOffsetsCodeUnit, branchOffsetsIndex, branchOffsets, branchOffsetIndices.
+ * Works with all field name variants: branchOffsetsCodeUnit, branchOffsetsIndex, targetInstructionIndices, branchOffsetIndices.
  */
 function getBranchOffsetsLength(operation: { operation: string }): number | undefined {
 	const op = operation as any;
 	return op.branchOffsetsCodeUnit?.length
 		?? op.branchOffsetsIndex?.length
-		?? op.branchOffsets?.length
+		?? op.targetInstructionIndices?.length
 		?? op.branchOffsetIndices?.length;
 }
 
@@ -227,11 +227,11 @@ export type ConvertedBranchOffsetOperation<T> = T extends { branchOffsetCodeUnit
 
 export type ConvertedDalvikBytecodeOperation = ConvertedBranchOffsetOperation<DalvikBytecodeOperation>;
 
-// Type for Tier 3: plain numbers (final unwrapped form)
+// Type for Tier 3: plain numbers with absolute instruction indices (final form)
 export type ResolvedBranchOffsetOperation<T> = T extends { branchOffsetIndex: InstructionIndex }
-	? Omit<T, 'branchOffsetIndex'> & { branchOffset: number }
+	? Omit<T, 'branchOffsetIndex'> & { targetInstructionIndex: number }
 	: T extends { branchOffsetsIndex: InstructionIndex[] }
-		? Omit<T, 'branchOffsetsIndex'> & { branchOffsets: number[] }
+		? Omit<T, 'branchOffsetsIndex'> & { targetInstructionIndices: number[] }
 		: T;
 
 export type ResolvedDalvikBytecodeOperation = ResolvedBranchOffsetOperation<ConvertedDalvikBytecodeOperation>;
@@ -284,26 +284,50 @@ export function convertBranchOffsetsToInstructionOffsets(
 }
 
 /**
- * Unwrap instruction indices to plain numbers.
- * Tier 2 (InstructionIndex) -> Tier 3 (plain number)
+ * Unwrap instruction indices to plain numbers and convert relative to absolute.
+ * Tier 2 (InstructionIndex, relative) -> Tier 3 (plain number, absolute)
  */
 export function unwrapBranchOffsets(
 	instructions: ConvertedDalvikBytecodeOperation[],
 ): ResolvedDalvikBytecodeOperation[] {
-	return instructions.map(instruction => {
+	// First pass: find switch instruction indices for payloads
+	const payloadToSwitchIndex = new Map<number, number>();
+	for (let i = 0; i < instructions.length; i++) {
+		const inst = instructions[i];
+		if (
+			(inst.operation === 'packed-switch' || inst.operation === 'sparse-switch')
+			&& 'branchOffsetIndex' in inst
+		) {
+			const payloadIndex = i + isoInstructionIndex.unwrap(inst.branchOffsetIndex);
+			payloadToSwitchIndex.set(payloadIndex, i);
+		}
+	}
+
+	return instructions.map((instruction, index) => {
 		if ('branchOffsetIndex' in instruction) {
 			const { branchOffsetIndex, ...rest } = instruction;
+			// Convert relative offset to absolute index
+			const targetInstructionIndex = index + isoInstructionIndex.unwrap(branchOffsetIndex);
 			return {
 				...rest,
-				branchOffset: isoInstructionIndex.unwrap(branchOffsetIndex),
+				targetInstructionIndex,
 			} as ResolvedDalvikBytecodeOperation;
 		}
 
 		if ('branchOffsetsIndex' in instruction) {
 			const { branchOffsetsIndex, ...rest } = instruction;
+			// For payloads, the offsets are relative to the switch instruction, not the payload
+			const switchIndex = payloadToSwitchIndex.get(index);
+			if (switchIndex === undefined) {
+				throw new Error(`No switch instruction found for payload at index ${index}`);
+			}
+			// Convert relative offsets to absolute indices
+			const targetInstructionIndices = branchOffsetsIndex.map(
+				offset => switchIndex + isoInstructionIndex.unwrap(offset),
+			);
 			return {
 				...rest,
-				branchOffsets: branchOffsetsIndex.map(isoInstructionIndex.unwrap),
+				targetInstructionIndices,
 			} as ResolvedDalvikBytecodeOperation;
 		}
 
@@ -312,26 +336,50 @@ export function unwrapBranchOffsets(
 }
 
 /**
- * Wrap plain numbers to instruction indices.
- * Tier 3 (plain number) -> Tier 2 (InstructionIndex)
+ * Wrap plain numbers to instruction indices and convert absolute to relative.
+ * Tier 3 (plain number, absolute) -> Tier 2 (InstructionIndex, relative)
  */
 export function wrapBranchOffsets(
 	instructions: ResolvedDalvikBytecodeOperation[],
 ): ConvertedDalvikBytecodeOperation[] {
-	return instructions.map(instruction => {
-		if ('branchOffset' in instruction) {
-			const { branchOffset, ...rest } = instruction;
+	// First pass: find switch instruction indices for payloads
+	const payloadToSwitchIndex = new Map<number, number>();
+	for (let i = 0; i < instructions.length; i++) {
+		const inst = instructions[i];
+		if (
+			(inst.operation === 'packed-switch' || inst.operation === 'sparse-switch')
+			&& 'targetInstructionIndex' in inst
+		) {
+			const payloadIndex = inst.targetInstructionIndex;
+			payloadToSwitchIndex.set(payloadIndex, i);
+		}
+	}
+
+	return instructions.map((instruction, index) => {
+		if ('targetInstructionIndex' in instruction) {
+			const { targetInstructionIndex, ...rest } = instruction;
+			// Convert absolute index to relative offset
+			const branchOffsetIndex = isoInstructionIndex.wrap(targetInstructionIndex - index);
 			return {
 				...rest,
-				branchOffsetIndex: isoInstructionIndex.wrap(branchOffset),
+				branchOffsetIndex,
 			} as ConvertedDalvikBytecodeOperation;
 		}
 
-		if ('branchOffsets' in instruction) {
-			const { branchOffsets, ...rest } = instruction;
+		if ('targetInstructionIndices' in instruction) {
+			const { targetInstructionIndices, ...rest } = instruction;
+			// For payloads, the offsets are relative to the switch instruction, not the payload
+			const switchIndex = payloadToSwitchIndex.get(index);
+			if (switchIndex === undefined) {
+				throw new Error(`No switch instruction found for payload at index ${index}`);
+			}
+			// Convert absolute indices to relative offsets from switch instruction
+			const branchOffsetsIndex = targetInstructionIndices.map(
+				target => isoInstructionIndex.wrap(target - switchIndex),
+			);
 			return {
 				...rest,
-				branchOffsetsIndex: branchOffsets.map(isoInstructionIndex.wrap),
+				branchOffsetsIndex,
 			} as ConvertedDalvikBytecodeOperation;
 		}
 

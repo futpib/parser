@@ -70,8 +70,10 @@ const dexWithParsedInstructionsMacro = test.macro({
 				return;
 			}
 
-			t.false(key.endsWith('Offset') && key !== 'branchOffset', 'All offsets should be resolved: ' + path.join('.'));
-			t.false(key.endsWith('Index'), 'All indexes should be resolved: ' + path.join('.'));
+			t.false(key.endsWith('Offset'), 'All offsets should be resolved: ' + path.join('.'));
+			// InstructionIndex fields are expected in Tier 3
+			const allowedIndexFields = ['targetInstructionIndex', 'targetInstructionIndices', 'startInstructionIndex', 'handlerInstructionIndex', 'catchAllInstructionIndex'];
+			t.false(key.endsWith('Index') && !allowedIndexFields.includes(key) && key !== 'targetInstructionIndices', 'All indexes should be resolved: ' + path.join('.'));
 		});
 
 		if (shouldSnapshot) {

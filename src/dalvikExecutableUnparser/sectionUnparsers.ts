@@ -570,8 +570,8 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 
 				for (const tryBlock of input.tries) {
 					// Convert instruction indices back to code unit offsets
-					const startAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(tryBlock.startAddress), indexToCodeUnitMap));
-					const endAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(tryBlock.startAddress + tryBlock.instructionCount), indexToCodeUnitMap));
+					const startAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(tryBlock.startInstructionIndex), indexToCodeUnitMap));
+					const endAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(tryBlock.startInstructionIndex + tryBlock.instructionCount), indexToCodeUnitMap));
 					const instructionCountCodeUnits = endAddressCodeUnit - startAddressCodeUnit;
 
 					yield * uintUnparser(startAddressCodeUnit, unparserContext);
@@ -590,7 +590,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 					const handlerOffset = unparserContext.position - handlersStartOffset;
 					yield * unparserContext.writeEarlier(handlerOffsetWriteLaters[i], ushortUnparser, handlerOffset);
 
-					if (handler.catchAllAddress !== undefined) {
+					if (handler.catchAllInstructionIndex !== undefined) {
 						yield * sleb128Unparser(-handler.handlers.length, unparserContext);
 					} else {
 						yield * sleb128Unparser(handler.handlers.length, unparserContext);
@@ -600,13 +600,13 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 						const typeIndex = getTypeIndex(handlerItem.type);
 						yield * uleb128Unparser(typeIndex, unparserContext);
 						// Convert handler address from instruction index to code unit offset
-						const handlerAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(handlerItem.address), indexToCodeUnitMap));
+						const handlerAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(handlerItem.handlerInstructionIndex), indexToCodeUnitMap));
 						yield * uleb128Unparser(handlerAddressCodeUnit, unparserContext);
 					}
 
-					if (handler.catchAllAddress !== undefined) {
-						// Convert catchAllAddress from instruction index to code unit offset
-						const catchAllAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(handler.catchAllAddress), indexToCodeUnitMap));
+					if (handler.catchAllInstructionIndex !== undefined) {
+						// Convert catchAllInstructionIndex from instruction index to code unit offset
+						const catchAllAddressCodeUnit = isoCodeUnit.unwrap(instructionIndexToCodeUnit(isoInstructionIndex.wrap(handler.catchAllInstructionIndex), indexToCodeUnitMap));
 						yield * uleb128Unparser(catchAllAddressCodeUnit, unparserContext);
 					}
 				}

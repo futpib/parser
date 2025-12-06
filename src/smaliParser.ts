@@ -1578,14 +1578,14 @@ const smaliLooseCodeOperationParser: Parser<SmaliLooseCodeOperation, string> = c
 setParserName(smaliLooseCodeOperationParser, 'smaliLooseCodeOperationParser');
 
 // SmaliCodeOperation transforms ResolvedDalvikBytecodeOperation:
-// - branchOffset -> branchOffsetIndex (intermediate form during parsing)
-// - branchOffsets -> branchOffsetIndices (intermediate form during parsing)
+// - targetInstructionIndex -> branchOffsetIndex (intermediate form during parsing, relative)
+// - targetInstructionIndices -> branchOffsetIndices (intermediate form during parsing, relative)
 // - methodIndex -> method (resolved)
 type SmaliCodeOperationFromResolvedOperation<T extends ResolvedDalvikBytecodeOperation> =
-	T extends { branchOffsets: number[] }
-		? Simplify<Omit<T, 'branchOffsets'> & { branchOffsetIndices: number[] }>
-		: T extends { branchOffset: number }
-			? Simplify<Omit<T, 'branchOffset'> & { branchOffsetIndex: number }>
+	T extends { targetInstructionIndices: number[] }
+		? Simplify<Omit<T, 'targetInstructionIndices'> & { branchOffsetIndices: number[] }>
+		: T extends { targetInstructionIndex: number }
+			? Simplify<Omit<T, 'targetInstructionIndex'> & { branchOffsetIndex: number }>
 			: T extends { methodIndex: IndexIntoMethodIds }
 				? Simplify<Omit<T, 'methodIndex'> & { method: DalvikExecutableMethod }>
 				: T
@@ -1980,16 +1980,15 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			}
 		}
 
-		// Convert branchOffsetIndex (instruction-relative index from label) to branchOffset (instruction-relative offset)
-		// Now branchOffset represents instruction offsets, not code unit offsets
+		// Convert branchOffsetIndex (relative) to targetInstructionIndex (absolute)
 		for (const [ operationIndex, operation ] of instructions.entries()) {
 			if (
 				'branchOffsetIndex' in operation
 				&& typeof operation.branchOffsetIndex === 'number'
 			) {
 				// branchOffsetIndex is the relative instruction index from the label
-				// branchOffset is now the instruction-relative offset (same value)
-				(operation as any).branchOffset = operation.branchOffsetIndex;
+				// targetInstructionIndex is the absolute instruction index
+				(operation as any).targetInstructionIndex = operationIndex + operation.branchOffsetIndex;
 			}
 
 			if (
@@ -2013,10 +2012,10 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 				const sourceOperationIndex = instructions.indexOf(sourceOperation);
 
 				// For payload instructions, branchOffsetIndices contains instruction-relative indices
-				// from the source switch instruction. Convert to instruction-relative offsets.
-				(operation as any).branchOffsets = operation.branchOffsetIndices.map((branchOffsetIndex: number) => {
+				// from the source switch instruction. Convert to absolute instruction indices.
+				(operation as any).targetInstructionIndices = operation.branchOffsetIndices.map((branchOffsetIndex: number) => {
 					// branchOffsetIndex is relative to the source operation
-					return branchOffsetIndex;
+					return sourceOperationIndex + branchOffsetIndex;
 				});
 			}
 		}
@@ -2062,10 +2061,10 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 		// Build tries array from catch directives
 		// Now using instruction indices directly instead of code unit offsets
 		const triesByRange = new Map<string, {
-			startAddress: number;
+			startInstructionIndex: number;
 			instructionCount: number;
-			handlers: Array<{ type: string; address: number }>;
-			catchAllAddress: number | undefined;
+			handlers: Array<{ type: string; handlerInstructionIndex: number }>;
+			catchAllInstructionIndex: number | undefined;
 		}>();
 
 		for (const catchDirective of catchDirectives) {
@@ -2079,41 +2078,41 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 			invariant(handlerIndex !== undefined, 'Expected to find handler label %s', catchDirective.handlerLabel);
 
 			// Use instruction indices directly
-			const startAddress = startIndex;
+			const startInstructionIndex = startIndex;
 			const instructionCount = endIndex - startIndex;
-			const handlerAddress = handlerIndex;
+			const handlerInstructionIndex = handlerIndex;
 
-			const rangeKey = `${startAddress}-${instructionCount}`;
+			const rangeKey = `${startInstructionIndex}-${instructionCount}`;
 
 			let tryEntry = triesByRange.get(rangeKey);
 			if (!tryEntry) {
 				tryEntry = {
-					startAddress,
+					startInstructionIndex,
 					instructionCount,
 					handlers: [],
-					catchAllAddress: undefined,
+					catchAllInstructionIndex: undefined as number | undefined,
 				};
 				triesByRange.set(rangeKey, tryEntry);
 			}
 
 			if (catchDirective.type === undefined) {
 				// .catchall
-				tryEntry.catchAllAddress = handlerAddress;
+				tryEntry.catchAllInstructionIndex = handlerInstructionIndex;
 			} else {
 				// .catch Type
 				tryEntry.handlers.push({
 					type: catchDirective.type,
-					address: handlerAddress,
+					handlerInstructionIndex,
 				});
 			}
 		}
 
 		const tries = Array.from(triesByRange.values()).map(tryEntry => ({
-			startAddress: tryEntry.startAddress,
+			startInstructionIndex: tryEntry.startInstructionIndex,
 			instructionCount: tryEntry.instructionCount,
 			handler: {
 				handlers: tryEntry.handlers,
-				catchAllAddress: tryEntry.catchAllAddress,
+				catchAllInstructionIndex: tryEntry.catchAllInstructionIndex,
 			},
 		}));
 

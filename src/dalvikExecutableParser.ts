@@ -2692,27 +2692,27 @@ const createDalvikExecutableParser = <Instructions>({
 
 								return {
 									type,
-									address: codeUnitToIndexMap
+									handlerInstructionIndex: codeUnitToIndexMap
 										? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(encodedHandler.address), codeUnitToIndexMap))
 										: encodedHandler.address,
 								};
 							}),
-							catchAllAddress: (handler_.catchAllAddress !== undefined && codeUnitToIndexMap)
+							catchAllInstructionIndex: (handler_.catchAllAddress !== undefined && codeUnitToIndexMap)
 								? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(handler_.catchAllAddress), codeUnitToIndexMap))
 								: handler_.catchAllAddress,
 						};
 
 						// Convert try block addresses from code units to instruction indices (unwrapped for Tier 3)
-						const startAddressIndex = codeUnitToIndexMap
+						const startInstructionIndex = codeUnitToIndexMap
 							? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(tryItem.startAddress), codeUnitToIndexMap))
 							: tryItem.startAddress;
-						const endAddressIndex = codeUnitToIndexMap
+						const endInstructionIndex = codeUnitToIndexMap
 							? isoInstructionIndex.unwrap(codeUnitToInstructionIndex(isoCodeUnit.wrap(tryItem.startAddress + tryItem.instructionCount), codeUnitToIndexMap))
 							: tryItem.startAddress + tryItem.instructionCount;
 
 						return {
-							startAddress: startAddressIndex,
-							instructionCount: endAddressIndex - startAddressIndex,
+							startInstructionIndex,
+							instructionCount: endInstructionIndex - startInstructionIndex,
 							handler,
 						};
 					}),
