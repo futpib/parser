@@ -40,7 +40,7 @@ async function _7zList(zipFilePath: string) {
 	}
 
 	return {
-		isEmptyZipfile: false, // TODO
+		isEmptyZipfile: /\s0 files/.test(stdout),
 	};
 }
 
