@@ -7,11 +7,14 @@ import { smaliClass } from './smali.js';
 export async function baksmaliClass(
 	dexStream: Uint8Array | AsyncIterable<Uint8Array>,
 	smaliFilePath: string,
+	dexEntry?: string,
 ): Promise<string> {
 	const inputFilePath = temporaryFile();
 	const outputDirectoryPath = temporaryDirectory();
 
 	await fs.writeFile(inputFilePath, dexStream);
+
+	const inputPath = dexEntry ? `${inputFilePath}/${dexEntry}` : inputFilePath;
 
 	await execa('baksmali', [
 		'disassemble',
@@ -19,7 +22,7 @@ export async function baksmaliClass(
 		'L' + smaliFilePath + ';',
 		'--output',
 		outputDirectoryPath,
-		inputFilePath,
+		inputPath,
 	]);
 
 	await fs.unlink(inputFilePath);
@@ -38,20 +41,23 @@ export async function baksmaliClass(
 export async function backsmaliSmaliIsolateClass(
 	dexStream: Uint8Array | AsyncIterable<Uint8Array>,
 	smaliFilePath: string,
+	dexEntry?: string,
 ): Promise<Uint8Array> {
-	const smali = await baksmaliClass(dexStream, smaliFilePath);
+	const smali = await baksmaliClass(dexStream, smaliFilePath, dexEntry);
 	return smaliClass(smali);
 }
 
-export async function baksmaliListClasses(dexStream: Uint8Array | AsyncIterable<Uint8Array>): Promise<string[]> {
+export async function baksmaliListClasses(dexStream: Uint8Array | AsyncIterable<Uint8Array>, dexEntry?: string): Promise<string[]> {
 	const inputFilePath = temporaryFile();
 
 	await fs.writeFile(inputFilePath, dexStream);
 
+	const inputPath = dexEntry ? `${inputFilePath}/${dexEntry}` : inputFilePath;
+
 	const result = await execa('baksmali', [
 		'list',
 		'classes',
-		inputFilePath,
+		inputPath,
 	]);
 
 	await fs.unlink(inputFilePath);
@@ -71,4 +77,29 @@ export async function baksmaliListClasses(dexStream: Uint8Array | AsyncIterable<
 		));
 
 	return classes;
+}
+
+export async function baksmaliListDexFiles(apkStream: Uint8Array | AsyncIterable<Uint8Array>): Promise<string[]> {
+	const inputFilePath = temporaryFile();
+
+	await fs.writeFile(inputFilePath, apkStream);
+
+	const result = await execa('baksmali', [
+		'list',
+		'dex',
+		inputFilePath,
+	]);
+
+	await fs.unlink(inputFilePath);
+
+	if (result.stderr) {
+		throw new Error(`baksmali error: ${result.stderr}`);
+	}
+
+	const dexFiles = result.stdout
+		.split('\n')
+		.filter(line => line.trim())
+		.map(line => line.trim());
+
+	return dexFiles;
 }

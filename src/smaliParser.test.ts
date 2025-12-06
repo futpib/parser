@@ -441,3 +441,67 @@ test('parse smali with virtual method after direct methods (a0/n issue)', async 
 	t.truthy(actual);
 	t.is(actual.classData?.virtualMethods.length, 1);
 });
+
+// Minimal failing test case for .end local directive
+test('parse smali with .end local directive', async t => {
+	const smali = `.class public Lpl/czak/minimal/MainActivity;
+.super Landroid/app/Activity;
+
+# direct methods
+.method private sumToN(I)I
+    .registers 4
+    .param p1, "n"    # I
+
+    const/4 v0, 0x0
+
+    .local v0, "sum":I
+    const/4 v1, 0x1
+
+    .local v1, "i":I
+    :goto_2
+    if-gt v1, p1, :cond_8
+
+    add-int/2addr v0, v1
+
+    add-int/lit8 v1, v1, 0x1
+
+    goto :goto_2
+
+    .end local v1    # "i":I
+    :cond_8
+    return v0
+.end method
+`;
+
+	const actual = await runParser(smaliParser, smali, stringParserInputCompanion, {
+		errorJoinMode: 'all',
+	});
+
+	t.truthy(actual);
+	t.is(actual.classData?.directMethods.length, 1);
+});
+
+// Minimal test case for .local with generic type signature
+test('parse smali with .local directive with generic type signature', async t => {
+	const smali = `.class public Lpl/czak/minimal/MainActivity;
+.super Landroid/app/Activity;
+
+# direct methods
+.method private useLambda()Ljava/lang/String;
+    .registers 3
+
+    new-instance v0, Lpl/czak/minimal/MainActivity$$ExternalSyntheticLambda0;
+
+    .local v0, "supplier":Ljava/util/function/Supplier;, "Ljava/util/function/Supplier<Ljava/lang/String;>;"
+
+    return-object v0
+.end method
+`;
+
+	const actual = await runParser(smaliParser, smali, stringParserInputCompanion, {
+		errorJoinMode: 'all',
+	});
+
+	t.truthy(actual);
+	t.is(actual.classData?.directMethods.length, 1);
+});

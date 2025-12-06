@@ -217,6 +217,9 @@ const parseAllClassesInDexAgainstSmaliMacro = test.macro({
 });
 
 const testCasesByCid: Record<string, Array<string | { smaliFilePath: string; isolate?: boolean }>> = {
+	bafkreifycfnx4xf3nlml4qavlyxr6bes66nxsow3iaqjghewfsozoj2h3q: [
+		{ smaliFilePath: 'pl/czak/minimal/MainActivity', isolate: true },
+	],
 	bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda: [
 		{ smaliFilePath: 'androidx/activity/ComponentActivity$1', isolate: true },
 		{ smaliFilePath: 'androidx/activity/R$id', isolate: true },
@@ -361,3 +364,4 @@ test.serial(
 		);
 	},
 );
+

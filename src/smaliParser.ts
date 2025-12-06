@@ -1022,6 +1022,7 @@ type SmaliCodeLocal = {
 	register: SmaliRegister;
 	name: string | undefined;
 	type: string | undefined;
+	signature: string | undefined;
 };
 
 const smaliCodeLocalParser: Parser<SmaliCodeLocal, string> = promiseCompose(
@@ -1034,6 +1035,11 @@ const smaliCodeLocalParser: Parser<SmaliCodeLocal, string> = promiseCompose(
 			smaliQuotedStringParser,
 			createExactSequenceParser(':'),
 			smaliTypeDescriptorParser,
+			createOptionalParser(createTupleParser([
+				createExactSequenceParser(','),
+				smaliWhitespaceParser,
+				smaliQuotedStringParser,
+			])),
 		])),
 		smaliLineEndPraser,
 	]),
@@ -1045,6 +1051,7 @@ const smaliCodeLocalParser: Parser<SmaliCodeLocal, string> = promiseCompose(
 		register,
 		name: nameAndType?.[2],
 		type: nameAndType?.[4],
+		signature: nameAndType?.[5]?.[2],
 	}),
 );
 
