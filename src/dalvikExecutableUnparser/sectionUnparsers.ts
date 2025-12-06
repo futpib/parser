@@ -25,10 +25,10 @@ import {
 	isDalvikExecutableField,
 	isDalvikExecutableMethod,
 } from '../dalvikExecutable.js';
-import { type DalvikBytecodeOperation } from '../dalvikBytecodeParser.js';
-import { dalvikBytecodeUnparser } from '../dalvikBytecodeUnparser.js';
+import { type RawDalvikBytecodeOperation } from '../dalvikBytecodeParser.js';
+import { rawDalvikBytecodeUnparser } from '../dalvikBytecodeUnparser.js';
 import {
-	type ResolvedDalvikBytecodeOperation,
+	type DalvikBytecodeOperation,
 	buildIndexToCodeUnitMapFromResolved,
 	instructionIndexToCodeUnit,
 	wrapBranchOffsets,
@@ -529,7 +529,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		yield * ubyteUnparser(0x00, unparserContext);
 	};
 
-	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: WriteLater<Uint8Array, number> }) => void): Unparser<DalvikExecutableCode<ResolvedDalvikBytecodeOperation[]>, Uint8Array> => {
+	const codeItemUnparser = (callback?: (result: { debugInfoOffsetWriteLater?: WriteLater<Uint8Array, number> }) => void): Unparser<DalvikExecutableCode<DalvikBytecodeOperation[]>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * ushortUnparser(input.registersSize, unparserContext);
 			yield * ushortUnparser(input.insSize, unparserContext);
@@ -550,13 +550,12 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 
 			// Convert branch offsets from instruction offsets back to code units
 			// Tier 3 (plain numbers) -> Tier 2 (InstructionIndex) -> Tier 1 (CodeUnit)
-			const instructionsWithIndexOffsets = wrapBranchOffsets(input.instructions);
-			const instructionsWithCodeUnitOffsets = convertInstructionOffsetsToBranchOffsets(instructionsWithIndexOffsets);
+			const rawInstructions = convertInstructionOffsetsToBranchOffsets(wrapBranchOffsets(input.instructions));
 
-			const instructionsSizeInShorts = await calculateInstructionsSize(instructionsWithCodeUnitOffsets);
+			const instructionsSizeInShorts = await calculateRawInstructionsSize(rawInstructions);
 			yield * uintUnparser(instructionsSizeInShorts, unparserContext);
 
-			yield * dalvikBytecodeUnparser(instructionsWithCodeUnitOffsets, unparserContext);
+			yield * rawDalvikBytecodeUnparser(rawInstructions, unparserContext);
 
 			if (input.tries.length > 0 && instructionsSizeInShorts % 2 !== 0) {
 				yield * ushortUnparser(0, unparserContext);
@@ -614,7 +613,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		};
 	};
 
-	async function calculateInstructionsSize(instructions: DalvikBytecodeOperation[]): Promise<number> {
+	async function calculateRawInstructionsSize(instructions: RawDalvikBytecodeOperation[]): Promise<number> {
 		let totalSize = 0;
 
 		const mockContext: UnparserContext<Uint8Array, number> = {
@@ -623,7 +622,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 			writeEarlier: () => { throw new Error('Not supported'); },
 		};
 
-		for await (const chunk of dalvikBytecodeUnparser(instructions, mockContext)) {
+		for await (const chunk of rawDalvikBytecodeUnparser(instructions, mockContext)) {
 			if (chunk instanceof Uint8Array) {
 				totalSize += chunk.length;
 			}
@@ -632,7 +631,7 @@ export function createSectionUnparsers(poolBuilders: PoolBuilders) {
 		return Math.floor(totalSize / 2);
 	}
 
-	const classDataUnparser = (codeOffsetMap: Map<DalvikExecutableCode<ResolvedDalvikBytecodeOperation[]>, number>): Unparser<DalvikExecutableClassData<ResolvedDalvikBytecodeOperation[]>, Uint8Array> => {
+	const classDataUnparser = (codeOffsetMap: Map<DalvikExecutableCode<DalvikBytecodeOperation[]>, number>): Unparser<DalvikExecutableClassData<DalvikBytecodeOperation[]>, Uint8Array> => {
 		return async function * (input, unparserContext) {
 			yield * uleb128Unparser(input.staticFields.length, unparserContext);
 			yield * uleb128Unparser(input.instanceFields.length, unparserContext);

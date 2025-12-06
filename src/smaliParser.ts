@@ -1,7 +1,7 @@
 import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
-import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
-import { type ResolvedDalvikBytecodeOperation, getOperationSizeInCodeUnits } from './dalvikBytecodeParser/addressConversion.js';
+import { type RawDalvikBytecodeOperation, rawDalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
+import { type DalvikBytecodeOperation, type DalvikBytecode, getOperationSizeInCodeUnits } from './dalvikBytecodeParser/addressConversion.js';
 import {
 	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableEncodedValue, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
@@ -1577,11 +1577,11 @@ const smaliLooseCodeOperationParser: Parser<SmaliLooseCodeOperation, string> = c
 
 setParserName(smaliLooseCodeOperationParser, 'smaliLooseCodeOperationParser');
 
-// SmaliCodeOperation transforms ResolvedDalvikBytecodeOperation:
+// SmaliCodeOperation transforms DalvikBytecodeOperation:
 // - targetInstructionIndex -> branchOffsetIndex (intermediate form during parsing, relative)
 // - targetInstructionIndices -> branchOffsetIndices (intermediate form during parsing, relative)
 // - methodIndex -> method (resolved)
-type SmaliCodeOperationFromResolvedOperation<T extends ResolvedDalvikBytecodeOperation> =
+type SmaliCodeOperationFromDalvikOperation<T extends DalvikBytecodeOperation> =
 	T extends { targetInstructionIndices: number[] }
 		? Simplify<Omit<T, 'targetInstructionIndices'> & { branchOffsetIndices: number[] }>
 		: T extends { targetInstructionIndex: number }
@@ -1591,7 +1591,7 @@ type SmaliCodeOperationFromResolvedOperation<T extends ResolvedDalvikBytecodeOpe
 				: T
 ;
 
-type SmaliCodeOperation = SmaliCodeOperationFromResolvedOperation<ResolvedDalvikBytecodeOperation>;
+type SmaliCodeOperation = SmaliCodeOperationFromDalvikOperation<DalvikBytecodeOperation>;
 
 export const smaliCodeOperationParser: Parser<SmaliCodeOperation, string> = promiseCompose(
 	smaliLooseCodeOperationParser,
@@ -2453,7 +2453,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 			code.insSize = insSize;
 
 			for (const operation of code.instructions) {
-				const smaliRegisters = dalvikBytecodeOperationCompanion.getRegisters(operation) as unknown[] as SmaliRegister[]; // TODO
+				const smaliRegisters = rawDalvikBytecodeOperationCompanion.getRegisters(operation as RawDalvikBytecodeOperation) as unknown[] as SmaliRegister[]; // TODO
 
 				if (smaliRegisters.length === 0) {
 					continue;
@@ -2481,7 +2481,7 @@ export const smaliMethodParser: Parser<SmaliMethod<DalvikBytecode>, string> = pr
 					continue;
 				}
 
-				const registers = dalvikBytecodeOperationCompanion.getRegisters(operation);
+				const registers = rawDalvikBytecodeOperationCompanion.getRegisters(operation as RawDalvikBytecodeOperation);
 
 				outsSize = Math.max(outsSize, registers.length); // TODO?: two words for wide types?
 			}

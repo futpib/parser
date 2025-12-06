@@ -1,22 +1,22 @@
 import { testProp } from '@fast-check/ava';
 import { runUnparser } from './unparser.js';
-import { dalvikBytecodeUnparser } from './dalvikBytecodeUnparser.js';
+import { rawDalvikBytecodeUnparser } from './dalvikBytecodeUnparser.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
 import { runParser } from './parser.js';
-import { createDalvikBytecodeParser } from './dalvikBytecodeParser.js';
+import { createRawDalvikBytecodeParser } from './dalvikBytecodeParser.js';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
-import { arbitraryDalvikBytecode } from './arbitraryDalvikBytecode.js';
+import { arbitraryRawDalvikBytecode } from './arbitraryDalvikBytecode.js';
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
 
 const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
 
 testProp(
 	'dalvik bytecode roundtrip',
-	[arbitraryDalvikBytecode],
+	[arbitraryRawDalvikBytecode],
 	async (t, bytecode) => {
 		// Unparse the bytecode to bytes
 		const unparsedStreamIterable = runUnparser(
-			dalvikBytecodeUnparser,
+			rawDalvikBytecodeUnparser,
 			bytecode,
 			uint8ArrayUnparserOutputCompanion
 		);
@@ -25,11 +25,11 @@ testProp(
 		const unparsedStream = await uint8ArrayAsyncIterableToUint8Array(unparsedStreamIterable);
 
 		// Create parser with the correct size
-		const dalvikBytecodeParser = createDalvikBytecodeParser(unparsedStream.length);
+		const rawDalvikBytecodeParser = createRawDalvikBytecodeParser(unparsedStream.length);
 
 		// Re-parse the unparsed bytes
 		const actual = await runParser(
-			dalvikBytecodeParser,
+			rawDalvikBytecodeParser,
 			unparsedStream,
 			uint8ArrayParserInputCompanion
 		);

@@ -1,18 +1,25 @@
 import { expectType } from 'tsd';
-import {
-	type DalvikExecutable,
-	type DalvikExecutableCode,
-} from './dalvikExecutable.js';
-import { type ResolvedDalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
+import { type ParserOutput } from './parser.js';
+import { dalvikExecutableParser } from './dalvikExecutableParser.js';
 
 // Test that DalvikExecutable instruction index fields use plain number types
 // This ensures typed numbers (CodeUnit, InstructionIndex) do not leak into the public API
 
-type Instructions = ResolvedDalvikBytecodeOperation[];
+// Derive types from the actual parser output
+type ParsedDalvikExecutable = ParserOutput<typeof dalvikExecutableParser>;
+type ParsedClassDefinition = ParsedDalvikExecutable['classDefinitions'][number];
+type ParsedClassData = NonNullable<ParsedClassDefinition['classData']>;
+type ParsedMethod = ParsedClassData['directMethods'][number];
+type ParsedCode = NonNullable<ParsedMethod['code']>;
+type ParsedInstructions = ParsedCode['instructions'];
+type ParsedOperation = ParsedInstructions[number];
 
 // Test try/catch block types
-declare const dex: DalvikExecutable<Instructions>;
-declare const code: DalvikExecutableCode<Instructions>;
+declare const dex: ParsedDalvikExecutable;
+const classDef = dex.classDefinitions[0];
+const classData = classDef.classData!;
+const method = classData.directMethods[0];
+const code = method.code!;
 
 // Try block field types
 const tryBlock = code.tries[0];
@@ -28,42 +35,42 @@ const typeAddressPair = handler.handlers[0];
 expectType<number>(typeAddressPair.handlerInstructionIndex);
 
 // Test bytecode operation types - branch offsets should be plain numbers
-type GotoOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'goto' }>;
+type GotoOperation = Extract<ParsedOperation, { operation: 'goto' }>;
 declare const gotoOp: GotoOperation;
 expectType<number>(gotoOp.targetInstructionIndex);
 
-type Goto16Operation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'goto/16' }>;
+type Goto16Operation = Extract<ParsedOperation, { operation: 'goto/16' }>;
 declare const goto16Op: Goto16Operation;
 expectType<number>(goto16Op.targetInstructionIndex);
 
-type Goto32Operation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'goto/32' }>;
+type Goto32Operation = Extract<ParsedOperation, { operation: 'goto/32' }>;
 declare const goto32Op: Goto32Operation;
 expectType<number>(goto32Op.targetInstructionIndex);
 
-type PackedSwitchOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'packed-switch' }>;
+type PackedSwitchOperation = Extract<ParsedOperation, { operation: 'packed-switch' }>;
 declare const packedSwitchOp: PackedSwitchOperation;
 expectType<number>(packedSwitchOp.targetInstructionIndex);
 
-type SparseSwitchOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'sparse-switch' }>;
+type SparseSwitchOperation = Extract<ParsedOperation, { operation: 'sparse-switch' }>;
 declare const sparseSwitchOp: SparseSwitchOperation;
 expectType<number>(sparseSwitchOp.targetInstructionIndex);
 
-type PackedSwitchPayloadOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'packed-switch-payload' }>;
+type PackedSwitchPayloadOperation = Extract<ParsedOperation, { operation: 'packed-switch-payload' }>;
 declare const packedSwitchPayloadOp: PackedSwitchPayloadOperation;
 expectType<number[]>(packedSwitchPayloadOp.targetInstructionIndices);
 
-type SparseSwitchPayloadOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'sparse-switch-payload' }>;
+type SparseSwitchPayloadOperation = Extract<ParsedOperation, { operation: 'sparse-switch-payload' }>;
 declare const sparseSwitchPayloadOp: SparseSwitchPayloadOperation;
 expectType<number[]>(sparseSwitchPayloadOp.targetInstructionIndices);
 
-type FillArrayDataOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'fill-array-data' }>;
+type FillArrayDataOperation = Extract<ParsedOperation, { operation: 'fill-array-data' }>;
 declare const fillArrayDataOp: FillArrayDataOperation;
 expectType<number>(fillArrayDataOp.targetInstructionIndex);
 
-type IfEqOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'if-eq' }>;
+type IfEqOperation = Extract<ParsedOperation, { operation: 'if-eq' }>;
 declare const ifEqOp: IfEqOperation;
 expectType<number>(ifEqOp.targetInstructionIndex);
 
-type IfEqzOperation = Extract<ResolvedDalvikBytecodeOperation, { operation: 'if-eqz' }>;
+type IfEqzOperation = Extract<ParsedOperation, { operation: 'if-eqz' }>;
 declare const ifEqzOp: IfEqzOperation;
 expectType<number>(ifEqzOp.targetInstructionIndex);

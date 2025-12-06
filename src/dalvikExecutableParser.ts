@@ -54,13 +54,15 @@ import { createDisjunctionParser } from './disjunctionParser.js';
 import { createElementTerminatedSequenceParser } from './elementTerminatedSequenceParser.js';
 import { createElementTerminatedArrayParserUnsafe } from './elementTerminatedArrayParser.js';
 import {
-	createDalvikBytecodeParser, type DalvikBytecode, type DalvikBytecodeOperation, type DalvikBytecodeOperationResolvers, resolveDalvikBytecodeOperation,
+	createRawDalvikBytecodeParser, type RawDalvikBytecode, type RawDalvikBytecodeOperation, type RawDalvikBytecodeOperationResolvers, resolveRawDalvikBytecodeOperationIndices,
 } from './dalvikBytecodeParser.js';
 import {
 	buildCodeUnitToIndexMap,
 	codeUnitToInstructionIndex,
 	convertBranchOffsetsToInstructionOffsets,
 	unwrapBranchOffsets,
+	type DalvikBytecode,
+	type DalvikBytecodeOperation,
 } from './dalvikBytecodeParser/addressConversion.js';
 import { isoCodeUnit, isoInstructionIndex } from './dalvikExecutableParser/typedNumbers.js';
 import {
@@ -2665,12 +2667,12 @@ const createDalvikExecutableParser = <Instructions>({
 				const debugInfo = debugInfoByOffset.get(codeItem.debugInfoOffset);
 
 				// Build code unit to instruction index mapping for address conversion
-				const rawInstructions = codeItem.instructions as DalvikBytecodeOperation[];
+				const rawInstructions = codeItem.instructions as RawDalvikBytecodeOperation[];
 				const codeUnitToIndexMap = Array.isArray(rawInstructions) ? buildCodeUnitToIndexMap(rawInstructions) : undefined;
 
 				// Convert branch offsets from code units to instruction offsets
 				// Tier 1 (CodeUnit) -> Tier 2 (InstructionIndex) -> Tier 3 (plain numbers)
-				const convertedInstructions = (Array.isArray(rawInstructions) && codeUnitToIndexMap)
+				const convertedInstructions: Instructions = (Array.isArray(rawInstructions) && codeUnitToIndexMap)
 					? unwrapBranchOffsets(convertBranchOffsetsToInstructionOffsets(rawInstructions)) as Instructions
 					: codeItem.instructions;
 
@@ -2723,7 +2725,7 @@ const createDalvikExecutableParser = <Instructions>({
 				[ isoOffsetToClassDataItem.wrap(0), undefined ],
 			]);
 
-			const resolvers: DalvikBytecodeOperationResolvers = {
+			const resolvers: RawDalvikBytecodeOperationResolvers = {
 				resolveIndexIntoStringIds(indexIntoStringIds) {
 					const string = strings.at(indexIntoStringIds);
 					invariant(string !== undefined, 'String must be there. String id: %s', indexIntoStringIds);
@@ -2766,7 +2768,7 @@ const createDalvikExecutableParser = <Instructions>({
 
 				return {
 					...rest,
-					instructions: instructions.map((instruction: DalvikBytecodeOperation) => resolveDalvikBytecodeOperation(instruction, resolvers)) as Instructions,
+					instructions: instructions.map((instruction: DalvikBytecodeOperation) => resolveRawDalvikBytecodeOperationIndices(instruction as RawDalvikBytecodeOperation, resolvers)) as Instructions,
 				};
 			}
 
@@ -3207,9 +3209,16 @@ const createDalvikExecutableParser = <Instructions>({
 	),
 )();
 
+// The factory creates a parser that outputs RawDalvikBytecode, but the parser internally transforms
+// instructions via unwrapBranchOffsets(convertBranchOffsetsToInstructionOffsets(...)) and
+// resolveRawDalvikBytecodeOperationIndices to produce DalvikBytecode with plain number indices.
+// The cast is required because TypeScript can't track this internal transformation.
 export const dalvikExecutableParser: Parser<DalvikExecutable<DalvikBytecode>, Uint8Array> = createDalvikExecutableParser({
-	createInstructionsParser: createDalvikBytecodeParser,
-});
+	createInstructionsParser: createRawDalvikBytecodeParser,
+}) as Parser<DalvikExecutable<DalvikBytecode>, Uint8Array>;
+
+// Re-export public types
+export { type DalvikBytecodeOperation, type DalvikBytecode } from './dalvikBytecodeParser/addressConversion.js';
 
 setParserName(dalvikExecutableParser, 'dalvikExecutableParser');
 

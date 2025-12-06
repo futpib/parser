@@ -1,6 +1,6 @@
 import { type Unparser } from './unparser.js';
 import { type DalvikExecutable, type DalvikExecutableClassDefinition, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableAnnotation, type DalvikExecutableEncodedValue } from './dalvikExecutable.js';
-import { type ResolvedDalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
+import { type DalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
 import { uintUnparser, ushortUnparser } from './dalvikBytecodeUnparser/formatUnparsers.js';
 import { createPoolBuilders } from './dalvikExecutableUnparser/poolBuilders.js';
 import { scanForPoolReferences } from './dalvikExecutableUnparser/poolScanners.js';
@@ -76,7 +76,7 @@ class SectionTracker {
 	}
 }
 
-export const dalvikExecutableUnparser: Unparser<DalvikExecutable<ResolvedDalvikBytecodeOperation[]>, Uint8Array> = async function * (input, unparserContext) {
+export const dalvikExecutableUnparser: Unparser<DalvikExecutable<DalvikBytecodeOperation[]>, Uint8Array> = async function * (input, unparserContext) {
 	const poolBuilders = createPoolBuilders();
 
 	scanForPoolReferences(input, poolBuilders);
@@ -263,7 +263,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<ResolvedDalvikB
 	// Track classDataItem, codeItem, and debugInfoItem for later writing
 	// Collect data to write items grouped by type (required by DEX format)
 	const classDataToWrite: Array<{
-		classDef: DalvikExecutableClassDefinition<ResolvedDalvikBytecodeOperation[]>;
+		classDef: DalvikExecutableClassDefinition<DalvikBytecodeOperation[]>;
 		classDefItem: {
 			interfacesOffsetWriteLater?: WriteLater<Uint8Array, number>;
 			annotationsOffsetWriteLater?: WriteLater<Uint8Array, number>;
@@ -272,7 +272,7 @@ export const dalvikExecutableUnparser: Unparser<DalvikExecutable<ResolvedDalvikB
 		};
 		classIdx: number;
 	}> = [];
-	const codeToWrite: Array<{ code: DalvikExecutableCode<ResolvedDalvikBytecodeOperation[]> }> = [];
+	const codeToWrite: Array<{ code: DalvikExecutableCode<DalvikBytecodeOperation[]> }> = [];
 	const debugInfoToWrite: Array<{ debugInfo: DalvikExecutableDebugInfo; offsetWriteLater: WriteLater<Uint8Array, number> }> = [];
 
 	// First pass: collect type lists, encoded arrays, and classData/code/debugInfo to write

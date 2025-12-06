@@ -1,12 +1,12 @@
 import { expectType } from 'tsd';
-import { type DalvikBytecodeOperation } from './dalvikBytecodeParser.js';
+import { type RawDalvikBytecodeOperation } from './dalvikBytecodeParser.js';
 
 // All operations from https://source.android.com/docs/core/runtime/dalvik-bytecode
 
-type DalvikBytecodeOperationName = DalvikBytecodeOperation['operation'];
+type RawDalvikBytecodeOperationName = RawDalvikBytecodeOperation['operation'];
 
 // Helper to check that a literal type is assignable to the operation name union
-const _checkOperation = <T extends DalvikBytecodeOperationName>(_: T) => {};
+const _checkOperation = <T extends RawDalvikBytecodeOperationName>(_: T) => {};
 
 // nop
 _checkOperation('nop');

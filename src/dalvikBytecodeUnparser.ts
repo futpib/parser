@@ -1,6 +1,6 @@
 import { type Unparser, type UnparserResult } from './unparser.js';
 import { type UnparserContext } from './unparserContext.js';
-import { type DalvikBytecode, type DalvikBytecodeOperation } from './dalvikBytecodeParser.js';
+import { type RawDalvikBytecode, type RawDalvikBytecodeOperation } from './dalvikBytecodeParser.js';
 import {
 	type CodeUnit,
 	isoIndexIntoStringIds,
@@ -313,26 +313,26 @@ const operationToOpcodeMap: Map<string, number> = new Map([
 	// They use multi-byte identifiers: 0x0100, 0x0200, 0x0300
 ]);
 
-export const dalvikBytecodeUnparser: Unparser<DalvikBytecode, Uint8Array> = async function * (input, unparserContext) {
+export const rawDalvikBytecodeUnparser: Unparser<RawDalvikBytecode, Uint8Array> = async function * (input, unparserContext) {
 	for (const operation of input) {
-		yield * dalvikBytecodeOperationUnparser(operation, unparserContext);
+		yield * rawDalvikBytecodeOperationUnparser(operation, unparserContext);
 	}
 };
 
 // Type guards for payload operations
-function isPackedSwitchPayload(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { operation: 'packed-switch-payload' } {
+function isPackedSwitchPayload(op: RawDalvikBytecodeOperation): op is RawDalvikBytecodeOperation & { operation: 'packed-switch-payload' } {
 	return typeof op === 'object' && op !== null && 'operation' in op && op.operation === 'packed-switch-payload';
 }
 
-function isSparseSwitchPayload(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { operation: 'sparse-switch-payload' } {
+function isSparseSwitchPayload(op: RawDalvikBytecodeOperation): op is RawDalvikBytecodeOperation & { operation: 'sparse-switch-payload' } {
 	return typeof op === 'object' && op !== null && 'operation' in op && op.operation === 'sparse-switch-payload';
 }
 
-function isFillArrayDataPayload(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { operation: 'fill-array-data-payload' } {
+function isFillArrayDataPayload(op: RawDalvikBytecodeOperation): op is RawDalvikBytecodeOperation & { operation: 'fill-array-data-payload' } {
 	return typeof op === 'object' && op !== null && 'operation' in op && op.operation === 'fill-array-data-payload';
 }
 
-const dalvikBytecodeOperationUnparser: Unparser<DalvikBytecodeOperation, Uint8Array> = async function * (operation, unparserContext) {
+const rawDalvikBytecodeOperationUnparser: Unparser<RawDalvikBytecodeOperation, Uint8Array> = async function * (operation, unparserContext) {
 	if (!operation || typeof operation !== 'object' || !('operation' in operation)) {
 		throw new Error('Invalid operation');
 	}
@@ -375,19 +375,19 @@ const dalvikBytecodeOperationUnparser: Unparser<DalvikBytecodeOperation, Uint8Ar
 };
 
 // Helper to check if operation has specific fields
-function hasRegisters(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { registers: number[] } {
+function hasRegisters(op: RawDalvikBytecodeOperation): op is RawDalvikBytecodeOperation & { registers: number[] } {
 	return 'registers' in op;
 }
 
-function hasValue(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { value: number | bigint } {
+function hasValue(op: RawDalvikBytecodeOperation): op is RawDalvikBytecodeOperation & { value: number | bigint } {
 	return 'value' in op;
 }
 
-function hasBranchOffsetCodeUnit(op: DalvikBytecodeOperation): op is DalvikBytecodeOperation & { branchOffsetCodeUnit: CodeUnit } {
+function hasBranchOffsetCodeUnit(op: RawDalvikBytecodeOperation): op is RawDalvikBytecodeOperation & { branchOffsetCodeUnit: CodeUnit } {
 	return 'branchOffsetCodeUnit' in op;
 }
 
-async function * unparseOperationData(operation: DalvikBytecodeOperation, unparserContext: UnparserContext<Uint8Array, number>): UnparserResult<Uint8Array, number> {
+async function * unparseOperationData(operation: RawDalvikBytecodeOperation, unparserContext: UnparserContext<Uint8Array, number>): UnparserResult<Uint8Array, number> {
 	if (!('operation' in operation)) {
 		throw new Error('Invalid operation structure');
 	}

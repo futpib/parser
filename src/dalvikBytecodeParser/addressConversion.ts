@@ -1,4 +1,4 @@
-import { type DalvikBytecodeOperation } from '../dalvikBytecodeParser.js';
+import { type RawDalvikBytecodeOperation } from '../dalvikBytecodeParser.js';
 import {
 	type CodeUnit, isoCodeUnit,
 	type InstructionIndex, isoInstructionIndex,
@@ -74,7 +74,7 @@ export function getOperationSizeInCodeUnits(operation: { operation: string; data
  * Also maps the end position (total code units) to instructions.length.
  */
 export function buildCodeUnitToIndexMap(
-	instructions: DalvikBytecodeOperation[],
+	instructions: RawDalvikBytecodeOperation[],
 ): CodeUnitToIndexMap {
 	const map: CodeUnitToIndexMap = new Map();
 	let codeUnitOffset = 0;
@@ -95,7 +95,7 @@ export function buildCodeUnitToIndexMap(
  * Also maps instructions.length to the total code units.
  */
 export function buildIndexToCodeUnitMap(
-	instructions: DalvikBytecodeOperation[],
+	instructions: RawDalvikBytecodeOperation[],
 ): IndexToCodeUnitMap {
 	const map: IndexToCodeUnitMap = new Map();
 	let codeUnitOffset = 0;
@@ -193,7 +193,7 @@ export function convertInstructionOffsetToBranchOffset(
  * Returns the index of the switch instruction.
  */
 export function findSwitchInstructionForPayload(
-	instructions: DalvikBytecodeOperation[],
+	instructions: RawDalvikBytecodeOperation[],
 	payloadIndex: InstructionIndex,
 	indexToCodeUnitMap: IndexToCodeUnitMap,
 ): InstructionIndex {
@@ -218,31 +218,32 @@ export function findSwitchInstructionForPayload(
 	throw new Error(`No switch instruction found for payload at index ${isoInstructionIndex.unwrap(payloadIndex)}`);
 }
 
-// Type for Tier 2: InstructionIndex typed numbers
+// Type for Tier 2: InstructionIndex typed numbers (internal)
 export type ConvertedBranchOffsetOperation<T> = T extends { branchOffsetCodeUnit: CodeUnit }
 	? Omit<T, 'branchOffsetCodeUnit'> & { branchOffsetIndex: InstructionIndex }
 	: T extends { branchOffsetsCodeUnit: CodeUnit[] }
 		? Omit<T, 'branchOffsetsCodeUnit'> & { branchOffsetsIndex: InstructionIndex[] }
 		: T;
 
-export type ConvertedDalvikBytecodeOperation = ConvertedBranchOffsetOperation<DalvikBytecodeOperation>;
+export type ConvertedRawDalvikBytecodeOperation = ConvertedBranchOffsetOperation<RawDalvikBytecodeOperation>;
 
-// Type for Tier 3: plain numbers with absolute instruction indices (final form)
+// Type for Tier 3: plain numbers with absolute instruction indices (public API)
 export type ResolvedBranchOffsetOperation<T> = T extends { branchOffsetIndex: InstructionIndex }
 	? Omit<T, 'branchOffsetIndex'> & { targetInstructionIndex: number }
 	: T extends { branchOffsetsIndex: InstructionIndex[] }
 		? Omit<T, 'branchOffsetsIndex'> & { targetInstructionIndices: number[] }
 		: T;
 
-export type ResolvedDalvikBytecodeOperation = ResolvedBranchOffsetOperation<ConvertedDalvikBytecodeOperation>;
+export type DalvikBytecodeOperation = ResolvedBranchOffsetOperation<ConvertedRawDalvikBytecodeOperation>;
+export type DalvikBytecode = DalvikBytecodeOperation[];
 
 /**
  * Convert all branch offsets in instructions from code units to instruction offsets.
  * Tier 1 (CodeUnit) -> Tier 2 (InstructionIndex)
  */
 export function convertBranchOffsetsToInstructionOffsets(
-	instructions: DalvikBytecodeOperation[],
-): ConvertedDalvikBytecodeOperation[] {
+	instructions: RawDalvikBytecodeOperation[],
+): ConvertedRawDalvikBytecodeOperation[] {
 	const codeUnitToIndexMap = buildCodeUnitToIndexMap(instructions);
 	const indexToCodeUnitMap = buildIndexToCodeUnitMap(instructions);
 
@@ -258,7 +259,7 @@ export function convertBranchOffsetsToInstructionOffsets(
 					indexToCodeUnitMap,
 					codeUnitToIndexMap,
 				),
-			} as ConvertedDalvikBytecodeOperation;
+			} as ConvertedRawDalvikBytecodeOperation;
 		}
 
 		// Handle branchOffsetsCodeUnit array (packed-switch-payload, sparse-switch-payload)
@@ -276,10 +277,10 @@ export function convertBranchOffsetsToInstructionOffsets(
 						codeUnitToIndexMap,
 					),
 				),
-			} as ConvertedDalvikBytecodeOperation;
+			} as ConvertedRawDalvikBytecodeOperation;
 		}
 
-		return instruction as ConvertedDalvikBytecodeOperation;
+		return instruction as ConvertedRawDalvikBytecodeOperation;
 	});
 }
 
@@ -288,8 +289,8 @@ export function convertBranchOffsetsToInstructionOffsets(
  * Tier 2 (InstructionIndex, relative) -> Tier 3 (plain number, absolute)
  */
 export function unwrapBranchOffsets(
-	instructions: ConvertedDalvikBytecodeOperation[],
-): ResolvedDalvikBytecodeOperation[] {
+	instructions: ConvertedRawDalvikBytecodeOperation[],
+): DalvikBytecodeOperation[] {
 	// First pass: find switch instruction indices for payloads
 	const payloadToSwitchIndex = new Map<number, number>();
 	for (let i = 0; i < instructions.length; i++) {
@@ -311,7 +312,7 @@ export function unwrapBranchOffsets(
 			return {
 				...rest,
 				targetInstructionIndex,
-			} as ResolvedDalvikBytecodeOperation;
+			} as DalvikBytecodeOperation;
 		}
 
 		if ('branchOffsetsIndex' in instruction) {
@@ -328,10 +329,10 @@ export function unwrapBranchOffsets(
 			return {
 				...rest,
 				targetInstructionIndices,
-			} as ResolvedDalvikBytecodeOperation;
+			} as DalvikBytecodeOperation;
 		}
 
-		return instruction as ResolvedDalvikBytecodeOperation;
+		return instruction as DalvikBytecodeOperation;
 	});
 }
 
@@ -340,8 +341,8 @@ export function unwrapBranchOffsets(
  * Tier 3 (plain number, absolute) -> Tier 2 (InstructionIndex, relative)
  */
 export function wrapBranchOffsets(
-	instructions: ResolvedDalvikBytecodeOperation[],
-): ConvertedDalvikBytecodeOperation[] {
+	instructions: DalvikBytecodeOperation[],
+): ConvertedRawDalvikBytecodeOperation[] {
 	// First pass: find switch instruction indices for payloads
 	const payloadToSwitchIndex = new Map<number, number>();
 	for (let i = 0; i < instructions.length; i++) {
@@ -363,7 +364,7 @@ export function wrapBranchOffsets(
 			return {
 				...rest,
 				branchOffsetIndex,
-			} as ConvertedDalvikBytecodeOperation;
+			} as ConvertedRawDalvikBytecodeOperation;
 		}
 
 		if ('targetInstructionIndices' in instruction) {
@@ -380,10 +381,10 @@ export function wrapBranchOffsets(
 			return {
 				...rest,
 				branchOffsetsIndex,
-			} as ConvertedDalvikBytecodeOperation;
+			} as ConvertedRawDalvikBytecodeOperation;
 		}
 
-		return instruction as ConvertedDalvikBytecodeOperation;
+		return instruction as ConvertedRawDalvikBytecodeOperation;
 	});
 }
 
@@ -412,7 +413,7 @@ export function buildIndexToCodeUnitMapGeneric(
  * Build mapping from instruction index to code unit offset for Tier 2 operations.
  */
 export function buildIndexToCodeUnitMapFromConverted(
-	instructions: ConvertedDalvikBytecodeOperation[],
+	instructions: ConvertedRawDalvikBytecodeOperation[],
 ): IndexToCodeUnitMap {
 	return buildIndexToCodeUnitMapGeneric(instructions);
 }
@@ -421,7 +422,7 @@ export function buildIndexToCodeUnitMapFromConverted(
  * Build mapping from instruction index to code unit offset for Tier 3 operations.
  */
 export function buildIndexToCodeUnitMapFromResolved(
-	instructions: ResolvedDalvikBytecodeOperation[],
+	instructions: DalvikBytecodeOperation[],
 ): IndexToCodeUnitMap {
 	return buildIndexToCodeUnitMapGeneric(instructions);
 }
@@ -431,7 +432,7 @@ export function buildIndexToCodeUnitMapFromResolved(
  * when branch offsets are in instruction indices (Tier 2).
  */
 function findSwitchInstructionForPayloadByInstructionIndex(
-	instructions: ConvertedDalvikBytecodeOperation[],
+	instructions: ConvertedRawDalvikBytecodeOperation[],
 	payloadIndex: InstructionIndex,
 ): InstructionIndex {
 	for (let i = 0; i < instructions.length; i++) {
@@ -453,8 +454,8 @@ function findSwitchInstructionForPayloadByInstructionIndex(
  * Tier 2 (InstructionIndex) -> Tier 1 (CodeUnit)
  */
 export function convertInstructionOffsetsToBranchOffsets(
-	instructions: ConvertedDalvikBytecodeOperation[],
-): DalvikBytecodeOperation[] {
+	instructions: ConvertedRawDalvikBytecodeOperation[],
+): RawDalvikBytecodeOperation[] {
 	const indexToCodeUnitMap = buildIndexToCodeUnitMapFromConverted(instructions);
 
 	return instructions.map((instruction, index) => {
@@ -468,7 +469,7 @@ export function convertInstructionOffsetsToBranchOffsets(
 					isoInstructionIndex.wrap(index),
 					indexToCodeUnitMap,
 				),
-			} as DalvikBytecodeOperation;
+			} as RawDalvikBytecodeOperation;
 		}
 
 		// Handle branchOffsetsIndex array
@@ -485,9 +486,9 @@ export function convertInstructionOffsetsToBranchOffsets(
 						indexToCodeUnitMap,
 					),
 				),
-			} as DalvikBytecodeOperation;
+			} as RawDalvikBytecodeOperation;
 		}
 
-		return instruction as DalvikBytecodeOperation;
+		return instruction as RawDalvikBytecodeOperation;
 	});
 }

@@ -8,7 +8,7 @@ import { runUnparser } from './unparser.js';
 import { uint8ArrayParserInputCompanion } from './parserInputCompanion.js';
 import { uint8ArrayUnparserOutputCompanion } from './unparserOutputCompanion.js';
 import { uint8ArrayAsyncIterableToUint8Array } from './uint8Array.js';
-import { type ResolvedDalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
+import { type DalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
 
 const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
 
@@ -16,10 +16,10 @@ const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
 // These operations have no branch offsets, so they work the same in all tiers
 const arbitraryMinimalBytecode = fc.array(
 	fc.oneof(
-		fc.constant<ResolvedDalvikBytecodeOperation>({
+		fc.constant<DalvikBytecodeOperation>({
 			operation: 'nop',
 		}),
-		fc.constant<ResolvedDalvikBytecodeOperation>({
+		fc.constant<DalvikBytecodeOperation>({
 			operation: 'return-void',
 		}),
 	),

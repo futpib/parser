@@ -1,7 +1,7 @@
 import * as fc from 'fast-check';
 import {
-	type DalvikBytecode,
-	type DalvikBytecodeOperation,
+	type RawDalvikBytecode,
+	type RawDalvikBytecodeOperation,
 } from './dalvikBytecodeParser.js';
 import {
 	type IndexIntoStringIds,
@@ -63,7 +63,7 @@ const arbitraryBranchOffsetCodeUnit32: fc.Arbitrary<CodeUnit> = fc
 	.map(n => isoCodeUnit.wrap(n));
 
 // No-operation
-const arbitraryNop = fc.constant<DalvikBytecodeOperation>({
+const arbitraryNop = fc.constant<RawDalvikBytecodeOperation>({
 	operation: 'nop',
 });
 
@@ -127,7 +127,7 @@ const arbitraryMoveException = fc.record({
 });
 
 // Return operations
-const arbitraryReturnVoid = fc.constant<DalvikBytecodeOperation>({
+const arbitraryReturnVoid = fc.constant<RawDalvikBytecodeOperation>({
 	operation: 'return-void',
 });
 
@@ -748,7 +748,7 @@ const arbitraryIntToChar = createArbitraryUnaryOperation('int-to-char');
 const arbitraryIntToShort = createArbitraryUnaryOperation('int-to-short');
 
 // Combine all operations
-export const arbitraryDalvikBytecodeOperation: fc.Arbitrary<DalvikBytecodeOperation> = fc.oneof(
+export const arbitraryRawDalvikBytecodeOperation: fc.Arbitrary<RawDalvikBytecodeOperation> = fc.oneof(
 	arbitraryNop,
 	// Move operations
 	arbitraryMove,
@@ -994,7 +994,7 @@ export const arbitraryDalvikBytecodeOperation: fc.Arbitrary<DalvikBytecodeOperat
 );
 
 // Arbitrary for complete Dalvik bytecode (array of operations)
-export const arbitraryDalvikBytecode: fc.Arbitrary<DalvikBytecode> = fc.array(
-	arbitraryDalvikBytecodeOperation,
+export const arbitraryRawDalvikBytecode: fc.Arbitrary<RawDalvikBytecode> = fc.array(
+	arbitraryRawDalvikBytecodeOperation,
 	{ minLength: 0, maxLength: 100 }
 );

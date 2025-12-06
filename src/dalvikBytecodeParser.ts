@@ -2495,7 +2495,7 @@ const dalvikBytecodeOperationCompareParser: Parser<DalvikBytecodeOperationCompar
 
 setParserName(dalvikBytecodeOperationCompareParser, 'dalvikBytecodeOperationCompareParser');
 
-export type DalvikBytecodeOperation =
+export type RawDalvikBytecodeOperation =
 	| DalvikBytecodeOperationNoOperation
 
 	| DalvikBytecodeOperationIfTest
@@ -2573,8 +2573,8 @@ export type DalvikBytecodeOperation =
 
 	| DalvikBytecodeOperationReturnVoid
 	| DalvikBytecodeOperationReturn1;
-export const dalvikBytecodeOperationCompanion = {
-	getRegisters(operation: DalvikBytecodeOperation): number[] {
+export const rawDalvikBytecodeOperationCompanion = {
+	getRegisters(operation: RawDalvikBytecodeOperation): number[] {
 		if (operation && typeof operation === 'object' && 'registers' in operation) {
 			return operation.registers;
 		}
@@ -2896,7 +2896,7 @@ const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<unknown, Uint8Ar
 ]);
 
 // Fallback parser for multi-byte opcodes (nop and payload instructions)
-const dalvikBytecodeOperationMultiByteParser: Parser<DalvikBytecodeOperation, Uint8Array> = createDisjunctionParser([
+const dalvikBytecodeOperationMultiByteParser: Parser<RawDalvikBytecodeOperation, Uint8Array> = createDisjunctionParser([
 	dalvikBytecodeOperationNoOperationParser,
 	dalvikBytecodeOperationPackedSwitchPayloadParser,
 	dalvikBytecodeOperationSparseSwitchPayloadParser,
@@ -2905,7 +2905,7 @@ const dalvikBytecodeOperationMultiByteParser: Parser<DalvikBytecodeOperation, Ui
 
 setParserName(dalvikBytecodeOperationMultiByteParser, 'dalvikBytecodeOperationMultiByteParser');
 
-const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined, Uint8Array> = promiseCompose(
+const dalvikBytecodeOperationParser: Parser<RawDalvikBytecodeOperation | undefined, Uint8Array> = promiseCompose(
 	createTupleParser([
 		() => {},
 		// CreateDebugLogInputParser(),
@@ -2919,21 +2919,21 @@ const dalvikBytecodeOperationParser: Parser<DalvikBytecodeOperation | undefined,
 		operation,
 	]) =>
 		// Console.log(operation);
-		operation as DalvikBytecodeOperation | undefined,
+		operation as RawDalvikBytecodeOperation | undefined,
 );
 
 setParserName(dalvikBytecodeOperationParser, 'dalvikBytecodeOperationParser');
 
-export type DalvikBytecode = DalvikBytecodeOperation[];
+export type RawDalvikBytecode = RawDalvikBytecodeOperation[];
 
-const dalvikBytecodeParser: Parser<DalvikBytecode, Uint8Array> = promiseCompose(
+const rawDalvikBytecodeParser: Parser<RawDalvikBytecode, Uint8Array> = promiseCompose(
 	createArrayParser(dalvikBytecodeOperationParser),
-	operations => operations.filter((operation): operation is DalvikBytecodeOperation => operation !== undefined),
+	operations => operations.filter((operation): operation is RawDalvikBytecodeOperation => operation !== undefined),
 );
 
-export const createDalvikBytecodeParser = (size: number): Parser<DalvikBytecode, Uint8Array> => createSliceBoundedParser(dalvikBytecodeParser, size, true);
+export const createRawDalvikBytecodeParser = (size: number): Parser<RawDalvikBytecode, Uint8Array> => createSliceBoundedParser(rawDalvikBytecodeParser, size, true);
 
-type ResolvedDalvikBytecodeOperation<T extends DalvikBytecodeOperation> = T extends { stringIndex: IndexIntoFieldIds }
+type IndexResolvedRawDalvikBytecodeOperation<T extends RawDalvikBytecodeOperation> = T extends { stringIndex: IndexIntoFieldIds }
 	? Omit<T, 'stringIndex'> & { string: string }
 	: T extends { typeIndex: IndexIntoTypeIds }
 		? Omit<T, 'typeIndex'> & { type: string }
@@ -2943,26 +2943,26 @@ type ResolvedDalvikBytecodeOperation<T extends DalvikBytecodeOperation> = T exte
 				? Omit<T, 'fieldIndex'> & { field: DalvikExecutableField }
 				: T;
 
-export type DalvikBytecodeOperationResolvers = {
+export type RawDalvikBytecodeOperationResolvers = {
 	resolveIndexIntoStringIds: (index: IndexIntoStringIds) => string;
 	resolveIndexIntoTypeIds: (index: IndexIntoTypeIds) => string;
 	resolveIndexIntoMethodIds: (index: IndexIntoMethodIds) => DalvikExecutableMethod;
 	resolveIndexIntoFieldIds: (index: IndexIntoFieldIds) => DalvikExecutableField;
 };
 
-export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation>(operation: T, {
+export function resolveRawDalvikBytecodeOperationIndices<T extends RawDalvikBytecodeOperation>(operation: T, {
 	resolveIndexIntoStringIds,
 	resolveIndexIntoTypeIds,
 	resolveIndexIntoMethodIds,
 	resolveIndexIntoFieldIds,
-}: DalvikBytecodeOperationResolvers): ResolvedDalvikBytecodeOperation<T> {
+}: RawDalvikBytecodeOperationResolvers): IndexResolvedRawDalvikBytecodeOperation<T> {
 	if (operation && typeof operation === 'object' && 'stringIndex' in operation) {
 		const { stringIndex, ...rest } = operation;
 
 		return {
 			...rest,
 			string: resolveIndexIntoStringIds(stringIndex),
-		} as ResolvedDalvikBytecodeOperation<T>;
+		} as IndexResolvedRawDalvikBytecodeOperation<T>;
 	}
 
 	if (operation && typeof operation === 'object' && 'typeIndex' in operation) {
@@ -2971,7 +2971,7 @@ export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation
 		return {
 			...rest,
 			type: resolveIndexIntoTypeIds(typeIndex),
-		} as ResolvedDalvikBytecodeOperation<T>;
+		} as IndexResolvedRawDalvikBytecodeOperation<T>;
 	}
 
 	if (operation && typeof operation === 'object' && 'methodIndex' in operation) {
@@ -2980,7 +2980,7 @@ export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation
 		return {
 			...rest,
 			method: resolveIndexIntoMethodIds(methodIndex),
-		} as ResolvedDalvikBytecodeOperation<T>;
+		} as IndexResolvedRawDalvikBytecodeOperation<T>;
 	}
 
 	if (operation && typeof operation === 'object' && 'fieldIndex' in operation) {
@@ -2989,8 +2989,8 @@ export function resolveDalvikBytecodeOperation<T extends DalvikBytecodeOperation
 		return {
 			...rest,
 			field: resolveIndexIntoFieldIds(fieldIndex),
-		} as ResolvedDalvikBytecodeOperation<T>;
+		} as IndexResolvedRawDalvikBytecodeOperation<T>;
 	}
 
-	return operation as ResolvedDalvikBytecodeOperation<T>;
+	return operation as IndexResolvedRawDalvikBytecodeOperation<T>;
 }
