@@ -1,3 +1,4 @@
+import { MUtf8Decoder } from 'mutf-8';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createFixedLengthSequenceParser } from './fixedLengthSequenceParser.js';
 import { createObjectParser } from './objectParser.js';
@@ -41,7 +42,10 @@ const javaModifiedUTF8StringParser: Parser<string, Uint8Array> = promiseCompose(
 		() => uint16BEParser,
 		length => createFixedLengthSequenceParser(length),
 	)(),
-	uint8Array => Buffer.from(uint8Array).toString('utf8'), // TODO?: Java Modified UTF-8 decoding
+	uint8Array => {
+		const mutf8Decoder = new MUtf8Decoder();
+		return mutf8Decoder.decode(uint8Array);
+	},
 );
 
 const uint32LengthPrefixedUint8ArrayParser = parserCreatorCompose(
