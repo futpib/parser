@@ -83,7 +83,39 @@ const dexWithParsedInstructionsMacro = test.macro({
 	},
 });
 
-test.serial.only(dexWithParsedInstructionsMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true);
+test.serial(dexWithParsedInstructionsMacro, 'bafkreibb4gsprc3fvmnyqx6obswvm7e7wngnfj64gz65ey72r7xgyzymt4', true);
 test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeiebe27ylo53trgitu6fqfbmba43c4ivxj3nt4kumsilkucpbdxtqq', false);
 test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeibbupm7uzhuq4pa674rb2amxsenbdaoijigmaf4onaodaql4mh7yy', false);
 test.serial.skip(dexWithParsedInstructionsMacro, 'bafybeicb3qajmwy6li7hche2nkucvytaxcyxhwhphmi73tgydjzmyoqoda', false);
+
+const methodMacro = test.macro({
+	title: (providedTitle, dexCid: string, className: string, methodName: string) =>
+		providedTitle ?? `method ${className}.${methodName} from ${dexCid}`,
+	async exec(t, dexCid: string, className: string, methodName: string) {
+		const dexStream = await fetchCid(dexCid);
+
+		const dex = await runParser(dalvikExecutableParser, dexStream, uint8ArrayParserInputCompanion, {
+			errorJoinMode: 'all',
+		});
+
+		const classDef = dex.classDefinitions.find(c => c.class === className);
+		t.truthy(classDef, `Class ${className} not found`);
+
+		const allMethods = [
+			...(classDef!.classData?.directMethods ?? []),
+			...(classDef!.classData?.virtualMethods ?? []),
+		];
+
+		const method = allMethods.find(m => m.method.name === methodName);
+		t.truthy(method, `Method ${methodName} not found in ${className}`);
+
+		t.snapshot(method);
+	},
+});
+
+test.serial(
+	methodMacro,
+	'bafkreifycfnx4xf3nlml4qavlyxr6bes66nxsow3iaqjghewfsozoj2h3q',
+	'Lpl/czak/minimal/MainActivity;',
+	'getPackedSwitchResult',
+);
