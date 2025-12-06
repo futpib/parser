@@ -31,7 +31,7 @@ import {
 } from './dalvikExecutableParser/typeParsers.js';
 import { type DalvikExecutableField, type DalvikExecutableMethod } from './dalvikExecutable.js';
 import {
-	type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds,
+	type IndexIntoCallSiteIds, type IndexIntoFieldIds, type IndexIntoMethodIds, type IndexIntoPrototypeIds, type IndexIntoStringIds, type IndexIntoTypeIds, isoIndexIntoCallSiteIds, isoIndexIntoFieldIds, isoIndexIntoMethodIds, isoIndexIntoPrototypeIds, isoIndexIntoStringIds, isoIndexIntoTypeIds,
 } from './dalvikExecutableParser/typedNumbers.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createElementSwitchParser } from './elementSwitchParser.js';
@@ -251,6 +251,57 @@ const dalvikBytecodeOperationInvokePolymorphicRangeParser: Parser<DalvikBytecode
 );
 
 setParserName(dalvikBytecodeOperationInvokePolymorphicRangeParser, 'dalvikBytecodeOperationInvokePolymorphicRangeParser');
+
+// Invoke-custom and invoke-custom/range (Android 8.0+)
+type DalvikBytecodeOperationInvokeCustom = {
+	operation: 'invoke-custom';
+	callSiteIndex: IndexIntoCallSiteIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationInvokeCustomParser: Parser<DalvikBytecodeOperationInvokeCustom, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0xFC),
+		createDalvikBytecodeFormat35cParser({
+			isoIndex: isoIndexIntoCallSiteIds,
+		}),
+	]),
+	([
+		_opcode,
+		{ index, registers },
+	]) => ({
+		operation: 'invoke-custom',
+		callSiteIndex: index,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationInvokeCustomParser, 'dalvikBytecodeOperationInvokeCustomParser');
+
+type DalvikBytecodeOperationInvokeCustomRange = {
+	operation: 'invoke-custom/range';
+	callSiteIndex: IndexIntoCallSiteIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationInvokeCustomRangeParser: Parser<DalvikBytecodeOperationInvokeCustomRange, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0xFD),
+		createDalvikBytecodeFormat3rcParser({
+			isoIndex: isoIndexIntoCallSiteIds,
+		}),
+	]),
+	([
+		_opcode,
+		{ index, registers },
+	]) => ({
+		operation: 'invoke-custom/range',
+		callSiteIndex: index,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationInvokeCustomRangeParser, 'dalvikBytecodeOperationInvokeCustomRangeParser');
 
 type DalvikBytecodeOperationGoto = {
 	operation: 'goto';
@@ -1292,6 +1343,10 @@ const dalvikBytecodeOperationDivideFloatParser = createDalvikBytecodeOperationBi
 
 type DalvikBytecodeOperationDivideFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationDivideFloatParser>>;
 
+const dalvikBytecodeOperationRemainderFloatParser = createDalvikBytecodeOperationBinaryOperation('rem-float', 0xAA);
+
+type DalvikBytecodeOperationRemainderFloat = Awaited<ReturnType<typeof dalvikBytecodeOperationRemainderFloatParser>>;
+
 const dalvikBytecodeOperationAddDoubleParser = createDalvikBytecodeOperationBinaryOperation('add-double', 0xAB);
 
 type DalvikBytecodeOperationAddDouble = Awaited<ReturnType<typeof dalvikBytecodeOperationAddDoubleParser>>;
@@ -1339,6 +1394,7 @@ type DalvikBytecodeOperationBinaryOperation =
 	| DalvikBytecodeOperationSubtractFloat
 	| DalvikBytecodeOperationMultiplyFloat
 	| DalvikBytecodeOperationDivideFloat
+	| DalvikBytecodeOperationRemainderFloat
 	| DalvikBytecodeOperationAddDouble
 	| DalvikBytecodeOperationSubtractDouble
 	| DalvikBytecodeOperationMultiplyDouble
@@ -1373,6 +1429,7 @@ const dalvikBytecodeOperationBinaryOperationParser: Parser<DalvikBytecodeOperati
 	dalvikBytecodeOperationSubtractFloatParser,
 	dalvikBytecodeOperationMultiplyFloatParser,
 	dalvikBytecodeOperationDivideFloatParser,
+	dalvikBytecodeOperationRemainderFloatParser,
 	dalvikBytecodeOperationAddDoubleParser,
 	dalvikBytecodeOperationSubtractDoubleParser,
 	dalvikBytecodeOperationMultiplyDoubleParser,
@@ -1733,6 +1790,28 @@ const dalvikBytecodeOperationConstMethodHandleParser: Parser<DalvikBytecodeOpera
 );
 
 setParserName(dalvikBytecodeOperationConstMethodHandleParser, 'dalvikBytecodeOperationConstMethodHandleParser');
+
+type DalvikBytecodeOperationConstMethodType = {
+	operation: 'const-method-type';
+	protoIndex: IndexIntoPrototypeIds;
+	registers: number[];
+};
+
+const dalvikBytecodeOperationConstMethodTypeParser: Parser<DalvikBytecodeOperationConstMethodType, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0xFF),
+		createDalvikBytecodeFormat21cParser({
+			isoIndex: isoIndexIntoPrototypeIds,
+		}),
+	]),
+	([ _opcode, { index, registers } ]) => ({
+		operation: 'const-method-type',
+		protoIndex: index,
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationConstMethodTypeParser, 'dalvikBytecodeOperationConstMethodTypeParser');
 
 type DalvikBytecodeOperationNewInstance = {
 	operation: 'new-instance';
@@ -2118,6 +2197,42 @@ const dalvikBytecodeOperationMoveWide16Parser: Parser<DalvikBytecodeOperationMov
 
 setParserName(dalvikBytecodeOperationMoveWide16Parser, 'dalvikBytecodeOperationMoveWide16Parser');
 
+type DalvikBytecodeOperationMove16 = {
+	operation: 'move/16';
+	registers: number[];
+};
+
+const dalvikBytecodeOperationMove16Parser: Parser<DalvikBytecodeOperationMove16, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x03),
+		dalvikBytecodeFormat32xParser,
+	]),
+	([ _opcode, { registers } ]) => ({
+		operation: 'move/16',
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationMove16Parser, 'dalvikBytecodeOperationMove16Parser');
+
+type DalvikBytecodeOperationMoveObject16 = {
+	operation: 'move-object/16';
+	registers: number[];
+};
+
+const dalvikBytecodeOperationMoveObject16Parser: Parser<DalvikBytecodeOperationMoveObject16, Uint8Array> = promiseCompose(
+	createTupleParser([
+		createExactElementParser(0x09),
+		dalvikBytecodeFormat32xParser,
+	]),
+	([ _opcode, { registers } ]) => ({
+		operation: 'move-object/16',
+		registers,
+	}),
+);
+
+setParserName(dalvikBytecodeOperationMoveObject16Parser, 'dalvikBytecodeOperationMoveObject16Parser');
+
 const createDalvikBytecodeOperationReturn1Parser = createDalvikBytecodeMoveResult1Parser;
 
 const dalvikBytecodeOperationReturnParser = createDalvikBytecodeOperationReturn1Parser('return', 0x0F);
@@ -2409,14 +2524,18 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationMoveWide
 	| DalvikBytecodeOperationMoveObject
 	| DalvikBytecodeOperationMoveFrom16
+	| DalvikBytecodeOperationMove16
 	| DalvikBytecodeOperationMoveWideFrom16
 	| DalvikBytecodeOperationMoveObjectFrom16
 	| DalvikBytecodeOperationMoveWide16
+	| DalvikBytecodeOperationMoveObject16
 
 	| DalvikBytecodeOperationInvoke
 	| DalvikBytecodeOperationInvokeRange
 	| DalvikBytecodeOperationInvokePolymorphic
 	| DalvikBytecodeOperationInvokePolymorphicRange
+	| DalvikBytecodeOperationInvokeCustom
+	| DalvikBytecodeOperationInvokeCustomRange
 
 	| DalvikBytecodeOperationNewInstance
 
@@ -2441,6 +2560,7 @@ export type DalvikBytecodeOperation =
 	| DalvikBytecodeOperationConstString
 	| DalvikBytecodeOperationConstStringJumbo
 	| DalvikBytecodeOperationConstMethodHandle
+	| DalvikBytecodeOperationConstMethodType
 	| DalvikBytecodeOperationConstClass
 
 	| DalvikBytecodeOperationMonitorEnter
@@ -2481,6 +2601,10 @@ const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<unknown, Uint8Ar
 	// Invoke polymorphic operations
 	[ 0xFA, dalvikBytecodeOperationInvokePolymorphicParser ],
 	[ 0xFB, dalvikBytecodeOperationInvokePolymorphicRangeParser ],
+
+	// Invoke custom operations
+	[ 0xFC, dalvikBytecodeOperationInvokeCustomParser ],
+	[ 0xFD, dalvikBytecodeOperationInvokeCustomRangeParser ],
 
 	// New instance/array operations
 	[ 0x22, dalvikBytecodeOperationNewInstanceParser ],
@@ -2544,6 +2668,7 @@ const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<unknown, Uint8Ar
 	[ 0x1A, dalvikBytecodeOperationConstStringParser ],
 	[ 0x1B, dalvikBytecodeOperationConstStringJumboParser ],
 	[ 0xFE, dalvikBytecodeOperationConstMethodHandleParser ],
+	[ 0xFF, dalvikBytecodeOperationConstMethodTypeParser ],
 	[ 0x1C, dalvikBytecodeOperationConstClassParser ],
 
 	// Monitor operations
@@ -2580,6 +2705,8 @@ const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<unknown, Uint8Ar
 	[ 0x05, dalvikBytecodeOperationMoveWideFrom16Parser ],
 	[ 0x08, dalvikBytecodeOperationMoveObjectFrom16Parser ],
 	[ 0x06, dalvikBytecodeOperationMoveWide16Parser ],
+	[ 0x03, dalvikBytecodeOperationMove16Parser ],
+	[ 0x09, dalvikBytecodeOperationMoveObject16Parser ],
 
 	// Const value operations
 	[ 0x12, dalvikBytecodeOperationConst4Parser ],
@@ -2641,7 +2768,7 @@ const dalvikBytecodeOperationOpcodeMap = new Map<number, Parser<unknown, Uint8Ar
 	[ 0xA7, dalvikBytecodeOperationSubtractFloatParser ],
 	[ 0xA8, dalvikBytecodeOperationMultiplyFloatParser ],
 	[ 0xA9, dalvikBytecodeOperationDivideFloatParser ],
-	// Note: 0xAA (rem-float) parser is missing in codebase
+	[ 0xAA, dalvikBytecodeOperationRemainderFloatParser ],
 	[ 0xAB, dalvikBytecodeOperationAddDoubleParser ],
 	[ 0xAC, dalvikBytecodeOperationSubtractDoubleParser ],
 	[ 0xAD, dalvikBytecodeOperationMultiplyDoubleParser ],

@@ -15,6 +15,9 @@ export const isoIndexIntoFieldIds = iso<IndexIntoFieldIds>();
 export type IndexIntoMethodIds = {} & Newtype<{ readonly IndexIntoMethodIds: unique symbol }, number>;
 export const isoIndexIntoMethodIds = iso<IndexIntoMethodIds>();
 
+export type IndexIntoCallSiteIds = {} & Newtype<{ readonly IndexIntoCallSiteIds: unique symbol }, number>;
+export const isoIndexIntoCallSiteIds = iso<IndexIntoCallSiteIds>();
+
 export type OffsetToStringDataItem = {} & Newtype<{ readonly OffsetToStringDataItem: unique symbol }, number>;
 export const isoOffsetToStringDataItem = iso<OffsetToStringDataItem>();
 
