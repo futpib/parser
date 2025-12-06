@@ -2304,7 +2304,9 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 
 setParserName(smaliExecutableCodeParser, 'smaliExecutableCodeParser');
 
-// TODO: ???
+// Operations where register order doesn't matter (commutative comparisons)
+// Only if-eq and if-ne are included because they're commutative
+// (if-lt, if-ge, if-gt, if-le are NOT commutative, so order matters)
 const sortRegistersOperations = new Set<DalvikBytecodeOperation['operation']>([
 	'if-eq',
 	'if-ne',
