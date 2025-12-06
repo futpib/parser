@@ -156,14 +156,21 @@ export const createZipUnparser = ({
 		};
 
 		let shouldWriteDataDescriptor = false;
+		let actualCrc32 = 0;
+		let actualCompressedSize = 0;
+		let actualUncompressedSize = 0;
 
 		if (zipEntry.type === 'file') {
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
 			zipLocalFileHeader.compressionMethod = zipEntry.compression;
-			zipLocalFileHeader.crc32 = zlib.crc32(zipEntry.content);
-			zipLocalFileHeader.compressedSize = compressedContent.length;
-			zipLocalFileHeader.uncompressedSize = zipEntry.content.length;
+			actualCrc32 = zlib.crc32(zipEntry.content);
+			actualCompressedSize = compressedContent.length;
+			actualUncompressedSize = zipEntry.content.length;
+
+			zipLocalFileHeader.crc32 = actualCrc32;
+			zipLocalFileHeader.compressedSize = actualCompressedSize;
+			zipLocalFileHeader.uncompressedSize = actualUncompressedSize;
 
 			if (dataDescriptor) {
 				shouldWriteDataDescriptor = true;
@@ -184,9 +191,9 @@ export const createZipUnparser = ({
 
 			if (shouldWriteDataDescriptor) {
 				yield * zipDataDescriptorUnparser({
-					crc32: zipLocalFileHeader.crc32,
-					compressedSize: zipLocalFileHeader.compressedSize,
-					uncompressedSize: zipLocalFileHeader.uncompressedSize,
+					crc32: actualCrc32,
+					compressedSize: actualCompressedSize,
+					uncompressedSize: actualUncompressedSize,
 				}, unparserContext);
 			}
 		}
