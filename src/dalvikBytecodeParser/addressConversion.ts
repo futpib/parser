@@ -19,23 +19,43 @@ export type CodeUnitToIndexMap = Map<CodeUnit, InstructionIndex>;
 export type IndexToCodeUnitMap = Map<InstructionIndex, CodeUnit>;
 
 /**
- * Calculate the size of an operation in code units (16-bit words).
- * This matches the logic in smaliParser.ts getOperationFormatSize.
+ * Get the branch offsets array length from an operation, regardless of tier.
+ * Works with all field name variants: branchOffsetsCodeUnit, branchOffsetsIndex, branchOffsets, branchOffsetIndices.
  */
-export function getOperationSizeInCodeUnits(operation: DalvikBytecodeOperation): number {
+function getBranchOffsetsLength(operation: { operation: string }): number | undefined {
+	const op = operation as any;
+	return op.branchOffsetsCodeUnit?.length
+		?? op.branchOffsetsIndex?.length
+		?? op.branchOffsets?.length
+		?? op.branchOffsetIndices?.length;
+}
+
+/**
+ * Calculate the size of an operation in code units (16-bit words).
+ * Works with any tier of operation (Tier 1, 2, 3, or SmaliCodeOperation).
+ */
+export function getOperationSizeInCodeUnits(operation: { operation: string; data?: Uint8Array | number[] }): number {
 	if (operation.operation === 'packed-switch-payload') {
+		const length = getBranchOffsetsLength(operation);
+		if (length === undefined) {
+			throw new Error('packed-switch-payload missing branch offsets array');
+		}
 		// Header (4 code units) + targets (2 code units each)
-		return (operation.branchOffsetsCodeUnit.length * 2) + 4;
+		return (length * 2) + 4;
 	}
 
 	if (operation.operation === 'sparse-switch-payload') {
+		const length = getBranchOffsetsLength(operation);
+		if (length === undefined) {
+			throw new Error('sparse-switch-payload missing branch offsets array');
+		}
 		// Header (2 code units) + keys (2 code units each) + targets (2 code units each)
-		return (operation.branchOffsetsCodeUnit.length * 4) + 2;
+		return (length * 4) + 2;
 	}
 
 	if (operation.operation === 'fill-array-data-payload') {
 		// data.length is already the total number of bytes (size * elementWidth)
-		const dataSize = operation.data.length;
+		const dataSize = operation.data!.length;
 		const paddingSize = dataSize % 2;
 		const totalBytes = 8 + dataSize + paddingSize; // header (8 bytes) + data + padding
 		return totalBytes / 2; // Convert to code units
@@ -320,33 +340,24 @@ export function wrapBranchOffsets(
 }
 
 /**
- * Calculate the size of a Tier 2 operation in code units (16-bit words).
+ * Build mapping from instruction index to code unit offset.
+ * Works with any tier of operations.
  */
-export function getConvertedOperationSizeInCodeUnits(operation: ConvertedDalvikBytecodeOperation): number {
-	if (operation.operation === 'packed-switch-payload') {
-		// Header (4 code units) + targets (2 code units each)
-		return ((operation as any).branchOffsetsIndex.length * 2) + 4;
+export function buildIndexToCodeUnitMapGeneric(
+	instructions: Array<{ operation: string; data?: Uint8Array | number[] }>,
+): IndexToCodeUnitMap {
+	const map: IndexToCodeUnitMap = new Map();
+	let codeUnitOffset = 0;
+
+	for (let index = 0; index < instructions.length; index++) {
+		map.set(isoInstructionIndex.wrap(index), isoCodeUnit.wrap(codeUnitOffset));
+		codeUnitOffset += getOperationSizeInCodeUnits(instructions[index]);
 	}
 
-	if (operation.operation === 'sparse-switch-payload') {
-		// Header (2 code units) + keys (2 code units each) + targets (2 code units each)
-		return ((operation as any).branchOffsetsIndex.length * 4) + 2;
-	}
+	// Map the end position
+	map.set(isoInstructionIndex.wrap(instructions.length), isoCodeUnit.wrap(codeUnitOffset));
 
-	if (operation.operation === 'fill-array-data-payload') {
-		// data.length is already the total number of bytes (size * elementWidth)
-		const dataSize = operation.data.length;
-		const paddingSize = dataSize % 2;
-		const totalBytes = 8 + dataSize + paddingSize; // header (8 bytes) + data + padding
-		return totalBytes / 2; // Convert to code units
-	}
-
-	const format = operationFormats[operation.operation as keyof typeof operationFormats];
-	if (!format) {
-		throw new Error(`Unknown operation format: ${operation.operation}`);
-	}
-
-	return formatSizes[format];
+	return map;
 }
 
 /**
@@ -355,48 +366,7 @@ export function getConvertedOperationSizeInCodeUnits(operation: ConvertedDalvikB
 export function buildIndexToCodeUnitMapFromConverted(
 	instructions: ConvertedDalvikBytecodeOperation[],
 ): IndexToCodeUnitMap {
-	const map: IndexToCodeUnitMap = new Map();
-	let codeUnitOffset = 0;
-
-	for (let index = 0; index < instructions.length; index++) {
-		map.set(isoInstructionIndex.wrap(index), isoCodeUnit.wrap(codeUnitOffset));
-		codeUnitOffset += getConvertedOperationSizeInCodeUnits(instructions[index]);
-	}
-
-	// Map the end position
-	map.set(isoInstructionIndex.wrap(instructions.length), isoCodeUnit.wrap(codeUnitOffset));
-
-	return map;
-}
-
-/**
- * Calculate the size of a Tier 3 operation in code units (16-bit words).
- */
-export function getResolvedOperationSizeInCodeUnits(operation: ResolvedDalvikBytecodeOperation): number {
-	if (operation.operation === 'packed-switch-payload') {
-		// Header (4 code units) + targets (2 code units each)
-		return ((operation as any).branchOffsets.length * 2) + 4;
-	}
-
-	if (operation.operation === 'sparse-switch-payload') {
-		// Header (2 code units) + keys (2 code units each) + targets (2 code units each)
-		return ((operation as any).branchOffsets.length * 4) + 2;
-	}
-
-	if (operation.operation === 'fill-array-data-payload') {
-		// data.length is already the total number of bytes (size * elementWidth)
-		const dataSize = operation.data.length;
-		const paddingSize = dataSize % 2;
-		const totalBytes = 8 + dataSize + paddingSize; // header (8 bytes) + data + padding
-		return totalBytes / 2; // Convert to code units
-	}
-
-	const format = operationFormats[operation.operation as keyof typeof operationFormats];
-	if (!format) {
-		throw new Error(`Unknown operation format: ${operation.operation}`);
-	}
-
-	return formatSizes[format];
+	return buildIndexToCodeUnitMapGeneric(instructions);
 }
 
 /**
@@ -405,18 +375,7 @@ export function getResolvedOperationSizeInCodeUnits(operation: ResolvedDalvikByt
 export function buildIndexToCodeUnitMapFromResolved(
 	instructions: ResolvedDalvikBytecodeOperation[],
 ): IndexToCodeUnitMap {
-	const map: IndexToCodeUnitMap = new Map();
-	let codeUnitOffset = 0;
-
-	for (let index = 0; index < instructions.length; index++) {
-		map.set(isoInstructionIndex.wrap(index), isoCodeUnit.wrap(codeUnitOffset));
-		codeUnitOffset += getResolvedOperationSizeInCodeUnits(instructions[index]);
-	}
-
-	// Map the end position
-	map.set(isoInstructionIndex.wrap(instructions.length), isoCodeUnit.wrap(codeUnitOffset));
-
-	return map;
+	return buildIndexToCodeUnitMapGeneric(instructions);
 }
 
 /**

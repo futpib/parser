@@ -1,7 +1,7 @@
 import invariant from 'invariant';
 import { type Simplify } from 'type-fest';
 import { type DalvikBytecode, type DalvikBytecodeOperation, dalvikBytecodeOperationCompanion } from './dalvikBytecodeParser.js';
-import { type ResolvedDalvikBytecodeOperation } from './dalvikBytecodeParser/addressConversion.js';
+import { type ResolvedDalvikBytecodeOperation, getOperationSizeInCodeUnits } from './dalvikBytecodeParser/addressConversion.js';
 import {
 	type DalvikExecutableAccessFlags, dalvikExecutableAccessFlagsDefault, type DalvikExecutableAnnotation, type DalvikExecutableClassAnnotations, type DalvikExecutableClassData, type DalvikExecutableClassDefinition, type DalvikExecutableClassMethodAnnotation, type DalvikExecutableClassParameterAnnotation, type DalvikExecutableCode, type DalvikExecutableDebugInfo, type DalvikExecutableEncodedValue, type DalvikExecutableField, dalvikExecutableFieldEquals, type DalvikExecutableFieldWithAccess, type DalvikExecutableMethod, dalvikExecutableMethodEquals, type DalvikExecutableMethodWithAccess, type DalvikExecutablePrototype, isDalvikExecutableField, isDalvikExecutableMethod,
 } from './dalvikExecutable.js';
@@ -20,8 +20,6 @@ import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 import { createSeparatedArrayParser } from './separatedArrayParser.js';
 import { smaliMemberNameParser, smaliTypeDescriptorParser } from './dalvikExecutableParser/stringSyntaxParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
-import { formatSizes } from './dalvikBytecodeParser/formatSizes.js';
-import { operationFormats } from './dalvikBytecodeParser/operationFormats.js';
 import { createSeparatedNonEmptyArrayParser } from './separatedNonEmptyArrayParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
 import { type IndexIntoMethodIds } from './dalvikExecutableParser/typedNumbers.js';
@@ -38,30 +36,6 @@ function shortyFromLongy(longy: string): string {
 	return longy.slice(0, 1);
 }
 
-function getOperationFormatSize(operation: SmaliCodeOperation): number {
-	if (operation.operation === 'packed-switch-payload') {
-		return (operation.branchOffsetIndices.length * 2) + 4;
-	}
-
-	if (operation.operation === 'sparse-switch-payload') {
-		return (operation.branchOffsetIndices.length * 4) + 2;
-	}
-
-	if (operation.operation === 'fill-array-data-payload') {
-		const dataSize = operation.data.length; // in bytes
-		const paddingSize = dataSize % 2; // 1 if odd, 0 if even
-		const totalBytes = 8 + dataSize + paddingSize; // header (8 bytes) + data + padding
-		return totalBytes / 2; // Convert to code units (1 code unit = 2 bytes)
-	}
-
-	const operationFormat = operationFormats[operation.operation as keyof typeof operationFormats];
-	invariant(operationFormat, 'Unknown operation format for "%s" (operation: %o)', operation.operation, operation);
-
-	const operationSize = formatSizes[operationFormat];
-	invariant(operationSize, 'Unknown operation size for format %s of operation %s', operationFormat, operation.operation);
-
-	return operationSize;
-}
 
 // Helper function to convert raw annotation element values to tagged encoded values
 function convertToTaggedEncodedValue(wrappedValue: SmaliAnnotationElementValue): DalvikExecutableEncodedValue {
@@ -2145,12 +2119,12 @@ const smaliExecutableCodeParser: Parser<SmaliExecutableCode<DalvikBytecode>, str
 
 		// Build debug info from debug directives
 		// Debug info still uses code unit offsets (addressDiff), so we need to build the mapping
-		// IMPORTANT: Must be done BEFORE deleting branchOffsetIndices, as getOperationFormatSize uses it
+		// IMPORTANT: Must be done BEFORE deleting branchOffsetIndices, as getOperationSizeInCodeUnits uses it
 		const codeUnitOffsetByInstructionIndex = new Map<number, number>();
 		let codeUnitOffset = 0;
 		for (let i = 0; i < instructions.length; i++) {
 			codeUnitOffsetByInstructionIndex.set(i, codeUnitOffset);
-			codeUnitOffset += getOperationFormatSize(instructions[i]);
+			codeUnitOffset += getOperationSizeInCodeUnits(instructions[i]);
 		}
 		codeUnitOffsetByInstructionIndex.set(instructions.length, codeUnitOffset);
 		// Alias for backward compatibility with debug info code
