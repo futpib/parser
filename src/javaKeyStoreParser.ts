@@ -37,15 +37,14 @@ const createUint32BECountPrefixedParser = <T>(elementParser: Parser<T, Uint8Arra
 	count => createQuantifierParser(elementParser, count),
 )();
 
+const mutf8Decoder = new MUtf8Decoder();
+
 const javaModifiedUTF8StringParser: Parser<string, Uint8Array> = promiseCompose(
 	parserCreatorCompose(
 		() => uint16BEParser,
 		length => createFixedLengthSequenceParser(length),
 	)(),
-	uint8Array => {
-		const mutf8Decoder = new MUtf8Decoder();
-		return mutf8Decoder.decode(uint8Array);
-	},
+	uint8Array => mutf8Decoder.decode(uint8Array),
 );
 
 const uint32LengthPrefixedUint8ArrayParser = parserCreatorCompose(
