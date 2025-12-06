@@ -161,7 +161,7 @@ export const createZipUnparser = ({
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
 			zipLocalFileHeader.compressionMethod = zipEntry.compression;
-			zipLocalFileHeader.crc32 = 0; // TODO
+			zipLocalFileHeader.crc32 = zlib.crc32(zipEntry.content);
 			zipLocalFileHeader.compressedSize = compressedContent.length;
 			zipLocalFileHeader.uncompressedSize = zipEntry.content.length;
 
@@ -215,7 +215,7 @@ export const createZipUnparser = ({
 		if (zipEntry.type === 'file') {
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
-			yield * uint32LEUnparser(0, unparserContext); // Crc32 // TODO
+			yield * uint32LEUnparser(zlib.crc32(zipEntry.content), unparserContext);
 			yield * uint32LEUnparser(compressedContent.length, unparserContext);
 			yield * uint32LEUnparser(zipEntry.content.length, unparserContext);
 		} else {
