@@ -134,6 +134,14 @@ export const createZipUnparser = ({
 		return [ [ zipEntry, promise.then(([ , compressedContent ]) => compressedContent) ] ];
 	}));
 
+	const crc32ByZipFileEntry = new Map<ZipFileEntry, number>(zip.entries.flatMap(zipEntry => {
+		if (zipEntry.type !== 'file') {
+			return [];
+		}
+
+		return [ [ zipEntry, zlib.crc32(zipEntry.content) ] ];
+	}));
+
 	const filePathByZipEntry = new Map<ZipEntry, string>(zip.entries.map(zipEntry => [ zipEntry, zipEntry.type === 'file' ? zipEntry.path : zipEntry.path + '/' ]));
 
 	const localHeaderPositionByZipEntry = new Map<ZipEntry, number>();
@@ -164,7 +172,7 @@ export const createZipUnparser = ({
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
 			zipLocalFileHeader.compressionMethod = zipEntry.compression;
-			actualCrc32 = zlib.crc32(zipEntry.content);
+			actualCrc32 = crc32ByZipFileEntry.get(zipEntry)!;
 			actualCompressedSize = compressedContent.length;
 			actualUncompressedSize = zipEntry.content.length;
 
@@ -222,7 +230,7 @@ export const createZipUnparser = ({
 		if (zipEntry.type === 'file') {
 			const compressedContent = await compressedContentByZipFileEntry.get(zipEntry)!;
 
-			yield * uint32LEUnparser(zlib.crc32(zipEntry.content), unparserContext);
+			yield * uint32LEUnparser(crc32ByZipFileEntry.get(zipEntry)!, unparserContext);
 			yield * uint32LEUnparser(compressedContent.length, unparserContext);
 			yield * uint32LEUnparser(zipEntry.content.length, unparserContext);
 		} else {
