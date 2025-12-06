@@ -95,3 +95,38 @@ expectType<string>(checkCastOp.type);
 type ConstStringOperation = Extract<ParsedOperation, { operation: 'const-string' }>;
 declare const constStringOp: ConstStringOperation;
 expectType<string>(constStringOp.string);
+
+// Test that raw index fields do NOT exist on resolved types
+// @ts-expect-error - methodIndex should not exist, use method instead
+invokeVirtualOp.methodIndex;
+// @ts-expect-error - fieldIndex should not exist, use field instead
+igetOp.fieldIndex;
+// @ts-expect-error - typeIndex should not exist, use type instead
+checkCastOp.typeIndex;
+// @ts-expect-error - stringIndex should not exist, use string instead
+constStringOp.stringIndex;
+
+// Test that values can be constructed with resolved fields
+const _invokeVirtual: InvokeVirtualOperation = {
+	operation: 'invoke-virtual',
+	registers: [0],
+	method: { class: 'Lfoo/Bar;', prototype: { shorty: 'V', returnType: 'V', parameters: [] }, name: 'baz' },
+};
+
+const _iget: IgetOperation = {
+	operation: 'iget',
+	registers: [0, 1],
+	field: { class: 'Lfoo/Bar;', type: 'I', name: 'x' },
+};
+
+const _checkCast: CheckCastOperation = {
+	operation: 'check-cast',
+	registers: [0],
+	type: 'Lfoo/Bar;',
+};
+
+const _constString: ConstStringOperation = {
+	operation: 'const-string',
+	registers: [0],
+	string: 'hello',
+};
