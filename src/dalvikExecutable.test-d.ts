@@ -74,3 +74,24 @@ expectType<number>(ifEqOp.targetInstructionIndex);
 type IfEqzOperation = Extract<ParsedOperation, { operation: 'if-eqz' }>;
 declare const ifEqzOp: IfEqzOperation;
 expectType<number>(ifEqzOp.targetInstructionIndex);
+
+// Test that index fields are resolved to their actual types (not raw indices)
+// Operations with methodIndex should have method: DalvikExecutableMethod
+type InvokeVirtualOperation = Extract<ParsedOperation, { operation: 'invoke-virtual' }>;
+declare const invokeVirtualOp: InvokeVirtualOperation;
+expectType<{ class: string; prototype: { shorty: string; returnType: string; parameters: string[] }; name: string }>(invokeVirtualOp.method);
+
+// Operations with fieldIndex should have field: DalvikExecutableField
+type IgetOperation = Extract<ParsedOperation, { operation: 'iget' }>;
+declare const igetOp: IgetOperation;
+expectType<{ class: string; type: string; name: string }>(igetOp.field);
+
+// Operations with typeIndex should have type: string
+type CheckCastOperation = Extract<ParsedOperation, { operation: 'check-cast' }>;
+declare const checkCastOp: CheckCastOperation;
+expectType<string>(checkCastOp.type);
+
+// Operations with stringIndex should have string: string
+type ConstStringOperation = Extract<ParsedOperation, { operation: 'const-string' }>;
+declare const constStringOp: ConstStringOperation;
+expectType<string>(constStringOp.string);

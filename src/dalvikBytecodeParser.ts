@@ -2933,7 +2933,7 @@ const rawDalvikBytecodeParser: Parser<RawDalvikBytecode, Uint8Array> = promiseCo
 
 export const createRawDalvikBytecodeParser = (size: number): Parser<RawDalvikBytecode, Uint8Array> => createSliceBoundedParser(rawDalvikBytecodeParser, size, true);
 
-type IndexResolvedRawDalvikBytecodeOperation<T extends RawDalvikBytecodeOperation> = T extends { stringIndex: IndexIntoFieldIds }
+export type IndexResolvedOperation<T> = T extends { stringIndex: IndexIntoStringIds }
 	? Omit<T, 'stringIndex'> & { string: string }
 	: T extends { typeIndex: IndexIntoTypeIds }
 		? Omit<T, 'typeIndex'> & { type: string }
@@ -2942,6 +2942,8 @@ type IndexResolvedRawDalvikBytecodeOperation<T extends RawDalvikBytecodeOperatio
 			: T extends { fieldIndex: IndexIntoFieldIds }
 				? Omit<T, 'fieldIndex'> & { field: DalvikExecutableField }
 				: T;
+
+type IndexResolvedRawDalvikBytecodeOperation<T extends RawDalvikBytecodeOperation> = IndexResolvedOperation<T>;
 
 export type RawDalvikBytecodeOperationResolvers = {
 	resolveIndexIntoStringIds: (index: IndexIntoStringIds) => string;

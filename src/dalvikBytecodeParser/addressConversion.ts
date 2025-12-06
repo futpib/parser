@@ -1,4 +1,4 @@
-import { type RawDalvikBytecodeOperation } from '../dalvikBytecodeParser.js';
+import { type RawDalvikBytecodeOperation, type IndexResolvedOperation } from '../dalvikBytecodeParser.js';
 import {
 	type CodeUnit, isoCodeUnit,
 	type InstructionIndex, isoInstructionIndex,
@@ -234,7 +234,9 @@ export type ResolvedBranchOffsetOperation<T> = T extends { branchOffsetIndex: In
 		? Omit<T, 'branchOffsetsIndex'> & { targetInstructionIndices: number[] }
 		: T;
 
-export type DalvikBytecodeOperation = ResolvedBranchOffsetOperation<ConvertedRawDalvikBytecodeOperation>;
+// Final public type: applies both branch offset resolution and index resolution
+// This ensures methodIndex→method, fieldIndex→field, typeIndex→type, stringIndex→string
+export type DalvikBytecodeOperation = IndexResolvedOperation<ResolvedBranchOffsetOperation<ConvertedRawDalvikBytecodeOperation>>;
 export type DalvikBytecode = DalvikBytecodeOperation[];
 
 /**
