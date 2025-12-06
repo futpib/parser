@@ -2395,11 +2395,13 @@ const createDalvikExecutableDataParser = <Instructions>({
 			}
 
 			if (dexMapItem.type === 'callSiteIdItem') {
-				// TODO
+				// TODO: Implement callSiteIdItem parser
+				continue;
 			}
 
 			if (dexMapItem.type === 'methodHandleItem') {
-				// TODO
+				// TODO: Implement methodHandleItem parser
+				continue;
 			}
 
 			if (dexMapItem.type === 'mapList') {
@@ -2462,7 +2464,8 @@ const createDalvikExecutableDataParser = <Instructions>({
 			}
 
 			if (dexMapItem.type === 'hiddenApiClassDataItem') {
-				// TODO
+				// TODO: Implement hiddenApiClassDataItem parser
+				continue;
 			}
 
 			invariant(false, 'Unexpected map item type: %s', dexMapItem.type);
