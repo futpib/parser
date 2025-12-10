@@ -430,7 +430,7 @@ test('annotated class', async t => {
 		types: [{
 			type: 'ClassOrInterfaceDeclaration',
 			modifiers: [{ type: 'Modifier', keyword: 'PUBLIC' }],
-			annotations: [{ name: { type: 'Name', identifier: 'Deprecated' } }],
+			annotations: [{ type: 'MarkerAnnotationExpr', name: { type: 'Name', identifier: 'Deprecated' } }],
 			name: { type: 'SimpleName', identifier: 'OldClass' },
 			isInterface: false,
 			typeParameters: [],
@@ -540,11 +540,10 @@ public class Foo {
 			implementedTypes: [],
 			permittedTypes: [],
 			members: [{
-				type: 'MethodDeclaration',
+				type: { type: 'VoidType', annotations: [] },
 				modifiers: [{ type: 'Modifier', keyword: 'PUBLIC' }],
 				annotations: [],
 				typeParameters: [],
-				type_: { type: 'VoidType', annotations: [] },
 				name: { type: 'SimpleName', identifier: 'bar' },
 				parameters: [],
 				thrownExceptions: [],
@@ -585,9 +584,8 @@ public class Foo {
 				modifiers: [{ type: 'Modifier', keyword: 'PRIVATE' }],
 				annotations: [],
 				variables: [{
-					type: 'VariableDeclarator',
+					type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 					name: { type: 'SimpleName', identifier: 'x' },
-					type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 				}],
 			}],
 		}],
@@ -621,27 +619,24 @@ public class Foo {
 			implementedTypes: [],
 			permittedTypes: [],
 			members: [{
-				type: 'MethodDeclaration',
+				type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 				modifiers: [{ type: 'Modifier', keyword: 'PUBLIC' }],
 				annotations: [],
 				typeParameters: [],
-				type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 				name: { type: 'SimpleName', identifier: 'add' },
 				parameters: [
 					{
-						type: 'Parameter',
+						type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 						modifiers: [],
 						annotations: [],
-						type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 						isVarArgs: false,
 						varArgsAnnotations: [],
 						name: { type: 'SimpleName', identifier: 'a' },
 					},
 					{
-						type: 'Parameter',
+						type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 						modifiers: [],
 						annotations: [],
-						type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 						isVarArgs: false,
 						varArgsAnnotations: [],
 						name: { type: 'SimpleName', identifier: 'b' },
@@ -652,6 +647,554 @@ public class Foo {
 			}],
 		}],
 	});
+});
+
+test('class with generic type field', async t => {
+	const source = `
+public class Foo {
+	private List<String> items;
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.deepEqual(result, {
+		type: 'CompilationUnit',
+		packageDeclaration: undefined,
+		imports: [],
+		types: [{
+			type: 'ClassOrInterfaceDeclaration',
+			modifiers: [{ type: 'Modifier', keyword: 'PUBLIC' }],
+			annotations: [],
+			name: { type: 'SimpleName', identifier: 'Foo' },
+			isInterface: false,
+			typeParameters: [],
+			extendedTypes: [],
+			implementedTypes: [],
+			permittedTypes: [],
+			members: [{
+				type: 'FieldDeclaration',
+				modifiers: [{ type: 'Modifier', keyword: 'PRIVATE' }],
+				annotations: [],
+				variables: [{
+					type: {
+						type: 'ClassOrInterfaceType',
+						name: { type: 'SimpleName', identifier: 'List' },
+						typeArguments: [{
+							type: 'ClassOrInterfaceType',
+							name: { type: 'SimpleName', identifier: 'String' },
+							annotations: [],
+						}],
+						annotations: [],
+					},
+					name: { type: 'SimpleName', identifier: 'items' },
+				}],
+			}],
+		}],
+	});
+});
+
+test('class with field initializer', async t => {
+	const source = `
+public class Foo {
+	private static final String NAME = "test";
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	const classDecl = result.types[0] as { members: unknown[] };
+	t.is(classDecl.members.length, 1);
+	t.is((classDecl.members[0] as { type: string }).type, 'FieldDeclaration');
+});
+
+test('class with complex field initializer', async t => {
+	const source = `
+public class Foo {
+	private static final ThreadLocal<Config> config = ThreadLocal.withInitial(Config::new);
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	const classDecl = result.types[0] as { members: unknown[] };
+	t.is(classDecl.members.length, 1);
+	t.is((classDecl.members[0] as { type: string }).type, 'FieldDeclaration');
+});
+
+test('class with annotated method', async t => {
+	const source = `
+public class Foo {
+	@Deprecated
+	public void bar() {}
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	const classDecl = result.types[0] as { members: Array<{ parameters?: unknown[]; annotations: unknown[] }> };
+	t.is(classDecl.members.length, 1);
+	// Methods have parameters, fields have variables
+	t.truthy(classDecl.members[0].parameters);
+	t.is(classDecl.members[0].annotations.length, 1);
+});
+
+test('class with field and method', async t => {
+	const source = `
+public class Foo {
+	private int x;
+	public int getX() {}
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	const classDecl = result.types[0] as { members: Array<{ type: string | object; variables?: unknown[]; parameters?: unknown[] }> };
+	t.is(classDecl.members.length, 2);
+	// Fields have type: 'FieldDeclaration' and variables
+	t.is(classDecl.members[0].type, 'FieldDeclaration');
+	t.truthy(classDecl.members[0].variables);
+	// Methods have type: {...} (return type object) and parameters
+	t.truthy(classDecl.members[1].parameters);
+});
+
+test('class with multiline field initializer', async t => {
+	const source = `
+public class Foo {
+	private static final ThreadLocal<Config> config =
+		ThreadLocal.withInitial(Config::new);
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	const classDecl = result.types[0] as { members: Array<{ type: string }> };
+	t.is(classDecl.members.length, 1);
+	t.is(classDecl.members[0].type, 'FieldDeclaration');
+});
+
+test('generic method', async t => {
+	const source = `public class Foo {
+    public static <T extends Expression> T parseExpression(String expression) {
+        return null;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('wildcard type', async t => {
+	const source = `public class Foo {
+    public static BodyDeclaration<?> parse(String body) {
+        return null;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with javadoc', async t => {
+	const source = `
+/**
+ * A test class.
+ */
+public class Foo {
+	public void bar() {}
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+	const classDecl = result.types[0] as { members: unknown[] };
+	t.is(classDecl.members.length, 1);
+});
+
+test('public final class', async t => {
+	const source = `
+package com.example;
+
+/**
+ * A test class.
+ */
+public final class Foo {
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with imports and javadoc', async t => {
+	const source = `
+package com.example;
+
+import java.io.*;
+import java.util.List;
+
+/**
+ * A test class.
+ */
+public final class Foo {
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.imports.length, 2);
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with link in javadoc', async t => {
+	const source = `
+package com.example;
+
+/**
+ * A simpler, static API than {@link JavaParser}.
+ */
+public final class Foo {
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with many imports', async t => {
+	const source = `
+package com.github.javaparser;
+
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.ImportDeclaration;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.PackageDeclaration;
+import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.modules.ModuleDeclaration;
+import com.github.javaparser.ast.modules.ModuleDirective;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt;
+import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.ast.type.TypeParameter;
+import com.github.javaparser.javadoc.Javadoc;
+import com.github.javaparser.quality.NotNull;
+import com.github.javaparser.quality.Preconditions;
+import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+
+/**
+ * A simpler, static API than {@link JavaParser}.
+ */
+public final class StaticJavaParser {
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.imports.length, 23);
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('StaticJavaParser full', async t => {
+	const source = `/*
+ * Copyright (C) 2007-2010 Júlio Vilmar Gesser.
+ * Copyright (C) 2011, 2013-2024 The JavaParser Team.
+ *
+ * This file is part of JavaParser.
+ *
+ * JavaParser can be used either under the terms of
+ * a) the GNU Lesser General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License, or
+ *     (at your option) any later version.
+ * b) the terms of the Apache License
+ *
+ * You should have received a copy of both licenses in LICENCE.LGPL and
+ * LICENCE.APACHE. Please refer to those files for details.
+ *
+ * JavaParser is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ */
+package com.github.javaparser;
+
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.ImportDeclaration;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.PackageDeclaration;
+import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.modules.ModuleDeclaration;
+import com.github.javaparser.ast.modules.ModuleDirective;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt;
+import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.ast.type.TypeParameter;
+import com.github.javaparser.javadoc.Javadoc;
+import com.github.javaparser.quality.NotNull;
+import com.github.javaparser.quality.Preconditions;
+import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+
+/**
+ * A simpler, static API than {@link JavaParser}.
+ */
+public final class StaticJavaParser {
+
+    // use ThreadLocal to resolve possible concurrency issues.
+    private static final ThreadLocal<ParserConfiguration> localConfiguration =
+            ThreadLocal.withInitial(ParserConfiguration::new);
+
+    /**
+     * Get the configuration for the parse... methods. Deprecated method.
+     *
+     * @deprecated use {@link #getParserConfiguration()} instead
+     */
+    @Deprecated
+    public static ParserConfiguration getConfiguration() {
+        return getParserConfiguration();
+    }
+
+    /**
+     * Get the configuration for the parse... methods.
+     */
+    public static ParserConfiguration getParserConfiguration() {
+        return localConfiguration.get();
+    }
+
+    /**
+     * Set the configuration for the static parse... methods.
+     * This is a STATIC field, so modifying it will directly change how all static parse... methods work!
+     */
+    public static void setConfiguration(@NotNull ParserConfiguration configuration) {
+        Preconditions.checkNotNull(configuration, "Parameter configuration can't be null.");
+        localConfiguration.set(configuration);
+    }
+
+    /**
+     * Parses the Java code contained in the {@link InputStream} and returns a
+     * {@link CompilationUnit} that represents it.
+     *
+     * @param in {@link InputStream} containing Java source code. It will be closed after parsing.
+     * @param encoding encoding of the source code
+     * @return CompilationUnit representing the Java source code
+     * @throws ParseProblemException if the source code has parser errors
+     * @deprecated set the encoding in the {@link ParserConfiguration}
+     */
+    @Deprecated
+    public static CompilationUnit parse(@NotNull final InputStream in, @NotNull Charset encoding) {
+        Preconditions.checkNotNull(in, "Parameter in can't be null.");
+        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
+        return handleResult(newParser().parse(in, encoding));
+    }
+
+    /**
+     * Parses the Java code contained in the {@link InputStream} and returns a
+     * {@link CompilationUnit} that represents it.<br>
+     *
+     * @param in {@link InputStream} containing Java source code. It will be closed after parsing.
+     * @return CompilationUnit representing the Java source code
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public static CompilationUnit parse(@NotNull final InputStream in) {
+        Preconditions.checkNotNull(in, "Parameter in can't be null.");
+        return newParserAdapted().parse(in);
+    }
+
+    /**
+     * Parses the Java code contained in a {@link File} and returns a
+     * {@link CompilationUnit} that represents it.
+     *
+     * @param file {@link File} containing Java source code. It will be closed after parsing.
+     * @param encoding encoding of the source code
+     * @return CompilationUnit representing the Java source code
+     * @throws ParseProblemException if the source code has parser errors
+     * @throws FileNotFoundException the file was not found
+     * @deprecated set the encoding in the {@link ParserConfiguration}
+     */
+    @Deprecated
+    public static CompilationUnit parse(@NotNull final File file, @NotNull final Charset encoding)
+            throws FileNotFoundException {
+        Preconditions.checkNotNull(file, "Parameter file can't be null.");
+        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
+        return handleResult(newParser().parse(file, encoding));
+    }
+
+    /**
+     * Parses the Java code contained in a {@link File} and returns a
+     * {@link CompilationUnit} that represents it.<br>
+     *
+     * @param file {@link File} containing Java source code. It will be closed after parsing.
+     * @return CompilationUnit representing the Java source code
+     * @throws ParseProblemException if the source code has parser errors
+     * @throws FileNotFoundException the file was not found
+     */
+    public static CompilationUnit parse(@NotNull final File file) throws FileNotFoundException {
+        Preconditions.checkNotNull(file, "Parameter file can't be null.");
+        return newParserAdapted().parse(file);
+    }
+
+    /**
+     * Parses the Java code contained in a file and returns a
+     * {@link CompilationUnit} that represents it.
+     *
+     * @param path path to a file containing Java source code
+     * @param encoding encoding of the source code
+     * @return CompilationUnit representing the Java source code
+     * @throws IOException the path could not be accessed
+     * @throws ParseProblemException if the source code has parser errors
+     * @deprecated set the encoding in the {@link ParserConfiguration}
+     */
+    @Deprecated
+    public static CompilationUnit parse(@NotNull final Path path, @NotNull final Charset encoding) throws IOException {
+        Preconditions.checkNotNull(path, "Parameter path can't be null.");
+        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
+        return handleResult(newParser().parse(path, encoding));
+    }
+
+    public static CompilationUnit parse(@NotNull final Path path) throws IOException {
+        Preconditions.checkNotNull(path, "Parameter path can't be null.");
+        return newParserAdapted().parse(path);
+    }
+
+    public static CompilationUnit parseResource(@NotNull final String path) throws IOException {
+        Preconditions.checkNotNull(path, "Parameter path can't be null.");
+        return newParserAdapted().parseResource(path);
+    }
+
+    @Deprecated
+    public static CompilationUnit parseResource(@NotNull final String path, @NotNull Charset encoding)
+            throws IOException {
+        Preconditions.checkNotNull(path, "Parameter path can't be null.");
+        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
+        return handleResult(newParser().parseResource(path, encoding));
+    }
+
+    @Deprecated
+    public static CompilationUnit parseResource(
+            @NotNull final ClassLoader classLoader, @NotNull final String path, @NotNull Charset encoding)
+            throws IOException {
+        Preconditions.checkNotNull(classLoader, "Parameter classLoader can't be null.");
+        Preconditions.checkNotNull(path, "Parameter path can't be null.");
+        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
+        return handleResult(newParser().parseResource(classLoader, path, encoding));
+    }
+
+    public static CompilationUnit parse(@NotNull final Reader reader) {
+        Preconditions.checkNotNull(reader, "Parameter reader can't be null.");
+        return newParserAdapted().parse(reader);
+    }
+
+    public static CompilationUnit parse(@NotNull String code) {
+        Preconditions.checkNotNull(code, "Parameter code can't be null.");
+        return newParserAdapted().parse(code);
+    }
+
+    public static BlockStmt parseBlock(@NotNull final String blockStatement) {
+        Preconditions.checkNotNull(blockStatement, "Parameter blockStatement can't be null.");
+        return newParserAdapted().parseBlock(blockStatement);
+    }
+
+    public static Statement parseStatement(@NotNull final String statement) {
+        Preconditions.checkNotNull(statement, "Parameter statement can't be null.");
+        return newParserAdapted().parseStatement(statement);
+    }
+
+    public static ImportDeclaration parseImport(@NotNull final String importDeclaration) {
+        Preconditions.checkNotNull(importDeclaration, "Parameter importDeclaration can't be null.");
+        return newParserAdapted().parseImport(importDeclaration);
+    }
+
+    public static <T extends Expression> T parseExpression(@NotNull final String expression) {
+        Preconditions.checkNotNull(expression, "Parameter expression can't be null.");
+        return newParserAdapted().parseExpression(expression);
+    }
+
+    public static AnnotationExpr parseAnnotation(@NotNull final String annotation) {
+        Preconditions.checkNotNull(annotation, "Parameter annotation can't be null.");
+        return newParserAdapted().parseAnnotation(annotation);
+    }
+
+    public static BodyDeclaration<?> parseAnnotationBodyDeclaration(@NotNull final String body) {
+        Preconditions.checkNotNull(body, "Parameter body can't be null.");
+        return newParserAdapted().parseAnnotationBodyDeclaration(body);
+    }
+
+    private StaticJavaParser() {}
+}
+`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
 });
 
 test('clone javaparser repo and list files', async t => {
@@ -679,4 +1222,4 @@ class Main {
 	t.is(output, 'Hello from Java!');
 });
 
-test.skip(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/StaticJavaParser.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/StaticJavaParser.java');

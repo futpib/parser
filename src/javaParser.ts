@@ -20,7 +20,7 @@ import {
 // Temporary local types while migrating to javaparser format
 type JavaIdentifier = string;
 type JavaQualifiedName = { parts: JavaIdentifier[] };
-type JavaAnnotation = { name: JavaName };
+type JavaAnnotation = { type: 'MarkerAnnotationExpr'; name: JavaName };
 type JavaPackageDeclaration = { annotations: JavaAnnotation[]; name: JavaQualifiedName };
 type JavaEnumDeclarationOutput = {
 	type: 'EnumDeclaration';
@@ -149,13 +149,18 @@ const javaQualifiedNameParser: Parser<JavaQualifiedName, string> = promiseCompos
 setParserName(javaQualifiedNameParser, 'javaQualifiedNameParser');
 
 // Annotation: @Name
-// TODO: annotation arguments like @Name(value = "foo")
-const javaAnnotationParser: Parser<JavaAnnotation, string> = promiseCompose(
+// TODO: annotation arguments like @Name(value = "foo") -> SingleMemberAnnotationExpr or NormalAnnotationExpr
+type JavaMarkerAnnotationExprOutput = {
+	type: 'MarkerAnnotationExpr';
+	name: JavaName;
+};
+
+const javaAnnotationParser: Parser<JavaMarkerAnnotationExprOutput, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('@'),
 		javaNameParser,
 	]),
-	([, name]) => ({ name }),
+	([, name]) => ({ type: 'MarkerAnnotationExpr' as const, name }),
 );
 
 setParserName(javaAnnotationParser, 'javaAnnotationParser');
@@ -307,7 +312,55 @@ type JavaClassOrInterfaceTypeOutput = {
 // Forward declaration for recursive type parsing
 let javaTypeParser: Parser<unknown, string>;
 
-// Type arguments: <T, U, V>
+// Wildcard type: ?, ? extends Foo, ? super Foo
+type JavaWildcardTypeOutput = {
+	type: 'WildcardType';
+	extendedType?: unknown;
+	superType?: unknown;
+};
+
+const javaWildcardTypeParser: Parser<JavaWildcardTypeOutput, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('?'),
+		javaSkippableParser,
+		createOptionalParser(
+			createUnionParser([
+				promiseCompose(
+					createTupleParser([
+						createExactSequenceParser('extends'),
+						javaSkippableParser,
+						(ctx) => javaTypeParser(ctx),
+					]),
+					([, , type]) => ({ extendedType: type }),
+				),
+				promiseCompose(
+					createTupleParser([
+						createExactSequenceParser('super'),
+						javaSkippableParser,
+						(ctx) => javaTypeParser(ctx),
+					]),
+					([, , type]) => ({ superType: type }),
+				),
+			]),
+		),
+	]),
+	([, , bounds]) => ({
+		type: 'WildcardType' as const,
+		...(bounds ?? {}),
+	}),
+);
+
+setParserName(javaWildcardTypeParser, 'javaWildcardTypeParser');
+
+// Type argument: either a type or a wildcard
+const javaTypeArgumentParser: Parser<unknown, string> = createUnionParser([
+	javaWildcardTypeParser,
+	(ctx) => javaTypeParser(ctx),
+]);
+
+setParserName(javaTypeArgumentParser, 'javaTypeArgumentParser');
+
+// Type arguments: <T, U, V> or <?, ? extends Foo>
 const javaTypeArgumentsParser: Parser<unknown[], string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('<'),
@@ -315,8 +368,7 @@ const javaTypeArgumentsParser: Parser<unknown[], string> = promiseCompose(
 		createSeparatedNonEmptyArrayParser(
 			promiseCompose(
 				createTupleParser([
-					// Lazy evaluation for recursive reference
-					(ctx) => javaTypeParser(ctx),
+					javaTypeArgumentParser,
 					javaSkippableParser,
 				]),
 				([type]) => type,
@@ -336,6 +388,83 @@ const javaTypeArgumentsParser: Parser<unknown[], string> = promiseCompose(
 );
 
 setParserName(javaTypeArgumentsParser, 'javaTypeArgumentsParser');
+
+// Type parameter: T, T extends Foo, T extends Foo & Bar
+type JavaTypeParameterOutput = {
+	type: 'TypeParameter';
+	annotations: unknown[];
+	name: JavaSimpleName;
+	typeBound: unknown[];
+};
+
+const javaTypeParameterParser: Parser<JavaTypeParameterOutput, string> = promiseCompose(
+	createTupleParser([
+		javaSimpleNameParser,
+		javaSkippableParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('extends'),
+					javaSkippableParser,
+					createSeparatedNonEmptyArrayParser(
+						promiseCompose(
+							createTupleParser([
+								(ctx) => javaTypeParser(ctx),
+								javaSkippableParser,
+							]),
+							([type]) => type,
+						),
+						promiseCompose(
+							createTupleParser([
+								createExactSequenceParser('&'),
+								javaSkippableParser,
+							]),
+							() => '&',
+						),
+					),
+				]),
+				([, , bounds]) => bounds,
+			),
+		),
+	]),
+	([name, , typeBound]) => ({
+		type: 'TypeParameter' as const,
+		annotations: [],  // TODO: parse type parameter annotations
+		name,
+		typeBound: typeBound ?? [],
+	}),
+);
+
+setParserName(javaTypeParameterParser, 'javaTypeParameterParser');
+
+// Type parameters: <T>, <T, U>, <T extends Foo>
+const javaTypeParametersParser: Parser<JavaTypeParameterOutput[], string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('<'),
+		javaSkippableParser,
+		createSeparatedNonEmptyArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaTypeParameterParser,
+					javaSkippableParser,
+				]),
+				([param]) => param,
+			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser(','),
+					javaSkippableParser,
+				]),
+				() => ',',
+			),
+		),
+		javaSkippableParser,
+		createExactSequenceParser('>'),
+	]),
+	([, , params]) => params,
+);
+
+setParserName(javaTypeParametersParser, 'javaTypeParametersParser');
 
 // ClassOrInterfaceType: Foo, com.example.Foo, List<T>, Map<K, V>
 const javaClassOrInterfaceTypeParser: Parser<JavaClassOrInterfaceTypeOutput, string> = promiseCompose(
@@ -424,10 +553,9 @@ const javaSkipBalancedBracesParser: Parser<string, string> = promiseCompose(
 
 // Parameter: @Annotation final Type name
 type JavaParameterOutput = {
-	type: 'Parameter';
+	type: unknown;  // The type of the parameter (overwrites node type in JSON)
 	modifiers: JavaModifier[];
 	annotations: unknown[];
-	type_: unknown;
 	isVarArgs: boolean;
 	varArgsAnnotations: unknown[];
 	name: JavaSimpleName;
@@ -443,11 +571,10 @@ const javaParameterParser: Parser<JavaParameterOutput, string> = promiseCompose(
 		javaSkippableParser,
 		javaSimpleNameParser,
 	]),
-	([annotations, modifiers, type_, , varArgs, , name]) => ({
-		type: 'Parameter' as const,
+	([annotations, modifiers, paramType, , varArgs, , name]) => ({
+		type: paramType,  // Note: javaparser outputs type twice, JSON.parse keeps the last value
 		modifiers,
 		annotations,
-		type_,
 		isVarArgs: varArgs !== undefined,
 		varArgsAnnotations: [],
 		name,
@@ -532,11 +659,10 @@ setParserName(javaBlockStmtParser, 'javaBlockStmtParser');
 
 // Method declaration
 type JavaMethodDeclarationOutput = {
-	type: 'MethodDeclaration';
+	type: unknown;  // Return type (overwrites node type in JSON)
 	modifiers: JavaModifier[];
 	annotations: unknown[];
 	typeParameters: unknown[];
-	type_: unknown;
 	name: JavaSimpleName;
 	parameters: JavaParameterOutput[];
 	thrownExceptions: JavaClassOrInterfaceTypeOutput[];
@@ -547,7 +673,15 @@ const javaMethodDeclarationParser: Parser<JavaMethodDeclarationOutput, string> =
 	createTupleParser([
 		javaAnnotationsParser,
 		javaModifiersParser,
-		// TODO: type parameters <T, U>
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					javaTypeParametersParser,
+					javaSkippableParser,
+				]),
+				([params]) => params,
+			),
+		),
 		javaTypeParser,
 		javaSkippableParser,
 		javaSimpleNameParser,
@@ -568,12 +702,11 @@ const javaMethodDeclarationParser: Parser<JavaMethodDeclarationOutput, string> =
 			promiseCompose(createExactSequenceParser(';'), () => undefined),
 		]),
 	]),
-	([annotations, modifiers, type_, , name, , parameters, , thrownExceptions, body]) => ({
-		type: 'MethodDeclaration' as const,
+	([annotations, modifiers, typeParameters, returnType, , name, , parameters, , thrownExceptions, body]) => ({
+		type: returnType,  // Note: javaparser outputs type twice, JSON.parse keeps the last value
 		modifiers,
 		annotations,
-		typeParameters: [],
-		type_,
+		typeParameters: typeParameters ?? [],
 		name,
 		parameters,
 		thrownExceptions: thrownExceptions ?? [],
@@ -585,9 +718,8 @@ setParserName(javaMethodDeclarationParser, 'javaMethodDeclarationParser');
 
 // Field declaration: modifiers type name [= init] [, name2 [= init2]] ;
 type JavaVariableDeclaratorOutput = {
-	type: 'VariableDeclarator';
+	type: unknown;  // Variable type (overwrites node type in JSON)
 	name: JavaSimpleName;
-	type_: unknown;
 	initializer?: unknown;
 };
 
@@ -639,14 +771,13 @@ const javaFieldDeclarationParser: Parser<JavaFieldDeclarationOutput, string> = p
 		javaSkippableParser,
 		createExactSequenceParser(';'),
 	]),
-	([annotations, modifiers, type_, , variables]) => ({
+	([annotations, modifiers, varType, , variables]) => ({
 		type: 'FieldDeclaration' as const,
 		modifiers,
 		annotations,
 		variables: variables.map(v => ({
-			type: 'VariableDeclarator' as const,
+			type: varType,  // Note: javaparser outputs type twice, JSON.parse keeps the last value
 			name: v.name,
-			type_,
 			...(v.initializer ? { initializer: v.initializer } : {}),
 		})),
 	}),
