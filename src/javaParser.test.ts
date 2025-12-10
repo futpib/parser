@@ -4,11 +4,14 @@ import test from 'ava';
 import envPaths from 'env-paths';
 import { execa } from 'execa';
 import { temporaryDirectory } from 'tempy';
+import { hasExecutable } from './hasExecutable.js';
 import { runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { javaCompilationUnitParser } from './javaParser.js';
 
 const paths = envPaths('parser.futpib.github.io');
+
+const hasMvnPromise = hasExecutable('mvn');
 
 const javaparserCommit = '6232a2103ebdbb0dd5b32d11e2c36ab62777b8f6';
 
@@ -232,6 +235,11 @@ function normalizeJavaparserAst(ast: JavaparserAst) {
 const compareWithJavaparser = test.macro({
 	title: (_, relativePath: string) => `compare: ${relativePath}`,
 	exec: async (t, relativePath: string) => {
+		if (!await hasMvnPromise) {
+			t.pass('skipping test because mvn is not available');
+			return;
+		}
+
 		const repoDir = await cloneJavaparserRepo();
 		const filePath = path.join(repoDir, relativePath);
 
@@ -458,6 +466,11 @@ test('clone javaparser repo and list files', async t => {
 });
 
 test('run java snippet', async t => {
+	if (!await hasMvnPromise) {
+		t.pass('skipping test because mvn is not available');
+		return;
+	}
+
 	const code = `
 class Main {
 	public static void main(String[] args) {
