@@ -315,6 +315,7 @@ let javaTypeParser: Parser<unknown, string>;
 // Wildcard type: ?, ? extends Foo, ? super Foo
 type JavaWildcardTypeOutput = {
 	type: 'WildcardType';
+	annotations: unknown[];
 	extendedType?: unknown;
 	superType?: unknown;
 };
@@ -346,6 +347,7 @@ const javaWildcardTypeParser: Parser<JavaWildcardTypeOutput, string> = promiseCo
 	]),
 	([, , bounds]) => ({
 		type: 'WildcardType' as const,
+		annotations: [],
 		...(bounds ?? {}),
 	}),
 );
@@ -649,11 +651,16 @@ type JavaBlockStmtOutput = {
 	statements: unknown[];
 };
 
+// Forward declaration - will be defined after expression parsers
+let javaStatementParser: Parser<unknown, string>;
+let javaBlockStmtParserWithStatements: Parser<JavaBlockStmtOutput, string>;
+
+// Simple block parser that skips content (used during initial parsing)
 const javaBlockStmtParser: Parser<JavaBlockStmtOutput, string> = promiseCompose(
 	javaSkipBalancedBracesParser,
 	() => ({
 		type: 'BlockStmt' as const,
-		statements: [], // TODO: parse actual statements
+		statements: [], // Will be replaced by javaBlockStmtParserWithStatements
 	}),
 );
 
@@ -701,7 +708,7 @@ const javaMethodDeclarationParser: Parser<JavaMethodDeclarationOutput, string> =
 			),
 		),
 		createUnionParser([
-			javaBlockStmtParser,
+			(ctx) => javaBlockStmtParserWithStatements(ctx),
 			promiseCompose(createExactSequenceParser(';'), () => undefined),
 		]),
 	]),
@@ -735,11 +742,425 @@ type JavaFieldDeclarationOutput = {
 	variables: JavaVariableDeclaratorOutput[];
 };
 
-// Skip balanced expression (for field initializers)
+// Expression parsers
+// Forward declaration for recursive expression parsing
+let javaExpressionParser: Parser<unknown, string>;
+
+// NameExpr: simple name reference like `foo`
+type JavaNameExprOutput = {
+	type: 'NameExpr';
+	name: JavaSimpleName;
+};
+
+const javaNameExprParser: Parser<JavaNameExprOutput, string> = promiseCompose(
+	javaSimpleNameParser,
+	name => ({ type: 'NameExpr' as const, name }),
+);
+
+setParserName(javaNameExprParser, 'javaNameExprParser');
+
+// StringLiteralExpr: "string"
+type JavaStringLiteralExprOutput = {
+	type: 'StringLiteralExpr';
+	value: string;
+};
+
+const javaStringLiteralExprParser: Parser<JavaStringLiteralExprOutput, string> = promiseCompose(
+	createRegExpParser(/"(?:[^"\\]|\\.)*"/),
+	match => ({
+		type: 'StringLiteralExpr' as const,
+		value: match[0].slice(1, -1), // Remove quotes
+	}),
+);
+
+setParserName(javaStringLiteralExprParser, 'javaStringLiteralExprParser');
+
+// IntegerLiteralExpr: 123, 0x1F, etc.
+type JavaIntegerLiteralExprOutput = {
+	type: 'IntegerLiteralExpr';
+	value: string;
+};
+
+const javaIntegerLiteralExprParser: Parser<JavaIntegerLiteralExprOutput, string> = promiseCompose(
+	createRegExpParser(/(?:0x[0-9a-fA-F]+|0b[01]+|0[0-7]*|[1-9][0-9]*)[lL]?/),
+	match => ({
+		type: 'IntegerLiteralExpr' as const,
+		value: match[0],
+	}),
+);
+
+setParserName(javaIntegerLiteralExprParser, 'javaIntegerLiteralExprParser');
+
+// NullLiteralExpr: null
+type JavaNullLiteralExprOutput = {
+	type: 'NullLiteralExpr';
+};
+
+const javaNullLiteralExprParser: Parser<JavaNullLiteralExprOutput, string> = promiseCompose(
+	createExactSequenceParser('null'),
+	() => ({ type: 'NullLiteralExpr' as const }),
+);
+
+setParserName(javaNullLiteralExprParser, 'javaNullLiteralExprParser');
+
+// BooleanLiteralExpr: true, false
+type JavaBooleanLiteralExprOutput = {
+	type: 'BooleanLiteralExpr';
+	value: boolean;
+};
+
+const javaBooleanLiteralExprParser: Parser<JavaBooleanLiteralExprOutput, string> = createUnionParser([
+	promiseCompose(createExactSequenceParser('true'), () => ({ type: 'BooleanLiteralExpr' as const, value: true })),
+	promiseCompose(createExactSequenceParser('false'), () => ({ type: 'BooleanLiteralExpr' as const, value: false })),
+]);
+
+setParserName(javaBooleanLiteralExprParser, 'javaBooleanLiteralExprParser');
+
+// TypeExpr: used in method references like ParserConfiguration::new
+type JavaTypeExprOutput = {
+	type: 'TypeExpr';
+	type_: unknown;
+};
+
+const javaTypeExprParser: Parser<JavaTypeExprOutput, string> = promiseCompose(
+	javaClassOrInterfaceTypeParser,
+	type_ => ({ type: 'TypeExpr' as const, type_ }),
+);
+
+setParserName(javaTypeExprParser, 'javaTypeExprParser');
+
+// MethodReferenceExpr: Foo::bar or Foo::new
+type JavaMethodReferenceExprOutput = {
+	type: 'MethodReferenceExpr';
+	scope: unknown;
+	identifier: string;
+};
+
+const javaMethodReferenceExprParser: Parser<JavaMethodReferenceExprOutput, string> = promiseCompose(
+	createTupleParser([
+		javaTypeExprParser,
+		javaSkippableParser,
+		createExactSequenceParser('::'),
+		javaSkippableParser,
+		javaIdentifierParser,
+	]),
+	([scope, , , , identifier]) => ({
+		type: 'MethodReferenceExpr' as const,
+		scope,
+		identifier,
+	}),
+);
+
+setParserName(javaMethodReferenceExprParser, 'javaMethodReferenceExprParser');
+
+// Argument list: (arg1, arg2, ...)
+const javaArgumentListParser: Parser<unknown[], string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('('),
+		javaSkippableParser,
+		createOptionalParser(
+			createSeparatedNonEmptyArrayParser(
+				promiseCompose(
+					createTupleParser([
+						(ctx) => javaExpressionParser(ctx),
+						javaSkippableParser,
+					]),
+					([expr]) => expr,
+				),
+				promiseCompose(
+					createTupleParser([
+						createExactSequenceParser(','),
+						javaSkippableParser,
+					]),
+					() => ',',
+				),
+			),
+		),
+		javaSkippableParser,
+		createExactSequenceParser(')'),
+	]),
+	([, , args]) => args ?? [],
+);
+
+setParserName(javaArgumentListParser, 'javaArgumentListParser');
+
+// MethodCallExpr: foo.bar(args) or bar(args)
+type JavaMethodCallExprOutput = {
+	type: 'MethodCallExpr';
+	scope?: unknown;
+	name: JavaSimpleName;
+	arguments: unknown[];
+};
+
+// Simple method call without scope: foo(args)
+const javaSimpleMethodCallExprParser: Parser<JavaMethodCallExprOutput, string> = promiseCompose(
+	createTupleParser([
+		javaSimpleNameParser,
+		javaSkippableParser,
+		javaArgumentListParser,
+	]),
+	([name, , args]) => ({
+		type: 'MethodCallExpr' as const,
+		name,
+		arguments: args,
+	}),
+);
+
+setParserName(javaSimpleMethodCallExprParser, 'javaSimpleMethodCallExprParser');
+
+// ObjectCreationExpr: new ClassName(args)
+const javaObjectCreationExprParser = createObjectParser({
+	_new: createExactSequenceParser('new'),
+	_ws1: javaWhitespaceParser, // Must have whitespace after 'new' to avoid matching 'newFoo()' as method call
+	type: 'ObjectCreationExpr' as const,
+	type_: javaClassOrInterfaceTypeParser,
+	_ws2: javaSkippableParser,
+	arguments: javaArgumentListParser,
+});
+
+setParserName(javaObjectCreationExprParser, 'javaObjectCreationExprParser');
+
+// Primary expression (without method calls chained)
+const javaPrimaryExprParser: Parser<unknown, string> = createDisjunctionParser([
+	javaStringLiteralExprParser,
+	javaIntegerLiteralExprParser,
+	javaNullLiteralExprParser,
+	javaBooleanLiteralExprParser,
+	javaObjectCreationExprParser, // new Foo() - must come before NameExpr
+	javaMethodReferenceExprParser,
+	javaSimpleMethodCallExprParser, // foo() - must come before NameExpr
+	javaNameExprParser, // Must be last since it matches any identifier
+]);
+
+setParserName(javaPrimaryExprParser, 'javaPrimaryExprParser');
+
+// FieldAccessExpr: scope.field
+type JavaFieldAccessExprOutput = {
+	type: 'FieldAccessExpr';
+	scope: unknown;
+	name: JavaSimpleName;
+};
+
+// Expression with optional member access chain: expr.field, expr.method(args), expr::method
+javaExpressionParser = promiseCompose(
+	createTupleParser([
+		javaPrimaryExprParser,
+		createArrayParser(
+			createDisjunctionParser([
+				// Method reference: ::identifier
+				promiseCompose(
+					createTupleParser([
+						javaSkippableParser,
+						createExactSequenceParser('::'),
+						javaSkippableParser,
+						javaIdentifierParser,
+					]),
+					([, , , identifier]) => ({ type: 'methodReference' as const, identifier }),
+				),
+				// Field access or method call: .name[(args)]
+				promiseCompose(
+					createTupleParser([
+						javaSkippableParser,
+						createExactSequenceParser('.'),
+						javaSkippableParser,
+						javaSimpleNameParser,
+						javaSkippableParser,
+						createOptionalParser(javaArgumentListParser),
+					]),
+					([, , , name, , args]) => ({ type: 'member' as const, name, arguments: args }),
+				),
+			]),
+		),
+	]),
+	([primary, members]) => {
+		let result = primary;
+		for (const member of members) {
+			if (member.type === 'methodReference') {
+				result = {
+					type: 'MethodReferenceExpr' as const,
+					scope: result,
+					identifier: member.identifier,
+				};
+			} else if (member.arguments !== undefined) {
+				result = {
+					type: 'MethodCallExpr' as const,
+					scope: result,
+					name: member.name,
+					arguments: member.arguments,
+				};
+			} else {
+				result = {
+					type: 'FieldAccessExpr' as const,
+					scope: result,
+					name: member.name,
+				};
+			}
+		}
+		return result;
+	},
+);
+
+setParserName(javaExpressionParser, 'javaExpressionParser');
+
+// Skip balanced expression (fallback for complex initializers we can't parse yet)
 const javaSkipInitializerParser: Parser<unknown, string> = promiseCompose(
 	createRegExpParser(/[^,;{}]+/),
 	() => ({ type: 'UnparsedExpr' }),
 );
+
+// Expression parser with fallback
+const javaInitializerExprParser: Parser<unknown, string> = createDisjunctionParser([
+	javaExpressionParser,
+	javaSkipInitializerParser,
+]);
+
+// Statement parsers
+// ReturnStmt: return expr;
+type JavaReturnStmtOutput = {
+	type: 'ReturnStmt';
+	expression?: unknown;
+};
+
+const javaReturnStmtParser: Parser<JavaReturnStmtOutput, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('return'),
+		javaSkippableParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					javaExpressionParser,
+					javaSkippableParser,
+				]),
+				([expr]) => expr,
+			),
+		),
+		createExactSequenceParser(';'),
+	]),
+	([, , expression]) => ({
+		type: 'ReturnStmt' as const,
+		...(expression ? { expression } : {}),
+	}),
+);
+
+setParserName(javaReturnStmtParser, 'javaReturnStmtParser');
+
+// ThrowStmt: throw expr;
+type JavaThrowStmtOutput = {
+	type: 'ThrowStmt';
+	expression: unknown;
+};
+
+const javaThrowStmtParser: Parser<JavaThrowStmtOutput, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('throw'),
+		javaSkippableParser,
+		javaExpressionParser,
+		javaSkippableParser,
+		createExactSequenceParser(';'),
+	]),
+	([, , expression]) => ({
+		type: 'ThrowStmt' as const,
+		expression,
+	}),
+);
+
+setParserName(javaThrowStmtParser, 'javaThrowStmtParser');
+
+// ExpressionStmt: expr;
+type JavaExpressionStmtOutput = {
+	type: 'ExpressionStmt';
+	expression: unknown;
+};
+
+const javaExpressionStmtParser: Parser<JavaExpressionStmtOutput, string> = promiseCompose(
+	createTupleParser([
+		javaExpressionParser,
+		javaSkippableParser,
+		createExactSequenceParser(';'),
+	]),
+	([expression]) => ({
+		type: 'ExpressionStmt' as const,
+		expression,
+	}),
+);
+
+setParserName(javaExpressionStmtParser, 'javaExpressionStmtParser');
+
+// IfStmt: if (cond) then [else elseStmt]
+type JavaIfStmtOutput = {
+	type: 'IfStmt';
+	condition: unknown;
+	thenStmt: unknown;
+	elseStmt?: unknown;
+};
+
+const javaIfStmtParser: Parser<JavaIfStmtOutput, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('if'),
+		javaSkippableParser,
+		createExactSequenceParser('('),
+		javaSkippableParser,
+		javaExpressionParser,
+		javaSkippableParser,
+		createExactSequenceParser(')'),
+		javaSkippableParser,
+		(ctx) => javaStatementParser(ctx),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					createExactSequenceParser('else'),
+					javaSkippableParser,
+					(ctx) => javaStatementParser(ctx),
+				]),
+				([, , , elseStmt]) => elseStmt,
+			),
+		),
+	]),
+	([, , , , condition, , , , thenStmt, elseStmt]) => ({
+		type: 'IfStmt' as const,
+		condition,
+		thenStmt,
+		...(elseStmt ? { elseStmt } : {}),
+	}),
+);
+
+setParserName(javaIfStmtParser, 'javaIfStmtParser');
+
+// Define the block statement parser with actual statements
+javaBlockStmtParserWithStatements = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('{'),
+		javaSkippableParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					(ctx) => javaStatementParser(ctx),
+					javaSkippableParser,
+				]),
+				([stmt]) => stmt,
+			),
+		),
+		createExactSequenceParser('}'),
+	]),
+	([, , statements]) => ({
+		type: 'BlockStmt' as const,
+		statements,
+	}),
+);
+
+setParserName(javaBlockStmtParserWithStatements, 'javaBlockStmtParserWithStatements');
+
+// Statement parser - combines all statement types
+javaStatementParser = createDisjunctionParser([
+	javaReturnStmtParser,
+	javaThrowStmtParser,
+	javaIfStmtParser,
+	javaBlockStmtParserWithStatements,
+	javaExpressionStmtParser, // Must be last since it's most general
+]);
+
+setParserName(javaStatementParser, 'javaStatementParser');
 
 const javaFieldDeclarationParser: Parser<JavaFieldDeclarationOutput, string> = promiseCompose(
 	createTupleParser([
@@ -757,7 +1178,7 @@ const javaFieldDeclarationParser: Parser<JavaFieldDeclarationOutput, string> = p
 							createTupleParser([
 								createExactSequenceParser('='),
 								javaSkippableParser,
-								javaSkipInitializerParser,
+								javaInitializerExprParser,
 							]),
 							([, , init]) => init,
 						),
@@ -821,7 +1242,7 @@ const javaConstructorDeclarationParser: Parser<JavaConstructorDeclarationOutput,
 				([throws]) => throws,
 			),
 		),
-		javaBlockStmtParser,
+		(ctx) => javaBlockStmtParserWithStatements(ctx),
 	]),
 	([annotations, modifiers, name, , parameters, , thrownExceptions, body]) => ({
 		type: 'ConstructorDeclaration' as const,
@@ -1030,7 +1451,7 @@ setParserName(javaTypeDeclarationParser, 'javaTypeDeclarationParser');
 
 // Compilation unit (top-level)
 export const javaCompilationUnitParser = createObjectParser({
-	type: promiseCompose(createExactSequenceParser(''), () => 'CompilationUnit' as const),
+	type: 'CompilationUnit' as const,
 	_ws1: javaSkippableParser,
 	packageDeclaration: createOptionalParser(
 		promiseCompose(

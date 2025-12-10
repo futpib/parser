@@ -957,52 +957,51 @@ public final class StaticJavaParser {
 	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
 });
 
-test('StaticJavaParser full', async t => {
+test('class with method body', async t => {
+	const source = `public class Foo {
+    public void test() {
+        return;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+	const classDecl = result.types[0] as { members: Array<{ type: string; body?: { statements: unknown[] } }> };
+	t.is(classDecl.members.length, 1);
+	t.is(classDecl.members[0].type, 'MethodDeclaration');
+	t.truthy(classDecl.members[0].body);
+	t.is(classDecl.members[0].body!.statements.length, 1);
+});
+
+test('class with field and line comment', async t => {
+	const source = `public final class StaticJavaParser {
+
+    // use ThreadLocal to resolve possible concurrency issues.
+    private static final ThreadLocal<ParserConfiguration> localConfiguration =
+            ThreadLocal.withInitial(ParserConfiguration::new);
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with copyright header and imports', async t => {
 	const source = `/*
  * Copyright (C) 2007-2010 Júlio Vilmar Gesser.
- * Copyright (C) 2011, 2013-2024 The JavaParser Team.
- *
- * This file is part of JavaParser.
- *
- * JavaParser can be used either under the terms of
- * a) the GNU Lesser General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     (at your option) any later version.
- * b) the terms of the Apache License
- *
- * You should have received a copy of both licenses in LICENCE.LGPL and
- * LICENCE.APACHE. Please refer to those files for details.
- *
- * JavaParser is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
  */
 package com.github.javaparser;
 
-import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.ImportDeclaration;
-import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.PackageDeclaration;
-import com.github.javaparser.ast.body.BodyDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.Parameter;
-import com.github.javaparser.ast.body.TypeDeclaration;
-import com.github.javaparser.ast.expr.*;
-import com.github.javaparser.ast.modules.ModuleDeclaration;
-import com.github.javaparser.ast.modules.ModuleDirective;
-import com.github.javaparser.ast.stmt.BlockStmt;
-import com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt;
-import com.github.javaparser.ast.stmt.Statement;
-import com.github.javaparser.ast.type.ClassOrInterfaceType;
-import com.github.javaparser.ast.type.Type;
-import com.github.javaparser.ast.type.TypeParameter;
-import com.github.javaparser.javadoc.Javadoc;
-import com.github.javaparser.quality.NotNull;
-import com.github.javaparser.quality.Preconditions;
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.file.Path;
 
 /**
  * A simpler, static API than {@link JavaParser}.
@@ -1012,185 +1011,7 @@ public final class StaticJavaParser {
     // use ThreadLocal to resolve possible concurrency issues.
     private static final ThreadLocal<ParserConfiguration> localConfiguration =
             ThreadLocal.withInitial(ParserConfiguration::new);
-
-    /**
-     * Get the configuration for the parse... methods. Deprecated method.
-     *
-     * @deprecated use {@link #getParserConfiguration()} instead
-     */
-    @Deprecated
-    public static ParserConfiguration getConfiguration() {
-        return getParserConfiguration();
-    }
-
-    /**
-     * Get the configuration for the parse... methods.
-     */
-    public static ParserConfiguration getParserConfiguration() {
-        return localConfiguration.get();
-    }
-
-    /**
-     * Set the configuration for the static parse... methods.
-     * This is a STATIC field, so modifying it will directly change how all static parse... methods work!
-     */
-    public static void setConfiguration(@NotNull ParserConfiguration configuration) {
-        Preconditions.checkNotNull(configuration, "Parameter configuration can't be null.");
-        localConfiguration.set(configuration);
-    }
-
-    /**
-     * Parses the Java code contained in the {@link InputStream} and returns a
-     * {@link CompilationUnit} that represents it.
-     *
-     * @param in {@link InputStream} containing Java source code. It will be closed after parsing.
-     * @param encoding encoding of the source code
-     * @return CompilationUnit representing the Java source code
-     * @throws ParseProblemException if the source code has parser errors
-     * @deprecated set the encoding in the {@link ParserConfiguration}
-     */
-    @Deprecated
-    public static CompilationUnit parse(@NotNull final InputStream in, @NotNull Charset encoding) {
-        Preconditions.checkNotNull(in, "Parameter in can't be null.");
-        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
-        return handleResult(newParser().parse(in, encoding));
-    }
-
-    /**
-     * Parses the Java code contained in the {@link InputStream} and returns a
-     * {@link CompilationUnit} that represents it.<br>
-     *
-     * @param in {@link InputStream} containing Java source code. It will be closed after parsing.
-     * @return CompilationUnit representing the Java source code
-     * @throws ParseProblemException if the source code has parser errors
-     */
-    public static CompilationUnit parse(@NotNull final InputStream in) {
-        Preconditions.checkNotNull(in, "Parameter in can't be null.");
-        return newParserAdapted().parse(in);
-    }
-
-    /**
-     * Parses the Java code contained in a {@link File} and returns a
-     * {@link CompilationUnit} that represents it.
-     *
-     * @param file {@link File} containing Java source code. It will be closed after parsing.
-     * @param encoding encoding of the source code
-     * @return CompilationUnit representing the Java source code
-     * @throws ParseProblemException if the source code has parser errors
-     * @throws FileNotFoundException the file was not found
-     * @deprecated set the encoding in the {@link ParserConfiguration}
-     */
-    @Deprecated
-    public static CompilationUnit parse(@NotNull final File file, @NotNull final Charset encoding)
-            throws FileNotFoundException {
-        Preconditions.checkNotNull(file, "Parameter file can't be null.");
-        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
-        return handleResult(newParser().parse(file, encoding));
-    }
-
-    /**
-     * Parses the Java code contained in a {@link File} and returns a
-     * {@link CompilationUnit} that represents it.<br>
-     *
-     * @param file {@link File} containing Java source code. It will be closed after parsing.
-     * @return CompilationUnit representing the Java source code
-     * @throws ParseProblemException if the source code has parser errors
-     * @throws FileNotFoundException the file was not found
-     */
-    public static CompilationUnit parse(@NotNull final File file) throws FileNotFoundException {
-        Preconditions.checkNotNull(file, "Parameter file can't be null.");
-        return newParserAdapted().parse(file);
-    }
-
-    /**
-     * Parses the Java code contained in a file and returns a
-     * {@link CompilationUnit} that represents it.
-     *
-     * @param path path to a file containing Java source code
-     * @param encoding encoding of the source code
-     * @return CompilationUnit representing the Java source code
-     * @throws IOException the path could not be accessed
-     * @throws ParseProblemException if the source code has parser errors
-     * @deprecated set the encoding in the {@link ParserConfiguration}
-     */
-    @Deprecated
-    public static CompilationUnit parse(@NotNull final Path path, @NotNull final Charset encoding) throws IOException {
-        Preconditions.checkNotNull(path, "Parameter path can't be null.");
-        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
-        return handleResult(newParser().parse(path, encoding));
-    }
-
-    public static CompilationUnit parse(@NotNull final Path path) throws IOException {
-        Preconditions.checkNotNull(path, "Parameter path can't be null.");
-        return newParserAdapted().parse(path);
-    }
-
-    public static CompilationUnit parseResource(@NotNull final String path) throws IOException {
-        Preconditions.checkNotNull(path, "Parameter path can't be null.");
-        return newParserAdapted().parseResource(path);
-    }
-
-    @Deprecated
-    public static CompilationUnit parseResource(@NotNull final String path, @NotNull Charset encoding)
-            throws IOException {
-        Preconditions.checkNotNull(path, "Parameter path can't be null.");
-        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
-        return handleResult(newParser().parseResource(path, encoding));
-    }
-
-    @Deprecated
-    public static CompilationUnit parseResource(
-            @NotNull final ClassLoader classLoader, @NotNull final String path, @NotNull Charset encoding)
-            throws IOException {
-        Preconditions.checkNotNull(classLoader, "Parameter classLoader can't be null.");
-        Preconditions.checkNotNull(path, "Parameter path can't be null.");
-        Preconditions.checkNotNull(encoding, "Parameter encoding can't be null.");
-        return handleResult(newParser().parseResource(classLoader, path, encoding));
-    }
-
-    public static CompilationUnit parse(@NotNull final Reader reader) {
-        Preconditions.checkNotNull(reader, "Parameter reader can't be null.");
-        return newParserAdapted().parse(reader);
-    }
-
-    public static CompilationUnit parse(@NotNull String code) {
-        Preconditions.checkNotNull(code, "Parameter code can't be null.");
-        return newParserAdapted().parse(code);
-    }
-
-    public static BlockStmt parseBlock(@NotNull final String blockStatement) {
-        Preconditions.checkNotNull(blockStatement, "Parameter blockStatement can't be null.");
-        return newParserAdapted().parseBlock(blockStatement);
-    }
-
-    public static Statement parseStatement(@NotNull final String statement) {
-        Preconditions.checkNotNull(statement, "Parameter statement can't be null.");
-        return newParserAdapted().parseStatement(statement);
-    }
-
-    public static ImportDeclaration parseImport(@NotNull final String importDeclaration) {
-        Preconditions.checkNotNull(importDeclaration, "Parameter importDeclaration can't be null.");
-        return newParserAdapted().parseImport(importDeclaration);
-    }
-
-    public static <T extends Expression> T parseExpression(@NotNull final String expression) {
-        Preconditions.checkNotNull(expression, "Parameter expression can't be null.");
-        return newParserAdapted().parseExpression(expression);
-    }
-
-    public static AnnotationExpr parseAnnotation(@NotNull final String annotation) {
-        Preconditions.checkNotNull(annotation, "Parameter annotation can't be null.");
-        return newParserAdapted().parseAnnotation(annotation);
-    }
-
-    public static BodyDeclaration<?> parseAnnotationBodyDeclaration(@NotNull final String body) {
-        Preconditions.checkNotNull(body, "Parameter body can't be null.");
-        return newParserAdapted().parseAnnotationBodyDeclaration(body);
-    }
-
-    private StaticJavaParser() {}
-}
-`;
+}`;
 	const result = await runParser(
 		javaCompilationUnitParser,
 		source,
@@ -1199,6 +1020,95 @@ public final class StaticJavaParser {
 
 	t.is(result.types.length, 1);
 	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('read file and parse', async t => {
+	// Write a file with the same content and read it back
+	const source = `/*
+ * Copyright (C) 2007-2010 Júlio Vilmar Gesser.
+ */
+package com.github.javaparser;
+
+import java.io.*;
+
+/**
+ * A simpler, static API than {@link JavaParser}.
+ */
+public final class StaticJavaParser {
+
+    // use ThreadLocal to resolve possible concurrency issues.
+    private static final ThreadLocal<ParserConfiguration> localConfiguration =
+            ThreadLocal.withInitial(ParserConfiguration::new);
+}`;
+	const tmpDir = temporaryDirectory();
+	const tmpFile = path.join(tmpDir, 'Test.java');
+	try {
+		await fs.writeFile(tmpFile, source, 'utf-8');
+		const readSource = await fs.readFile(tmpFile, 'utf-8');
+		const result = await runParser(
+			javaCompilationUnitParser,
+			readSource,
+			stringParserInputCompanion,
+		);
+
+		t.is(result.types.length, 1);
+		t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+	} finally {
+		await fs.rm(tmpDir, { recursive: true, force: true });
+	}
+});
+
+test('StaticJavaParser minimal', async t => {
+	const source = `public class Foo {
+    public void test() {
+        throw new Exception();
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with static method returning method call', async t => {
+	const source = `public final class Foo {
+    public static Config getConfig() {
+        return getParserConfiguration();
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with return method call', async t => {
+	const source = `public class Foo {
+    public Config getConfig() {
+        return getConfiguration();
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+	const classDecl = result.types[0] as { members: Array<{ type: string; body?: { statements: unknown[] } }> };
+	t.is(classDecl.members.length, 1);
+	t.is(classDecl.members[0].type, 'MethodDeclaration');
+	t.truthy(classDecl.members[0].body);
+	t.is(classDecl.members[0].body!.statements.length, 1);
 });
 
 test('clone javaparser repo and list files', async t => {
