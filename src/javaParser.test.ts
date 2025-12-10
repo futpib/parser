@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import test from 'ava';
 import envPaths from 'env-paths';
 import { execa } from 'execa';
+import PromiseMutex from 'p-mutex';
 import { temporaryDirectory } from 'tempy';
 import { hasExecutable } from './hasExecutable.js';
 import { runParser } from './parser.js';
@@ -15,26 +16,30 @@ const hasMvnPromise = hasExecutable('mvn');
 
 const javaparserCommit = '6232a2103ebdbb0dd5b32d11e2c36ab62777b8f6';
 
+const javaparserGitCacheMutex = new PromiseMutex();
+
 async function ensureJavaparserGitCache() {
-	const cacheDir = path.join(paths.cache, 'javaparser.git');
+	return javaparserGitCacheMutex.withLock(async () => {
+		const cacheDir = path.join(paths.cache, 'javaparser.git');
 
-	try {
-		await fs.access(cacheDir);
+		try {
+			await fs.access(cacheDir);
+			return cacheDir;
+		} catch {
+			// Cache miss, clone the bare repo
+		}
+
+		await fs.mkdir(path.dirname(cacheDir), { recursive: true });
+
+		const tempDir = `${cacheDir}.tmp`;
+		await fs.rm(tempDir, { recursive: true, force: true });
+
+		await execa('git', ['clone', '--bare', 'https://github.com/javaparser/javaparser', tempDir]);
+
+		await fs.rename(tempDir, cacheDir);
+
 		return cacheDir;
-	} catch {
-		// Cache miss, clone the bare repo
-	}
-
-	await fs.mkdir(path.dirname(cacheDir), { recursive: true });
-
-	const tempDir = `${cacheDir}.tmp`;
-	await fs.rm(tempDir, { recursive: true, force: true });
-
-	await execa('git', ['clone', '--bare', 'https://github.com/javaparser/javaparser', tempDir]);
-
-	await fs.rename(tempDir, cacheDir);
-
-	return cacheDir;
+	});
 }
 
 async function cloneJavaparserRepo() {
@@ -54,19 +59,22 @@ async function cloneJavaparserRepo() {
 	return worktree;
 }
 
+const jbangInstallMutex = new PromiseMutex();
+
 async function ensureJbangInstalled() {
-	const jbangDir = path.join(paths.cache, 'jbang');
-	const jbangBin = path.join(jbangDir, '.jbang', 'jbang', 'bin', 'jbang');
+	return jbangInstallMutex.withLock(async () => {
+		const jbangDir = path.join(paths.cache, 'jbang');
+		const jbangBin = path.join(jbangDir, '.jbang', 'jbang', 'bin', 'jbang');
 
-	try {
-		await fs.access(jbangBin);
-		return jbangBin;
-	} catch {
-		// Use maven plugin to bootstrap jbang installation
-	}
+		try {
+			await fs.access(jbangBin);
+			return jbangBin;
+		} catch {
+			// Use maven plugin to bootstrap jbang installation
+		}
 
-	const dir = temporaryDirectory();
-	const pomXml = `<?xml version="1.0" encoding="UTF-8"?>
+		const dir = temporaryDirectory();
+		const pomXml = `<?xml version="1.0" encoding="UTF-8"?>
 <project>
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>test</groupId>
@@ -86,10 +94,11 @@ async function ensureJbangInstalled() {
 		</plugins>
 	</build>
 </project>`;
-	await fs.writeFile(path.join(dir, 'pom.xml'), pomXml);
-	await execa('mvn', ['jbang:run', '-q'], { cwd: dir });
+		await fs.writeFile(path.join(dir, 'pom.xml'), pomXml);
+		await execa('mvn', ['jbang:run', '-q'], { cwd: dir });
 
-	return jbangBin;
+		return jbangBin;
+	});
 }
 
 async function runJavaSnippet(code: string, args: string[] = []) {
