@@ -89,14 +89,14 @@ async function ensureJbangInstalled() {
 	return jbangBin;
 }
 
-async function runJavaSnippet(code: string) {
+async function runJavaSnippet(code: string, args: string[] = []) {
 	const jbangBin = await ensureJbangInstalled();
 
 	const dir = temporaryDirectory();
 	const file = path.join(dir, 'Main.java');
 	await fs.writeFile(file, code);
 
-	const result = await execa(jbangBin, ['--quiet', 'run', file], { cwd: dir });
+	const result = await execa(jbangBin, ['--quiet', 'run', file, ...args], { cwd: dir });
 	return result.stdout.trim();
 }
 
@@ -314,4 +314,84 @@ class Main {
 `;
 	const output = await runJavaSnippet(code);
 	t.is(output, 'Hello from Java!');
+});
+
+test('parse javaparser source file using javaparser', async t => {
+	const repoDir = await cloneJavaparserRepo();
+	const targetFile = path.join(
+		repoDir,
+		'javaparser-core/src/main/java/com/github/javaparser/StaticJavaParser.java',
+	);
+
+	const code = `
+//DEPS com.github.javaparser:javaparser-core:3.26.4
+
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.*;
+import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.type.*;
+import com.github.javaparser.metamodel.*;
+import java.nio.file.Path;
+import java.util.*;
+
+class Main {
+	public static void main(String[] args) throws Exception {
+		Path filePath = Path.of(args[0]);
+		CompilationUnit cu = StaticJavaParser.parse(filePath);
+		System.out.println(toJson(cu));
+	}
+
+	static String toJson(Node node) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("{");
+		sb.append("\\"type\\":\\"").append(node.getClass().getSimpleName()).append("\\"");
+
+		node.getMetaModel().getAllPropertyMetaModels().forEach(prop -> {
+			String name = prop.getName();
+			if (name.equals("comment") || name.equals("parentNode")) return;
+
+			Object value = prop.getValue(node);
+			if (value == null) return;
+
+			sb.append(",\\"").append(name).append("\\":");
+
+			if (value instanceof Node) {
+				sb.append(toJson((Node) value));
+			} else if (value instanceof NodeList) {
+				sb.append("[");
+				NodeList<?> list = (NodeList<?>) value;
+				for (int i = 0; i < list.size(); i++) {
+					if (i > 0) sb.append(",");
+					sb.append(toJson((Node) list.get(i)));
+				}
+				sb.append("]");
+			} else if (value instanceof Optional) {
+				Optional<?> opt = (Optional<?>) value;
+				if (opt.isPresent() && opt.get() instanceof Node) {
+					sb.append(toJson((Node) opt.get()));
+				} else if (opt.isPresent()) {
+					sb.append("\\"").append(opt.get().toString().replace("\\"", "\\\\\\"")).append("\\"");
+				} else {
+					sb.append("null");
+				}
+			} else {
+				sb.append("\\"").append(value.toString().replace("\\"", "\\\\\\"").replace("\\n", "\\\\n")).append("\\"");
+			}
+		});
+
+		sb.append("}");
+		return sb.toString();
+	}
+}
+`;
+
+	const output = await runJavaSnippet(code, [targetFile]);
+	const ast = JSON.parse(output);
+
+	console.dir(ast, { depth: 10 });
+
+	t.is(ast.type, 'CompilationUnit');
+	t.truthy(ast.packageDeclaration);
+	t.is(ast.packageDeclaration.type, 'PackageDeclaration');
 });
