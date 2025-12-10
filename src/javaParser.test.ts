@@ -156,7 +156,9 @@ class Main {
 			Object value = prop.getValue(node);
 			if (value == null) return;
 
-			sb.append(",\\"").append(name).append("\\":");
+			// Rename 'type' property to 'type_' to avoid collision with node class name
+			String outputName = name.equals("type") ? "type_" : name;
+			sb.append(",\\"").append(outputName).append("\\":");
 
 			if (value instanceof Node) {
 				sb.append(toJson((Node) value));
@@ -540,10 +542,11 @@ public class Foo {
 			implementedTypes: [],
 			permittedTypes: [],
 			members: [{
-				type: { type: 'VoidType', annotations: [] },
+				type: 'MethodDeclaration',
 				modifiers: [{ type: 'Modifier', keyword: 'PUBLIC' }],
 				annotations: [],
 				typeParameters: [],
+				type_: { type: 'VoidType', annotations: [] },
 				name: { type: 'SimpleName', identifier: 'bar' },
 				parameters: [],
 				thrownExceptions: [],
@@ -584,8 +587,9 @@ public class Foo {
 				modifiers: [{ type: 'Modifier', keyword: 'PRIVATE' }],
 				annotations: [],
 				variables: [{
-					type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
+					type: 'VariableDeclarator',
 					name: { type: 'SimpleName', identifier: 'x' },
+					type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 				}],
 			}],
 		}],
@@ -619,24 +623,27 @@ public class Foo {
 			implementedTypes: [],
 			permittedTypes: [],
 			members: [{
-				type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
+				type: 'MethodDeclaration',
 				modifiers: [{ type: 'Modifier', keyword: 'PUBLIC' }],
 				annotations: [],
 				typeParameters: [],
+				type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 				name: { type: 'SimpleName', identifier: 'add' },
 				parameters: [
 					{
-						type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
+						type: 'Parameter',
 						modifiers: [],
 						annotations: [],
+						type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 						isVarArgs: false,
 						varArgsAnnotations: [],
 						name: { type: 'SimpleName', identifier: 'a' },
 					},
 					{
-						type: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
+						type: 'Parameter',
 						modifiers: [],
 						annotations: [],
+						type_: { type: 'PrimitiveType', type_: 'INT', annotations: [] },
 						isVarArgs: false,
 						varArgsAnnotations: [],
 						name: { type: 'SimpleName', identifier: 'b' },
@@ -680,7 +687,9 @@ public class Foo {
 				modifiers: [{ type: 'Modifier', keyword: 'PRIVATE' }],
 				annotations: [],
 				variables: [{
-					type: {
+					type: 'VariableDeclarator',
+					name: { type: 'SimpleName', identifier: 'items' },
+					type_: {
 						type: 'ClassOrInterfaceType',
 						name: { type: 'SimpleName', identifier: 'List' },
 						typeArguments: [{
@@ -690,7 +699,6 @@ public class Foo {
 						}],
 						annotations: [],
 					},
-					name: { type: 'SimpleName', identifier: 'items' },
 				}],
 			}],
 		}],
@@ -744,10 +752,9 @@ public class Foo {
 		stringParserInputCompanion,
 	);
 
-	const classDecl = result.types[0] as { members: Array<{ parameters?: unknown[]; annotations: unknown[] }> };
+	const classDecl = result.types[0] as { members: Array<{ type: string; annotations: unknown[] }> };
 	t.is(classDecl.members.length, 1);
-	// Methods have parameters, fields have variables
-	t.truthy(classDecl.members[0].parameters);
+	t.is(classDecl.members[0].type, 'MethodDeclaration');
 	t.is(classDecl.members[0].annotations.length, 1);
 });
 
@@ -764,13 +771,10 @@ public class Foo {
 		stringParserInputCompanion,
 	);
 
-	const classDecl = result.types[0] as { members: Array<{ type: string | object; variables?: unknown[]; parameters?: unknown[] }> };
+	const classDecl = result.types[0] as { members: Array<{ type: string }> };
 	t.is(classDecl.members.length, 2);
-	// Fields have type: 'FieldDeclaration' and variables
 	t.is(classDecl.members[0].type, 'FieldDeclaration');
-	t.truthy(classDecl.members[0].variables);
-	// Methods have type: {...} (return type object) and parameters
-	t.truthy(classDecl.members[1].parameters);
+	t.is(classDecl.members[1].type, 'MethodDeclaration');
 });
 
 test('class with multiline field initializer', async t => {

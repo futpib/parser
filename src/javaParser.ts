@@ -553,9 +553,10 @@ const javaSkipBalancedBracesParser: Parser<string, string> = promiseCompose(
 
 // Parameter: @Annotation final Type name
 type JavaParameterOutput = {
-	type: unknown;  // The type of the parameter (overwrites node type in JSON)
+	type: 'Parameter';
 	modifiers: JavaModifier[];
 	annotations: unknown[];
+	type_: unknown;  // The type of the parameter
 	isVarArgs: boolean;
 	varArgsAnnotations: unknown[];
 	name: JavaSimpleName;
@@ -571,10 +572,11 @@ const javaParameterParser: Parser<JavaParameterOutput, string> = promiseCompose(
 		javaSkippableParser,
 		javaSimpleNameParser,
 	]),
-	([annotations, modifiers, paramType, , varArgs, , name]) => ({
-		type: paramType,  // Note: javaparser outputs type twice, JSON.parse keeps the last value
+	([annotations, modifiers, type_, , varArgs, , name]) => ({
+		type: 'Parameter' as const,
 		modifiers,
 		annotations,
+		type_,
 		isVarArgs: varArgs !== undefined,
 		varArgsAnnotations: [],
 		name,
@@ -659,10 +661,11 @@ setParserName(javaBlockStmtParser, 'javaBlockStmtParser');
 
 // Method declaration
 type JavaMethodDeclarationOutput = {
-	type: unknown;  // Return type (overwrites node type in JSON)
+	type: 'MethodDeclaration';
 	modifiers: JavaModifier[];
 	annotations: unknown[];
 	typeParameters: unknown[];
+	type_: unknown;  // Return type
 	name: JavaSimpleName;
 	parameters: JavaParameterOutput[];
 	thrownExceptions: JavaClassOrInterfaceTypeOutput[];
@@ -702,11 +705,12 @@ const javaMethodDeclarationParser: Parser<JavaMethodDeclarationOutput, string> =
 			promiseCompose(createExactSequenceParser(';'), () => undefined),
 		]),
 	]),
-	([annotations, modifiers, typeParameters, returnType, , name, , parameters, , thrownExceptions, body]) => ({
-		type: returnType,  // Note: javaparser outputs type twice, JSON.parse keeps the last value
+	([annotations, modifiers, typeParameters, type_, , name, , parameters, , thrownExceptions, body]) => ({
+		type: 'MethodDeclaration' as const,
 		modifiers,
 		annotations,
 		typeParameters: typeParameters ?? [],
+		type_,
 		name,
 		parameters,
 		thrownExceptions: thrownExceptions ?? [],
@@ -718,8 +722,9 @@ setParserName(javaMethodDeclarationParser, 'javaMethodDeclarationParser');
 
 // Field declaration: modifiers type name [= init] [, name2 [= init2]] ;
 type JavaVariableDeclaratorOutput = {
-	type: unknown;  // Variable type (overwrites node type in JSON)
+	type: 'VariableDeclarator';
 	name: JavaSimpleName;
+	type_: unknown;  // Variable type
 	initializer?: unknown;
 };
 
@@ -771,13 +776,14 @@ const javaFieldDeclarationParser: Parser<JavaFieldDeclarationOutput, string> = p
 		javaSkippableParser,
 		createExactSequenceParser(';'),
 	]),
-	([annotations, modifiers, varType, , variables]) => ({
+	([annotations, modifiers, type_, , variables]) => ({
 		type: 'FieldDeclaration' as const,
 		modifiers,
 		annotations,
 		variables: variables.map(v => ({
-			type: varType,  // Note: javaparser outputs type twice, JSON.parse keeps the last value
+			type: 'VariableDeclarator' as const,
 			name: v.name,
+			type_,
 			...(v.initializer ? { initializer: v.initializer } : {}),
 		})),
 	}),
