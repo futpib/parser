@@ -75,6 +75,8 @@ export type RunParserWithRemainingInputResult<
 > = {
 	output: Output;
 	position: number;
+	furthestReadPosition: number;
+	furthestPeekedPosition: number;
 	remainingInput: undefined | AsyncIterable<Sequence>;
 };
 
@@ -201,6 +203,8 @@ export async function runParserWithRemainingInput<
 		return {
 			output,
 			position: parserContext.position,
+			furthestReadPosition: inputReader.furthestReadPosition,
+			furthestPeekedPosition: inputReader.furthestPeekedPosition,
 			remainingInput,
 		};
 	});
@@ -228,7 +232,7 @@ export async function runParser<
 		const inputReaderState = inputReader.toInputReaderState();
 
 		if (!inputReaderStateCompanion.isDone(inputReaderState)) {
-			throw new normalParserErrorModule.ParserUnexpectedRemainingInputError('Unexpected remaining input', 0, parserContext.position);
+			throw new normalParserErrorModule.ParserUnexpectedRemainingInputError('Unexpected remaining input', 0, parserContext.position, inputReader.furthestReadPosition, inputReader.furthestPeekedPosition);
 		}
 
 		return output;

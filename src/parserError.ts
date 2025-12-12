@@ -23,6 +23,8 @@ type ParserErrorInterface = ParserError;
 export interface ParserParsingFailedError extends ParserErrorInterface {
 	depth: number;
 	position: number;
+	furthestReadPosition: number;
+	furthestPeekedPosition: number;
 }
 
 export function isParserParsingFailedError(value: unknown): value is ParserParsingFailedError {
@@ -34,6 +36,10 @@ export function isParserParsingFailedError(value: unknown): value is ParserParsi
 			&& typeof value.depth === 'number'
 			&& 'position' in value
 			&& typeof value.position === 'number'
+			&& 'furthestReadPosition' in value
+			&& typeof value.furthestReadPosition === 'number'
+			&& 'furthestPeekedPosition' in value
+			&& typeof value.furthestPeekedPosition === 'number'
 	);
 }
 
@@ -80,6 +86,8 @@ function createParserErrorModule(
 			message: LazyMessage,
 			public readonly depth: number,
 			public readonly position: number,
+			public readonly furthestReadPosition: number,
+			public readonly furthestPeekedPosition: number,
 		) {
 			super(message);
 		}
@@ -102,9 +110,11 @@ function createParserErrorModule(
 			message: LazyMessage,
 			depth: number,
 			position: number,
+			furthestReadPosition: number,
+			furthestPeekedPosition: number,
 			public readonly childErrors: ParserParsingFailedErrorInterface[],
 		) {
-			super(message, depth, position);
+			super(message, depth, position, furthestReadPosition, furthestPeekedPosition);
 		}
 	}
 
@@ -115,9 +125,11 @@ function createParserErrorModule(
 			message: LazyMessage,
 			depth: number,
 			position: number,
+			furthestReadPosition: number,
+			furthestPeekedPosition: number,
 			public readonly childErrors: ParserParsingFailedErrorInterface[],
 		) {
-			super(message, depth, position);
+			super(message, depth, position, furthestReadPosition, furthestPeekedPosition);
 		}
 	}
 
@@ -128,9 +140,11 @@ function createParserErrorModule(
 			message: LazyMessage,
 			depth: number,
 			position: number,
+			furthestReadPosition: number,
+			furthestPeekedPosition: number,
 			public readonly childErrors: ParserParsingFailedErrorInterface[],
 		) {
-			super(message, depth, position);
+			super(message, depth, position, furthestReadPosition, furthestPeekedPosition);
 		}
 	}
 

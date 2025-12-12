@@ -7,6 +7,7 @@ import {
     isParserParsingJoinError,
     normalParserErrorModule,
 	ParserError,
+	ParserParsingFailedError,
 	ParserParsingJoinError,
 } from './parserError.js';
 import { createTupleParser } from './tupleParser.js';
@@ -17,6 +18,8 @@ import { createArrayParser } from './arrayParser.js';
 import { createElementParser } from './elementParser.js';
 import { toAsyncIterable } from './toAsyncIterable.js';
 import { stringFromAsyncIterable } from './stringFromAsyncIterable.js';
+import { createLookaheadParser } from './lookaheadParser.js';
+import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 
 const aUnionParser = createUnionParser([
 	createExactSequenceNaiveParser('1'),
@@ -332,6 +335,8 @@ test('runParserWithRemainingInput with remaining input', async t => {
 		output,
 		remainingInput,
 		position,
+		furthestReadPosition,
+		furthestPeekedPosition,
 		...resultRest
 	} = await runParserWithRemainingInput(parser, 'foobar', stringParserInputCompanion);
 
@@ -339,6 +344,8 @@ test('runParserWithRemainingInput with remaining input', async t => {
 	t.is(output, 'foo');
 	t.is(await stringFromAsyncIterable(remainingInput!), 'bar');
 	t.is(position, 3);
+	t.is(furthestReadPosition, 3);
+	t.is(furthestPeekedPosition, 3);
 });
 
 test('runParserWithRemainingInput without remaining input', async t => {
@@ -347,4 +354,144 @@ test('runParserWithRemainingInput without remaining input', async t => {
 
 	t.is(output, 'foo');
 	t.is(remainingInput, undefined);
+});
+
+test('furthestReadPosition equals position when no backtracking', async t => {
+	const parser: Parser<string, string> = createExactSequenceNaiveParser('foo');
+	const result = await runParserWithRemainingInput(parser, 'foobar', stringParserInputCompanion);
+
+	t.is(result.position, 3);
+	t.is(result.furthestReadPosition, 3);
+	t.is(result.furthestPeekedPosition, 3);
+});
+
+test('furthestReadPosition tracks lookahead that succeeded', async t => {
+	// Parser: lookahead('foo') followed by 'foobar'
+	// The lookahead parses 'foo' (position 3) but doesn't consume it
+	// Then 'foobar' is parsed (position 6)
+	const parser = createTupleParser([
+		createLookaheadParser(createExactSequenceNaiveParser('foo')),
+		createExactSequenceNaiveParser('foobar'),
+	]);
+
+	const result = await runParserWithRemainingInput(parser, 'foobar', stringParserInputCompanion);
+
+	t.is(result.position, 6);
+	t.is(result.furthestReadPosition, 6);
+	t.is(result.furthestPeekedPosition, 6);
+});
+
+test('furthestReadPosition tracks failed lookahead with backtracking', async t => {
+	// Parser: try 'foobar' OR 'foo'
+	// First tries 'foobar', reads 'f','o','o','q' (position 4) then fails because 'q' != 'b'
+	// Backtracks and tries 'foo', succeeds at position 3
+	// furthestReadPosition should be 4 (from the failed 'foobar' attempt that read up to 'q')
+	const parser = createDisjunctionParser([
+		createExactSequenceNaiveParser('foobar'),
+		createExactSequenceNaiveParser('foo'),
+	]);
+
+	const result = await runParserWithRemainingInput(parser, 'fooqux', stringParserInputCompanion);
+
+	t.is(result.output, 'foo');
+	t.is(result.position, 3);
+	t.is(result.furthestReadPosition, 4);
+	t.is(result.furthestPeekedPosition, 3);
+});
+
+test('furthestReadPosition exceeds position after backtracking from longer match', async t => {
+	// Parser: try 'foobarqux' OR 'foo'
+	// First tries 'foobarqux', reads up to position 6 ('foobar'), then fails
+	// Backtracks and tries 'foo', succeeds at position 3
+	// furthestReadPosition should be 6 (from the failed 'foobarqux' attempt)
+	const parser = createDisjunctionParser([
+		createExactSequenceNaiveParser('foobarqux'),
+		createExactSequenceNaiveParser('foo'),
+	]);
+
+	const result = await runParserWithRemainingInput(parser, 'foobar', stringParserInputCompanion);
+
+	t.is(result.output, 'foo');
+	t.is(result.position, 3);
+	t.is(result.furthestReadPosition, 6);
+	t.is(result.furthestPeekedPosition, 6);
+});
+
+test('furthestPeekedPosition differs from furthestReadPosition with lookahead', async t => {
+	// Parser: lookahead('foobar') then 'foo'
+	// The lookahead parses 'foobar':
+	// - Each read() calls peek(0) at positions 0,1,2,3,4,5 then skip(1) advancing to 1,2,3,4,5,6
+	// - This updates furthestReadPosition to 6 and furthestPeekedPosition to 5
+	// Then 'foo' is parsed from position 0, position becomes 3
+	// furthestReadPosition=6 (from lookahead's skip calls)
+	// furthestPeekedPosition=5 (from lookahead's peek calls at positions 0-5)
+	const parser = createTupleParser([
+		createLookaheadParser(createExactSequenceNaiveParser('foobar')),
+		createExactSequenceNaiveParser('foo'),
+	]);
+
+	const result = await runParserWithRemainingInput(parser, 'foobar', stringParserInputCompanion);
+
+	t.is(result.output[1], 'foo');
+	t.is(result.position, 3);
+	t.is(result.furthestReadPosition, 6);
+	t.is(result.furthestPeekedPosition, 5);
+});
+
+test('error has furthestReadPosition after backtracking', async t => {
+	// Parser: try 'foobarqux' OR 'foobaz'
+	// Input: 'foobar'
+	// First tries 'foobarqux', reads up to position 6 ('foobar'), then fails (no 'qux')
+	// Then tries 'foobaz', reads up to position 4 ('foob'), then fails ('b' != 'z')
+	// Both fail, error at position 0, but furthestReadPosition should be 6
+	const parser = createDisjunctionParser([
+		createExactSequenceNaiveParser('foobarqux'),
+		createExactSequenceNaiveParser('foobaz'),
+	]);
+
+	const error = await t.throwsAsync(
+		runParser(parser, 'foobar', stringParserInputCompanion, { errorStack: true }),
+	) as ParserParsingFailedError;
+
+	t.is(error.position, 0);
+	t.is(error.furthestReadPosition, 6);
+	t.is(error.furthestPeekedPosition, 6);
+});
+
+test('error from negative lookahead has furthestReadPosition from lookahead content', async t => {
+	// Parser: negativeLookahead('foobar') then 'foo'
+	// Input: 'foobar'
+	// Negative lookahead tries 'foobar', succeeds (reads to position 6)
+	// Since lookahead succeeded, negative lookahead fails
+	// Error position is 0 (where negative lookahead started), but furthestReadPosition is 6
+	const parser = createTupleParser([
+		createNegativeLookaheadParser(createExactSequenceNaiveParser('foobar')),
+		createExactSequenceNaiveParser('foo'),
+	]);
+
+	const error = await t.throwsAsync(
+		runParser(parser, 'foobar', stringParserInputCompanion, { errorStack: true }),
+		{
+			name: 'ParserParsingInvariantError',
+		},
+	) as ParserParsingFailedError;
+
+	t.is(error.position, 0);
+	t.is(error.furthestReadPosition, 6);
+	t.is(error.furthestPeekedPosition, 5);
+});
+
+test('furthestReadPosition on ParserUnexpectedRemainingInputError', async t => {
+	const parser: Parser<string, string> = createExactSequenceNaiveParser('foo');
+
+	const error = await t.throwsAsync(
+		runParser(parser, 'foobar', stringParserInputCompanion),
+		{
+			name: 'ParserUnexpectedRemainingInputError',
+		},
+	) as ParserParsingFailedError;
+
+	t.is(error.position, 3);
+	t.is(error.furthestReadPosition, 3);
+	t.is(error.furthestPeekedPosition, 3);
 });

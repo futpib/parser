@@ -7,10 +7,15 @@ import { type InputReaderState } from './inputReaderState.js';
 
 export type InputReader<Sequence, Element> = {
 	get position(): number;
+	get furthestReadPosition(): number;
+	get furthestPeekedPosition(): number;
 
 	peek(offset: number): Promise<Element | undefined>;
 	peekSequence(start: number, end: number): Promise<Sequence | undefined>;
 	skip(offset: number): void;
+
+	updateFurthestReadPosition(position: number): void;
+	updateFurthestPeekedPosition(position: number): void;
 
 	lookahead(): InputReader<Sequence, Element>;
 
@@ -23,6 +28,8 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 	private readonly _id = inputReaderId++;
 
 	private _position = 0;
+	private _furthestReadPosition = 0;
+	private _furthestPeekedPosition = 0;
 	private _uncommitedSkipOffset = 0;
 	private _inputAsyncIteratorDone = false;
 
@@ -49,8 +56,26 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		return this._position;
 	}
 
+	get furthestReadPosition() {
+		return this._furthestReadPosition;
+	}
+
+	get furthestPeekedPosition() {
+		return this._furthestPeekedPosition;
+	}
+
+	updateFurthestReadPosition(position: number) {
+		this._furthestReadPosition = Math.max(this._furthestReadPosition, position);
+	}
+
+	updateFurthestPeekedPosition(position: number) {
+		this._furthestPeekedPosition = Math.max(this._furthestPeekedPosition, position);
+	}
+
 	async peek(offset: number): Promise<Element | undefined> {
 		parserImplementationInvariant(offset >= 0, 'offset >= 0');
+
+		this.updateFurthestPeekedPosition(this._position + offset);
 
 		offset += this._uncommitedSkipOffset;
 
@@ -115,6 +140,10 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 			end,
 		);
 
+		if (end > start) {
+			this.updateFurthestPeekedPosition(this._position + end - 1);
+		}
+
 		start += this._uncommitedSkipOffset;
 		end += this._uncommitedSkipOffset;
 
@@ -137,6 +166,7 @@ export class InputReaderImplementation<Sequence, Element> implements InputReader
 		parserImplementationInvariant(offset >= 0, 'offset >= 0');
 
 		this._position += offset;
+		this.updateFurthestReadPosition(this._position);
 
 		if (this._promiseMutex.isLocked) {
 			this._uncommitedSkipOffset += offset;
@@ -185,11 +215,29 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 		return this._initialInputReaderPosition + this._offset;
 	}
 
+	get furthestReadPosition() {
+		return this._inputReader.furthestReadPosition;
+	}
+
+	get furthestPeekedPosition() {
+		return this._inputReader.furthestPeekedPosition;
+	}
+
+	updateFurthestReadPosition(position: number) {
+		this._inputReader.updateFurthestReadPosition(position);
+	}
+
+	updateFurthestPeekedPosition(position: number) {
+		this._inputReader.updateFurthestPeekedPosition(position);
+	}
+
 	async peek(offset: number): Promise<Element | undefined> {
 		const inputReaderMovedForward = this._inputReader.position - this._initialInputReaderPosition;
 
 		this._initialInputReaderPosition = this._inputReader.position;
 		this._offset -= inputReaderMovedForward;
+
+		this.updateFurthestPeekedPosition(this.position + offset);
 
 		return this._inputReader.peek(this._offset + offset);
 	}
@@ -200,6 +248,10 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 		this._initialInputReaderPosition = this._inputReader.position;
 		this._offset -= inputReaderMovedForward;
 
+		if (end > start) {
+			this.updateFurthestPeekedPosition(this.position + end - 1);
+		}
+
 		return this._inputReader.peekSequence(this._offset + start, this._offset + end);
 	}
 
@@ -207,6 +259,7 @@ class InputReaderLookaheadImplementation<Sequence, Element> implements InputRead
 		parserImplementationInvariant(offset >= 0, 'offset >= 0');
 
 		this._offset += offset;
+		this.updateFurthestReadPosition(this.position);
 	}
 
 	lookahead(): InputReader<Sequence, Element> {

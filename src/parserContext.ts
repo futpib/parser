@@ -36,6 +36,8 @@ export type ParserContext<Sequence, Element> = {
 	equals(sequenceA: Sequence, sequenceB: Sequence): boolean;
 
 	get position(): number;
+	get furthestReadPosition(): number;
+	get furthestPeekedPosition(): number;
 	peek(offset: number): Promise<Element | undefined>;
 	peekSequence(start: number, end: number): Promise<Sequence | undefined>;
 	skip(offset: number): void;
@@ -118,6 +120,14 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		return this._inputReader.position;
 	}
 
+	get furthestReadPosition() {
+		return this._inputReader.furthestReadPosition;
+	}
+
+	get furthestPeekedPosition() {
+		return this._inputReader.furthestPeekedPosition;
+	}
+
 	async peek(offset: number): Promise<Element | undefined> {
 		if (
 			this._options.sliceEnd !== undefined
@@ -170,7 +180,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const element = await this.peek(offset);
 
 		if (element === undefined) {
-			throw new this._options.errorsModule.ParserUnexpectedEndOfInputError('', this._depth, this.position);
+			throw new this._options.errorsModule.ParserUnexpectedEndOfInputError('', this._depth, this.position, this._inputReader.furthestReadPosition, this._inputReader.furthestPeekedPosition);
 		}
 
 		this.skip(offset + 1);
@@ -182,7 +192,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const sequence = await this.peekSequence(start, end);
 
 		if (sequence === undefined) {
-			throw new this._options.errorsModule.ParserUnexpectedEndOfInputError('', this._depth, this.position);
+			throw new this._options.errorsModule.ParserUnexpectedEndOfInputError('', this._depth, this.position, this._inputReader.furthestReadPosition, this._inputReader.furthestPeekedPosition);
 		}
 
 		this.skip(end);
@@ -309,7 +319,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 		const parserContext = this;
 
 		return customInvariant(function (lazyMessage: LazyMessage) {
-			return new parserContext._options.errorsModule.ParserParsingInvariantError(lazyMessage, parserContext._depth, parserContext.position);
+			return new parserContext._options.errorsModule.ParserParsingInvariantError(lazyMessage, parserContext._depth, parserContext.position, parserContext._inputReader.furthestReadPosition, parserContext._inputReader.furthestPeekedPosition);
 		}, value, format, ...formatArguments);
 	}
 
@@ -321,22 +331,22 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 		if (errorJoinMode === 'none') {
 			return customInvariant(function (lazyMessage: LazyMessage) {
-				return new parserContext._options.errorsModule.ParserParsingJoinNoneError(lazyMessage, parserContext._depth, parserContext.position);
+				return new parserContext._options.errorsModule.ParserParsingJoinNoneError(lazyMessage, parserContext._depth, parserContext.position, parserContext._inputReader.furthestReadPosition, parserContext._inputReader.furthestPeekedPosition);
 			}, value, format, ...formatArguments);
 		}
 
 		if (errorJoinMode === 'furthest') {
 			return customInvariant(function (userLazyMessage: LazyMessage) {
-				let furthestPosition = 0;
+				let furthestChildErrorPosition = 0;
 				let furthestChildErrors: ParserParsingFailedError[] = [];
 
 				for (const childError of childErrors) {
-					if (childError.position < furthestPosition) {
+					if (childError.position < furthestChildErrorPosition) {
 						continue;
 					}
 
-					if (childError.position > furthestPosition) {
-						furthestPosition = childError.position;
+					if (childError.position > furthestChildErrorPosition) {
+						furthestChildErrorPosition = childError.position;
 						furthestChildErrors = [ childError ];
 						continue;
 					}
@@ -359,7 +369,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 						return furthestChildError.stack?.split('\n').map(line => '  ' + line);
 					}).join('\n'),
-				], parserContext._depth, furthestPosition, furthestChildErrors);
+				], parserContext._depth, furthestChildErrorPosition, parserContext._inputReader.furthestReadPosition, parserContext._inputReader.furthestPeekedPosition, furthestChildErrors);
 			}, value, format, ...formatArguments);
 		}
 
@@ -401,7 +411,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 						return deepestChildError.stack?.split('\n').map(line => '  ' + line);
 					}).join('\n'),
-				], deepestDepth, parserContext.position, deepestChildErrors);
+				], deepestDepth, parserContext.position, parserContext._inputReader.furthestReadPosition, parserContext._inputReader.furthestPeekedPosition, deepestChildErrors);
 			}, value, format, ...formatArguments);
 		}
 
@@ -422,7 +432,7 @@ export class ParserContextImplementation<Sequence, Element> implements ParserCon
 
 						return childError.stack?.split('\n').map(line => '  ' + line);
 					}).join('\n'),
-				], parserContext._depth, parserContext.position, childErrors);
+				], parserContext._depth, parserContext.position, parserContext._inputReader.furthestReadPosition, parserContext._inputReader.furthestPeekedPosition, childErrors);
 			}, value, format, ...formatArguments);
 		}
 
