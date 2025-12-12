@@ -1161,3 +1161,4 @@ class Main {
 
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/StaticJavaParser.java');
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Position.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Range.java');

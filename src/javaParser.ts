@@ -1137,6 +1137,45 @@ const javaUnaryExprParser: Parser<unknown, string> = createDisjunctionParser([
 
 setParserName(javaUnaryExprParser, 'javaUnaryExprParser');
 
+// Multiplicative operator (*, /, %)
+const javaMultiplicativeOperatorParser: Parser<string, string> = createDisjunctionParser([
+	promiseCompose(createExactSequenceParser('*'), () => 'MULTIPLY'),
+	promiseCompose(createExactSequenceParser('/'), () => 'DIVIDE'),
+	promiseCompose(createExactSequenceParser('%'), () => 'REMAINDER'),
+]);
+
+// Multiplicative expression
+const javaMultiplicativeExprParser: Parser<unknown, string> = promiseCompose(
+	createTupleParser([
+		javaUnaryExprParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					javaMultiplicativeOperatorParser,
+					javaSkippableParser,
+					javaUnaryExprParser,
+				]),
+				([, operator, , right]) => ({ operator, right }),
+			),
+		),
+	]),
+	([left, operations]) => {
+		let result = left;
+		for (const op of operations) {
+			result = {
+				type: 'BinaryExpr' as const,
+				left: result,
+				right: op.right,
+				operator: op.operator,
+			};
+		}
+		return result;
+	},
+);
+
+setParserName(javaMultiplicativeExprParser, 'javaMultiplicativeExprParser');
+
 // Additive operator (+, -)
 const javaAdditiveOperatorParser: Parser<string, string> = createDisjunctionParser([
 	promiseCompose(createExactSequenceParser('+'), () => 'PLUS'),
@@ -1146,7 +1185,7 @@ const javaAdditiveOperatorParser: Parser<string, string> = createDisjunctionPars
 // Additive expression (handles string concatenation and arithmetic)
 const javaAdditiveExprParser: Parser<unknown, string> = promiseCompose(
 	createTupleParser([
-		javaUnaryExprParser,
+		javaMultiplicativeExprParser,
 		createArrayParser(
 			promiseCompose(
 				createTupleParser([
@@ -1175,6 +1214,43 @@ const javaAdditiveExprParser: Parser<unknown, string> = promiseCompose(
 
 setParserName(javaAdditiveExprParser, 'javaAdditiveExprParser');
 
+// InstanceOfExpr: expr instanceof Type
+type JavaInstanceOfExprOutput = {
+	type: 'InstanceOfExpr';
+	expression: unknown;
+	type_: unknown;
+};
+
+// Relational expression with instanceof
+const javaRelationalExprParser: Parser<unknown, string> = promiseCompose(
+	createTupleParser([
+		javaAdditiveExprParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					createExactSequenceParser('instanceof'),
+					javaWhitespaceParser,
+					javaTypeParser,
+				]),
+				([, , , type_]) => ({ type: 'instanceof' as const, type_ }),
+			),
+		),
+	]),
+	([expr, instanceOf]) => {
+		if (instanceOf) {
+			return {
+				type: 'InstanceOfExpr' as const,
+				expression: expr,
+				type_: instanceOf.type_,
+			};
+		}
+		return expr;
+	},
+);
+
+setParserName(javaRelationalExprParser, 'javaRelationalExprParser');
+
 // Comparison operator
 const javaComparisonOperatorParser: Parser<string, string> = createDisjunctionParser([
 	promiseCompose(createExactSequenceParser('<='), () => 'LESS_EQUALS'),
@@ -1188,14 +1264,14 @@ const javaComparisonOperatorParser: Parser<string, string> = createDisjunctionPa
 // Comparison expression (relational and equality)
 const javaComparisonExprParser: Parser<unknown, string> = promiseCompose(
 	createTupleParser([
-		javaAdditiveExprParser,
+		javaRelationalExprParser,
 		createOptionalParser(
 			promiseCompose(
 				createTupleParser([
 					javaSkippableParser,
 					javaComparisonOperatorParser,
 					javaSkippableParser,
-					javaAdditiveExprParser,
+					javaRelationalExprParser,
 				]),
 				([, operator, , right]) => ({ operator, right }),
 			),
