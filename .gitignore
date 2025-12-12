@@ -149,3 +149,5 @@ flycheck_*.el
 xo.config.js
 xo.config.d.ts
 
+# Claude local config
+CLAUDE.local.md
