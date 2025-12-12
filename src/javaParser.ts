@@ -642,6 +642,60 @@ const javaThrowsClauseParser: Parser<JavaClassOrInterfaceTypeOutput[], string> =
 
 setParserName(javaThrowsClauseParser, 'javaThrowsClauseParser');
 
+// Implements clause: implements Interface1, Interface2
+const javaImplementsClauseParser: Parser<JavaClassOrInterfaceTypeOutput[], string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('implements'),
+		javaWhitespaceParser,
+		createSeparatedNonEmptyArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaClassOrInterfaceTypeParser,
+					javaSkippableParser,
+				]),
+				([type]) => type,
+			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser(','),
+					javaSkippableParser,
+				]),
+				() => ',',
+			),
+		),
+	]),
+	([, , types]) => types,
+);
+
+setParserName(javaImplementsClauseParser, 'javaImplementsClauseParser');
+
+// Extends clause: extends Parent
+const javaExtendsClauseParser: Parser<JavaClassOrInterfaceTypeOutput[], string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('extends'),
+		javaWhitespaceParser,
+		createSeparatedNonEmptyArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaClassOrInterfaceTypeParser,
+					javaSkippableParser,
+				]),
+				([type]) => type,
+			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser(','),
+					javaSkippableParser,
+				]),
+				() => ',',
+			),
+		),
+	]),
+	([, , types]) => types,
+);
+
+setParserName(javaExtendsClauseParser, 'javaExtendsClauseParser');
+
 // Block statement: { ... }
 type JavaBlockStmtOutput = {
 	type: 'BlockStmt';
@@ -903,15 +957,62 @@ const javaObjectCreationExprParser = createObjectParser({
 
 setParserName(javaObjectCreationExprParser, 'javaObjectCreationExprParser');
 
+// ThisExpr: this
+type JavaThisExprOutput = {
+	type: 'ThisExpr';
+};
+
+const javaThisExprParser: Parser<JavaThisExprOutput, string> = promiseCompose(
+	createExactSequenceParser('this'),
+	() => ({ type: 'ThisExpr' as const }),
+);
+
+setParserName(javaThisExprParser, 'javaThisExprParser');
+
+// CastExpr: (Type) expr
+type JavaCastExprOutput = {
+	type: 'CastExpr';
+	type_: unknown;
+	expression: unknown;
+};
+
+// Forward declaration - will be defined later after primary expressions
+let javaCastExprParser: Parser<unknown, string>;
+
+// Parenthesized expression: (expr)
+type JavaEnclosedExprOutput = {
+	type: 'EnclosedExpr';
+	inner: unknown;
+};
+
+const javaEnclosedExprParser: Parser<JavaEnclosedExprOutput, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('('),
+		javaSkippableParser,
+		(ctx) => javaExpressionParser(ctx),
+		javaSkippableParser,
+		createExactSequenceParser(')'),
+	]),
+	([, , inner]) => ({
+		type: 'EnclosedExpr' as const,
+		inner,
+	}),
+);
+
+setParserName(javaEnclosedExprParser, 'javaEnclosedExprParser');
+
 // Primary expression (without method calls chained)
 const javaPrimaryExprParser: Parser<unknown, string> = createDisjunctionParser([
 	javaStringLiteralExprParser,
 	javaIntegerLiteralExprParser,
 	javaNullLiteralExprParser,
 	javaBooleanLiteralExprParser,
+	javaThisExprParser, // this - must come before NameExpr
 	javaObjectCreationExprParser, // new Foo() - must come before NameExpr
 	javaMethodReferenceExprParser,
 	javaSimpleMethodCallExprParser, // foo() - must come before NameExpr
+	(ctx) => javaCastExprParser(ctx), // Cast - must come before enclosed
+	javaEnclosedExprParser, // (expr) - parenthesized expressions
 	javaNameExprParser, // Must be last since it matches any identifier
 ]);
 
@@ -925,7 +1026,7 @@ type JavaFieldAccessExprOutput = {
 };
 
 // Expression with optional member access chain: expr.field, expr.method(args), expr::method
-javaExpressionParser = promiseCompose(
+const javaMemberAccessExprParser: Parser<unknown, string> = promiseCompose(
 	createTupleParser([
 		javaPrimaryExprParser,
 		createArrayParser(
@@ -980,6 +1081,282 @@ javaExpressionParser = promiseCompose(
 			}
 		}
 		return result;
+	},
+);
+
+setParserName(javaMemberAccessExprParser, 'javaMemberAccessExprParser');
+
+// Define cast expression: (Type) expr
+javaCastExprParser = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('('),
+		javaSkippableParser,
+		javaTypeParser, // Must be a type, not just any expression
+		javaSkippableParser,
+		createExactSequenceParser(')'),
+		javaSkippableParser,
+		javaMemberAccessExprParser, // The expression being cast
+	]),
+	([, , type_, , , , expression]) => ({
+		type: 'CastExpr' as const,
+		type_,
+		expression,
+	}),
+);
+
+setParserName(javaCastExprParser, 'javaCastExprParser');
+
+// Unary expression: -expr, !expr, +expr
+type JavaUnaryExprOutput = {
+	type: 'UnaryExpr';
+	operator: string;
+	expression: unknown;
+};
+
+const javaUnaryExprParser: Parser<unknown, string> = createDisjunctionParser([
+	// Unary minus, plus, not
+	promiseCompose(
+		createTupleParser([
+			createDisjunctionParser([
+				promiseCompose(createExactSequenceParser('-'), () => 'MINUS'),
+				promiseCompose(createExactSequenceParser('+'), () => 'PLUS'),
+				promiseCompose(createExactSequenceParser('!'), () => 'LOGICAL_COMPLEMENT'),
+			]),
+			javaSkippableParser,
+			(ctx) => javaUnaryExprParser(ctx), // Recursive for --x, !!x, etc.
+		]),
+		([operator, , expression]) => ({
+			type: 'UnaryExpr' as const,
+			operator,
+			expression,
+		}),
+	),
+	// Non-unary (primary/member access)
+	javaMemberAccessExprParser,
+]);
+
+setParserName(javaUnaryExprParser, 'javaUnaryExprParser');
+
+// Additive operator (+, -)
+const javaAdditiveOperatorParser: Parser<string, string> = createDisjunctionParser([
+	promiseCompose(createExactSequenceParser('+'), () => 'PLUS'),
+	promiseCompose(createExactSequenceParser('-'), () => 'MINUS'),
+]);
+
+// Additive expression (handles string concatenation and arithmetic)
+const javaAdditiveExprParser: Parser<unknown, string> = promiseCompose(
+	createTupleParser([
+		javaUnaryExprParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					javaAdditiveOperatorParser,
+					javaSkippableParser,
+					javaUnaryExprParser,
+				]),
+				([, operator, , right]) => ({ operator, right }),
+			),
+		),
+	]),
+	([left, operations]) => {
+		let result = left;
+		for (const op of operations) {
+			result = {
+				type: 'BinaryExpr' as const,
+				left: result,
+				right: op.right,
+				operator: op.operator,
+			};
+		}
+		return result;
+	},
+);
+
+setParserName(javaAdditiveExprParser, 'javaAdditiveExprParser');
+
+// Comparison operator
+const javaComparisonOperatorParser: Parser<string, string> = createDisjunctionParser([
+	promiseCompose(createExactSequenceParser('<='), () => 'LESS_EQUALS'),
+	promiseCompose(createExactSequenceParser('>='), () => 'GREATER_EQUALS'),
+	promiseCompose(createExactSequenceParser('=='), () => 'EQUALS'),
+	promiseCompose(createExactSequenceParser('!='), () => 'NOT_EQUALS'),
+	promiseCompose(createExactSequenceParser('<'), () => 'LESS'),
+	promiseCompose(createExactSequenceParser('>'), () => 'GREATER'),
+]);
+
+// Comparison expression (relational and equality)
+const javaComparisonExprParser: Parser<unknown, string> = promiseCompose(
+	createTupleParser([
+		javaAdditiveExprParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					javaComparisonOperatorParser,
+					javaSkippableParser,
+					javaAdditiveExprParser,
+				]),
+				([, operator, , right]) => ({ operator, right }),
+			),
+		),
+	]),
+	([left, comparison]) => {
+		if (comparison) {
+			return {
+				type: 'BinaryExpr' as const,
+				left,
+				right: comparison.right,
+				operator: comparison.operator,
+			};
+		}
+		return left;
+	},
+);
+
+setParserName(javaComparisonExprParser, 'javaComparisonExprParser');
+
+// Logical AND expression
+const javaLogicalAndExprParser: Parser<unknown, string> = promiseCompose(
+	createTupleParser([
+		javaComparisonExprParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					createExactSequenceParser('&&'),
+					javaSkippableParser,
+					javaComparisonExprParser,
+				]),
+				([, , , right]) => right,
+			),
+		),
+	]),
+	([left, rights]) => {
+		let result = left;
+		for (const right of rights) {
+			result = {
+				type: 'BinaryExpr' as const,
+				left: result,
+				right,
+				operator: 'AND',
+			};
+		}
+		return result;
+	},
+);
+
+setParserName(javaLogicalAndExprParser, 'javaLogicalAndExprParser');
+
+// Logical OR expression
+const javaLogicalOrExprParser: Parser<unknown, string> = promiseCompose(
+	createTupleParser([
+		javaLogicalAndExprParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					createExactSequenceParser('||'),
+					javaSkippableParser,
+					javaLogicalAndExprParser,
+				]),
+				([, , , right]) => right,
+			),
+		),
+	]),
+	([left, rights]) => {
+		let result = left;
+		for (const right of rights) {
+			result = {
+				type: 'BinaryExpr' as const,
+				left: result,
+				right,
+				operator: 'OR',
+			};
+		}
+		return result;
+	},
+);
+
+setParserName(javaLogicalOrExprParser, 'javaLogicalOrExprParser');
+
+// Ternary (conditional) expression: condition ? thenExpr : elseExpr
+type JavaConditionalExprOutput = {
+	type: 'ConditionalExpr';
+	condition: unknown;
+	thenExpr: unknown;
+	elseExpr: unknown;
+};
+
+const javaTernaryExprParser: Parser<unknown, string> = promiseCompose(
+	createTupleParser([
+		javaLogicalOrExprParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					createExactSequenceParser('?'),
+					javaSkippableParser,
+					(ctx) => javaTernaryExprParser(ctx), // thenExpr can be another ternary
+					javaSkippableParser,
+					createExactSequenceParser(':'),
+					javaSkippableParser,
+					(ctx) => javaTernaryExprParser(ctx), // elseExpr can be another ternary
+				]),
+				([, , , thenExpr, , , , elseExpr]) => ({ thenExpr, elseExpr }),
+			),
+		),
+	]),
+	([condition, ternary]) => {
+		if (ternary) {
+			return {
+				type: 'ConditionalExpr' as const,
+				condition,
+				thenExpr: ternary.thenExpr,
+				elseExpr: ternary.elseExpr,
+			};
+		}
+		return condition;
+	},
+);
+
+setParserName(javaTernaryExprParser, 'javaTernaryExprParser');
+
+// Assignment operator
+const javaAssignOperatorParser: Parser<string, string> = createDisjunctionParser([
+	promiseCompose(createExactSequenceParser('='), () => 'ASSIGN'),
+	promiseCompose(createExactSequenceParser('+='), () => 'PLUS'),
+	promiseCompose(createExactSequenceParser('-='), () => 'MINUS'),
+	promiseCompose(createExactSequenceParser('*='), () => 'MULTIPLY'),
+	promiseCompose(createExactSequenceParser('/='), () => 'DIVIDE'),
+]);
+
+// Expression with optional assignment
+javaExpressionParser = promiseCompose(
+	createTupleParser([
+		javaTernaryExprParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					javaSkippableParser,
+					javaAssignOperatorParser,
+					javaSkippableParser,
+					(ctx) => javaExpressionParser(ctx), // Recursive for chained assignment
+				]),
+				([, operator, , value]) => ({ operator, value }),
+			),
+		),
+	]),
+	([target, assignment]) => {
+		if (assignment) {
+			return {
+				type: 'AssignExpr' as const,
+				target,
+				value: assignment.value,
+				operator: assignment.operator,
+			};
+		}
+		return target;
 	},
 );
 
@@ -1119,12 +1496,84 @@ javaBlockStmtParserWithStatements = createObjectParser({
 
 setParserName(javaBlockStmtParserWithStatements, 'javaBlockStmtParserWithStatements');
 
+// VariableDeclarationExpr: Type name = expr
+type JavaVariableDeclarationExprOutput = {
+	type: 'VariableDeclarationExpr';
+	modifiers: JavaModifier[];
+	annotations: unknown[];
+	variables: JavaVariableDeclaratorOutput[];
+};
+
+const javaVariableDeclarationExprParser: Parser<JavaVariableDeclarationExprOutput, string> = promiseCompose(
+	createTupleParser([
+		javaAnnotationsParser,
+		javaModifiersParser,
+		javaTypeParser,
+		javaSkippableParser,
+		createSeparatedNonEmptyArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaSimpleNameParser,
+					javaSkippableParser,
+					createOptionalParser(
+						promiseCompose(
+							createTupleParser([
+								createExactSequenceParser('='),
+								javaSkippableParser,
+								javaExpressionParser,
+							]),
+							([, , init]) => init,
+						),
+					),
+				]),
+				([name, , initializer]) => ({ name, initializer }),
+			),
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser(','),
+					javaSkippableParser,
+				]),
+				() => ',',
+			),
+		),
+	]),
+	([annotations, modifiers, type_, , variables]) => ({
+		type: 'VariableDeclarationExpr' as const,
+		modifiers,
+		annotations,
+		variables: variables.map(v => ({
+			type: 'VariableDeclarator' as const,
+			name: v.name,
+			type_,
+			...(v.initializer ? { initializer: v.initializer } : {}),
+		})),
+	}),
+);
+
+setParserName(javaVariableDeclarationExprParser, 'javaVariableDeclarationExprParser');
+
+// Local variable declaration statement
+type JavaExpressionStmtOutputForVarDecl = {
+	type: 'ExpressionStmt';
+	expression: JavaVariableDeclarationExprOutput;
+};
+
+const javaLocalVarDeclStmtParser: Parser<JavaExpressionStmtOutputForVarDecl, string> = createObjectParser({
+	type: 'ExpressionStmt' as const,
+	expression: javaVariableDeclarationExprParser,
+	_ws1: javaSkippableParser,
+	_semi: createExactSequenceParser(';'),
+});
+
+setParserName(javaLocalVarDeclStmtParser, 'javaLocalVarDeclStmtParser');
+
 // Statement parser - combines all statement types
 javaStatementParser = createDisjunctionParser([
 	javaReturnStmtParser,
 	javaThrowStmtParser,
 	javaIfStmtParser,
 	javaBlockStmtParserWithStatements,
+	javaLocalVarDeclStmtParser, // Local variable declarations
 	javaExpressionStmtParser, // Must be last since it's most general
 ]);
 
@@ -1281,21 +1730,36 @@ const javaClassDeclarationParser: Parser<JavaClassOrInterfaceDeclarationOutput, 
 		javaSkippableParser,
 		javaSimpleNameParser,
 		javaSkippableParser,
-		// TODO: type parameters
-		// TODO: extends clause
-		// TODO: implements clause
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([javaTypeParametersParser, javaSkippableParser]),
+				([params]) => params,
+			),
+		),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([javaExtendsClauseParser, javaSkippableParser]),
+				([types]) => types,
+			),
+		),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([javaImplementsClauseParser, javaSkippableParser]),
+				([types]) => types,
+			),
+		),
 		// TODO: permits clause
 		javaClassBodyParser,
 	]),
-	([, annotations, modifiers, , , name, , members]) => ({
+	([, annotations, modifiers, , , name, , typeParameters, extendedTypes, implementedTypes, members]) => ({
 		type: 'ClassOrInterfaceDeclaration' as const,
 		modifiers,
 		annotations,
 		name,
 		isInterface: false,
-		typeParameters: [],
-		extendedTypes: [],
-		implementedTypes: [],
+		typeParameters: typeParameters ?? [],
+		extendedTypes: extendedTypes ?? [],
+		implementedTypes: implementedTypes ?? [],
 		permittedTypes: [],
 		members,
 	}),

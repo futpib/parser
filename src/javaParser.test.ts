@@ -1074,6 +1074,29 @@ test('StaticJavaParser minimal', async t => {
 	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
 });
 
+test('class with implements', async t => {
+	const source = `package com.github.javaparser;
+
+import static com.github.javaparser.utils.Utils.assertNotNull;
+
+import java.util.Objects;
+
+public class Position implements Comparable<Position> {
+
+    public final int line;
+
+    public final int column;
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
 test('class with static method returning method call', async t => {
 	const source = `public final class Foo {
     public static Config getConfig() {
@@ -1137,3 +1160,4 @@ class Main {
 });
 
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/StaticJavaParser.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Position.java');
