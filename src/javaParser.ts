@@ -465,20 +465,66 @@ const javaTypeParametersParser: Parser<JavaTypeParameterOutput[], string> = prom
 
 setParserName(javaTypeParametersParser, 'javaTypeParametersParser');
 
-// ClassOrInterfaceType: Foo, com.example.Foo, List<T>, Map<K, V>
-const javaClassOrInterfaceTypeParser: Parser<JavaClassOrInterfaceTypeOutput, string> = promiseCompose(
+// ClassOrInterfaceType: Foo, List<T>, Outer.Inner, Map<K, V>
+// Forward declaration for recursive scope
+let javaClassOrInterfaceTypeParser: Parser<JavaClassOrInterfaceTypeOutput, string>;
+
+// Parser for a single type segment (name with optional type arguments)
+const javaTypeSegmentParser: Parser<{ name: JavaSimpleName; typeArguments?: unknown[] }, string> = promiseCompose(
 	createTupleParser([
 		javaSimpleNameParser,
 		javaSkippableParser,
 		createOptionalParser(javaTypeArgumentsParser),
-		// TODO: handle scope (Outer.Inner)
 	]),
 	([name, , typeArguments]) => ({
-		type: 'ClassOrInterfaceType' as const,
 		name,
 		...(typeArguments ? { typeArguments } : {}),
-		annotations: [],
 	}),
+);
+
+setParserName(javaTypeSegmentParser, 'javaTypeSegmentParser');
+
+// Full ClassOrInterfaceType with optional scope: Outer.Inner or just Foo
+javaClassOrInterfaceTypeParser = promiseCompose(
+	createSeparatedNonEmptyArrayParser(
+		promiseCompose(
+			createTupleParser([
+				javaTypeSegmentParser,
+				javaSkippableParser,
+			]),
+			([segment]) => segment,
+		),
+		promiseCompose(
+			createTupleParser([
+				createExactSequenceParser('.'),
+				javaSkippableParser,
+			]),
+			() => '.',
+		),
+	),
+	(segments) => {
+		// Build the type from segments: [Outer, Inner] -> { scope: Outer, name: Inner }
+		let result: JavaClassOrInterfaceTypeOutput | undefined;
+		for (const segment of segments) {
+			if (result === undefined) {
+				result = {
+					type: 'ClassOrInterfaceType' as const,
+					name: segment.name,
+					...(segment.typeArguments ? { typeArguments: segment.typeArguments } : {}),
+					annotations: [],
+				};
+			} else {
+				result = {
+					type: 'ClassOrInterfaceType' as const,
+					scope: result,
+					name: segment.name,
+					...(segment.typeArguments ? { typeArguments: segment.typeArguments } : {}),
+					annotations: [],
+				};
+			}
+		}
+		return result!;
+	},
 );
 
 setParserName(javaClassOrInterfaceTypeParser, 'javaClassOrInterfaceTypeParser');
@@ -945,15 +991,40 @@ const javaSimpleMethodCallExprParser: Parser<JavaMethodCallExprOutput, string> =
 
 setParserName(javaSimpleMethodCallExprParser, 'javaSimpleMethodCallExprParser');
 
-// ObjectCreationExpr: new ClassName(args)
-const javaObjectCreationExprParser = createObjectParser({
-	_new: createExactSequenceParser('new'),
-	_ws1: javaWhitespaceParser, // Must have whitespace after 'new' to avoid matching 'newFoo()' as method call
-	type: 'ObjectCreationExpr' as const,
-	type_: javaClassOrInterfaceTypeParser,
-	_ws2: javaSkippableParser,
-	arguments: javaArgumentListParser,
-});
+// ObjectCreationExpr: new ClassName(args) or new ClassName<>(args) (diamond)
+const javaObjectCreationExprParser: Parser<{
+	type: 'ObjectCreationExpr';
+	type_: JavaClassOrInterfaceTypeOutput;
+	arguments: unknown[];
+}, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('new'),
+		javaWhitespaceParser, // Must have whitespace after 'new' to avoid matching 'newFoo()' as method call
+		javaClassOrInterfaceTypeParser,
+		javaSkippableParser,
+		// Optional diamond operator <>
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('<'),
+					javaSkippableParser,
+					createExactSequenceParser('>'),
+					javaSkippableParser,
+				]),
+				() => true,
+			),
+		),
+		javaArgumentListParser,
+	]),
+	([, , type_, , diamond, args]) => ({
+		type: 'ObjectCreationExpr' as const,
+		type_: diamond ? {
+			...type_,
+			typeArguments: [], // Diamond means empty type arguments
+		} : type_,
+		arguments: args,
+	}),
+);
 
 setParserName(javaObjectCreationExprParser, 'javaObjectCreationExprParser');
 
@@ -1891,6 +1962,121 @@ const javaForEachStmtParser: Parser<JavaForEachStmtOutput, string> = createObjec
 
 setParserName(javaForEachStmtParser, 'javaForEachStmtParser');
 
+// ExplicitConstructorInvocationStmt: this(...) or super(...)
+type JavaExplicitConstructorInvocationStmtOutput = {
+	type: 'ExplicitConstructorInvocationStmt';
+	isThis: boolean;
+	arguments: unknown[];
+	expression?: unknown;
+	typeArguments?: unknown[];
+};
+
+const javaExplicitConstructorInvocationStmtParser: Parser<JavaExplicitConstructorInvocationStmtOutput, string> = promiseCompose(
+	createTupleParser([
+		createDisjunctionParser([
+			promiseCompose(createExactSequenceParser('this'), () => true as const),
+			promiseCompose(createExactSequenceParser('super'), () => false as const),
+		]),
+		javaSkippableParser,
+		createExactSequenceParser('('),
+		javaSkippableParser,
+		createOptionalParser(
+			createSeparatedNonEmptyArrayParser(
+				promiseCompose(
+					createTupleParser([
+						javaExpressionParser,
+						javaSkippableParser,
+					]),
+					([expr]) => expr,
+				),
+				promiseCompose(
+					createTupleParser([
+						createExactSequenceParser(','),
+						javaSkippableParser,
+					]),
+					() => ',',
+				),
+			),
+		),
+		createExactSequenceParser(')'),
+		javaSkippableParser,
+		createExactSequenceParser(';'),
+	]),
+	([isThis, , , , args]) => ({
+		type: 'ExplicitConstructorInvocationStmt' as const,
+		isThis,
+		arguments: args ?? [],
+	}),
+);
+
+setParserName(javaExplicitConstructorInvocationStmtParser, 'javaExplicitConstructorInvocationStmtParser');
+
+// CatchClause for try-catch
+type JavaCatchClauseOutput = {
+	type: 'CatchClause';
+	parameter: JavaParameterOutput;
+	body: JavaBlockStmtOutput;
+};
+
+const javaCatchClauseParser: Parser<JavaCatchClauseOutput, string> = createObjectParser({
+	_catch: createExactSequenceParser('catch'),
+	_ws1: javaSkippableParser,
+	_open: createExactSequenceParser('('),
+	_ws2: javaSkippableParser,
+	type: 'CatchClause' as const,
+	parameter: javaParameterParser,
+	_ws3: javaSkippableParser,
+	_close: createExactSequenceParser(')'),
+	_ws4: javaSkippableParser,
+	body: (ctx: Parameters<typeof javaBlockStmtParserWithStatements>[0]) => javaBlockStmtParserWithStatements(ctx),
+});
+
+setParserName(javaCatchClauseParser, 'javaCatchClauseParser');
+
+// TryStmt: try { } catch (...) { } finally { }
+type JavaTryStmtOutput = {
+	type: 'TryStmt';
+	tryBlock: JavaBlockStmtOutput;
+	catchClauses: JavaCatchClauseOutput[];
+	finallyBlock?: JavaBlockStmtOutput;
+};
+
+const javaTryStmtParser: Parser<JavaTryStmtOutput, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('try'),
+		javaSkippableParser,
+		(ctx) => javaBlockStmtParserWithStatements(ctx),
+		javaSkippableParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaCatchClauseParser,
+					javaSkippableParser,
+				]),
+				([clause]) => clause,
+			),
+		),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('finally'),
+					javaSkippableParser,
+					(ctx) => javaBlockStmtParserWithStatements(ctx),
+				]),
+				([, , block]) => block,
+			),
+		),
+	]),
+	([, , tryBlock, , catchClauses, finallyBlock]) => ({
+		type: 'TryStmt' as const,
+		tryBlock,
+		catchClauses,
+		...(finallyBlock ? { finallyBlock } : {}),
+	}),
+);
+
+setParserName(javaTryStmtParser, 'javaTryStmtParser');
+
 // Statement parser - combines all statement types
 javaStatementParser = createDisjunctionParser([
 	javaReturnStmtParser,
@@ -1898,6 +2084,8 @@ javaStatementParser = createDisjunctionParser([
 	javaIfStmtParser,
 	javaForEachStmtParser, // Must come before ForStmt (both start with 'for')
 	javaForStmtParser,
+	javaTryStmtParser,
+	javaExplicitConstructorInvocationStmtParser, // Must come before expression statement
 	javaBlockStmtParserWithStatements,
 	javaLocalVarDeclStmtParser, // Local variable declarations
 	javaExpressionStmtParser, // Must be last since it's most general
@@ -2001,12 +2189,13 @@ const javaConstructorDeclarationParser: Parser<JavaConstructorDeclarationOutput,
 
 setParserName(javaConstructorDeclarationParser, 'javaConstructorDeclarationParser');
 
-// Body declaration (member)
-type JavaBodyDeclarationOutput = JavaMethodDeclarationOutput | JavaFieldDeclarationOutput | JavaConstructorDeclarationOutput;
+// Body declaration (member) - forward declaration
+type JavaBodyDeclarationOutput = JavaMethodDeclarationOutput | JavaFieldDeclarationOutput | JavaConstructorDeclarationOutput | unknown;
 
 // We need to try method first because field declaration also starts with modifiers + type + name
 // But constructors don't have a return type, so we try constructor after field fails
-const javaBodyDeclarationParser: Parser<JavaBodyDeclarationOutput, string> = createDisjunctionParser([
+// Note: javaBodyDeclarationParser is reassigned later to include nested type declarations
+let javaBodyDeclarationParser: Parser<JavaBodyDeclarationOutput, string> = createDisjunctionParser([
 	javaMethodDeclarationParser,
 	javaConstructorDeclarationParser,
 	javaFieldDeclarationParser,
@@ -2022,7 +2211,7 @@ const javaClassBodyParser: Parser<JavaBodyDeclarationOutput[], string> = promise
 		createArrayParser(
 			promiseCompose(
 				createTupleParser([
-					javaBodyDeclarationParser,
+					(ctx) => javaBodyDeclarationParser(ctx), // Use function to pick up reassigned value
 					javaSkippableParser,
 				]),
 				([member]) => member,
@@ -2204,6 +2393,18 @@ const javaTypeDeclarationParser: Parser<JavaTypeDeclaration, string> = createDis
 	javaEnumDeclarationParser,
 	javaRecordDeclarationParser,
 ]);
+
+// Now reassign javaBodyDeclarationParser to include nested type declarations
+javaBodyDeclarationParser = createDisjunctionParser([
+	javaMethodDeclarationParser,
+	javaConstructorDeclarationParser,
+	javaFieldDeclarationParser,
+	javaClassDeclarationParser, // Nested class
+	javaInterfaceDeclarationParser, // Nested interface
+	javaEnumDeclarationParser, // Nested enum
+]);
+
+setParserName(javaBodyDeclarationParser, 'javaBodyDeclarationParser');
 
 setParserName(javaTypeDeclarationParser, 'javaTypeDeclarationParser');
 

@@ -1074,6 +1074,428 @@ test('StaticJavaParser minimal', async t => {
 	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
 });
 
+test('class with constructor calling this', async t => {
+	const source = `public class Foo {
+    public Foo() {
+        this(1);
+    }
+    public Foo(int x) {
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with try-catch', async t => {
+	const source = `public class Foo {
+    public void test() {
+        try {
+            throw new Exception();
+        } catch (Exception e) {
+        }
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with generic method', async t => {
+	const source = `public class Foo {
+    public <N extends Node> N parse(N start) {
+        return start;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('method with throws clause', async t => {
+	const source = `public class Foo {
+    public void test() throws Exception {
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('deprecated method', async t => {
+	const source = `public class Foo {
+    @Deprecated
+    public void test() {
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('try-finally without catch', async t => {
+	const source = `public class Foo {
+    public void test() {
+        try {
+        } finally {
+        }
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('nested class', async t => {
+	const source = `public class Foo {
+    class Inner {}
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with final field and null initializer', async t => {
+	const source = `public class Foo {
+    private final ParserConfiguration configuration;
+    private GeneratedJavaParser astParser = null;
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with constructor and this assignment', async t => {
+	const source = `public class Foo {
+    private int configuration;
+    public Foo(int configuration) {
+        this.configuration = configuration;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('class with if null check', async t => {
+	const source = `public class Foo {
+    private Object x;
+    public void test() {
+        if (x == null) {
+            x = new Object();
+        }
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('qualified type in local var', async t => {
+	const source = `public class Foo {
+    public void test() {
+        ParserConfig.Level level = null;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('method chaining with collect', async t => {
+	const source = `public class Foo {
+    public void test() {
+        List<String> x = list.stream().map(Supplier::get).collect(toList());
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('reassignment in for loop', async t => {
+	const source = `public class Foo {
+    public void test() {
+        Object x = null;
+        for (Object o : list) {
+            x = o.process(x);
+        }
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('lambda passed to method', async t => {
+	const source = `public class Foo {
+    public void test() {
+        result.ifPresent(cu -> cu.setStorage(path));
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('method with multiple throws', async t => {
+	const source = `public class Foo {
+    public void test() throws IOException, ParseException {
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('generic return type', async t => {
+	const source = `public class Foo {
+    public ParseResult<CompilationUnit> parse() {
+        return null;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('JavaParser-like structure', async t => {
+	const source = `public final class JavaParser {
+    private final ParserConfiguration configuration;
+    private GeneratedJavaParser astParser = null;
+
+    public JavaParser() {
+        this(new ParserConfiguration());
+    }
+
+    public JavaParser(ParserConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    public ParserConfiguration getParserConfiguration() {
+        return this.configuration;
+    }
+
+    private GeneratedJavaParser getParserForProvider(Provider provider) {
+        if (astParser == null) {
+            astParser = new GeneratedJavaParser(provider);
+        } else {
+            astParser.reset(provider);
+        }
+        astParser.setTabSize(configuration.getTabSize());
+        return astParser;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('generic method with type variable in return type', async t => {
+	const source = `public class Foo {
+    public <N extends Node> ParseResult<N> parse(N start) {
+        return null;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('generic method with two generic params', async t => {
+	const source = `public class Foo {
+    public <N extends Node> ParseResult<N> parse(ParseStart<N> start, Provider provider) {
+        return null;
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('ternary expression', async t => {
+	const source = `public class Foo {
+    public void test() {
+        String x = y == null ? "a" : "b";
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('ternary with method calls', async t => {
+	const source = `public class Foo {
+    public void test(Exception e) {
+        final String message = e.getMessage() == null ? "Unknown error" : e.getMessage();
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('method body with final local var', async t => {
+	const source = `public class Foo {
+    public void test() {
+        final String x = getValue();
+        try {
+            doSomething(x);
+        } catch (Exception e) {
+            final String message = e.getMessage();
+        }
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('method with for and processor', async t => {
+	const source = `public class Foo {
+    public void test() {
+        List<Processor> processors = getProcessors();
+        for (Processor processor : processors) {
+            provider = processor.preProcess(provider);
+        }
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
+test('constructor new with type arg', async t => {
+	const source = `public class Foo {
+    public void test() {
+        Result<N> result = new Result<>(x, y);
+    }
+}`;
+	const result = await runParser(
+		javaCompilationUnitParser,
+		source,
+		stringParserInputCompanion,
+	);
+
+	t.is(result.types.length, 1);
+	t.is(result.types[0].type, 'ClassOrInterfaceDeclaration');
+});
+
 test('class with implements', async t => {
 	const source = `package com.github.javaparser;
 
@@ -1163,3 +1585,4 @@ test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Position.java');
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Range.java');
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Problem.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/JavaParser.java');
