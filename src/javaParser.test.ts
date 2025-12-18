@@ -1585,4 +1585,5 @@ test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Position.java');
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Range.java');
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Problem.java');
-test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/JavaParser.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/ParseResult.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Providers.java');

@@ -1199,6 +1199,30 @@ type JavaFieldAccessExprOutput = {
 	name: JavaSimpleName;
 };
 
+// Helper to convert a NameExpr to a ClassOrInterfaceType for ClassExpr
+function nameExprToType(expr: unknown): unknown {
+	if (expr && typeof expr === 'object' && 'type' in expr) {
+		if (expr.type === 'NameExpr') {
+			const nameExpr = expr as { type: 'NameExpr'; name: JavaSimpleName };
+			return {
+				type: 'ClassOrInterfaceType' as const,
+				name: nameExpr.name,
+				annotations: [],
+			};
+		}
+		if (expr.type === 'FieldAccessExpr') {
+			const fieldAccess = expr as { type: 'FieldAccessExpr'; scope: unknown; name: JavaSimpleName };
+			return {
+				type: 'ClassOrInterfaceType' as const,
+				scope: nameExprToType(fieldAccess.scope),
+				name: fieldAccess.name,
+				annotations: [],
+			};
+		}
+	}
+	return expr;
+}
+
 // Expression with optional member access chain: expr.field, expr.method(args), expr::method, expr[index]
 const javaMemberAccessExprParser: Parser<unknown, string> = promiseCompose(
 	createTupleParser([
@@ -1226,6 +1250,16 @@ const javaMemberAccessExprParser: Parser<unknown, string> = promiseCompose(
 						createExactSequenceParser(']'),
 					]),
 					([, , , index]) => ({ type: 'arrayAccess' as const, index }),
+				),
+				// Class literal: .class
+				promiseCompose(
+					createTupleParser([
+						javaSkippableParser,
+						createExactSequenceParser('.'),
+						javaSkippableParser,
+						createExactSequenceParser('class'),
+					]),
+					() => ({ type: 'classLiteral' as const }),
 				),
 				// Field access or method call: .name[(args)]
 				promiseCompose(
@@ -1256,6 +1290,12 @@ const javaMemberAccessExprParser: Parser<unknown, string> = promiseCompose(
 					type: 'ArrayAccessExpr' as const,
 					name: result,
 					index: member.index,
+				};
+			} else if (member.type === 'classLiteral') {
+				// Convert the scope to a type for ClassExpr
+				result = {
+					type: 'ClassExpr' as const,
+					type_: nameExprToType(result),
 				};
 			} else if (member.arguments !== undefined) {
 				result = {
@@ -2034,8 +2074,10 @@ const javaCatchClauseParser: Parser<JavaCatchClauseOutput, string> = createObjec
 setParserName(javaCatchClauseParser, 'javaCatchClauseParser');
 
 // TryStmt: try { } catch (...) { } finally { }
+// Also supports try-with-resources: try (Resource r = ...) { } catch (...) { }
 type JavaTryStmtOutput = {
 	type: 'TryStmt';
+	resources: unknown[];
 	tryBlock: JavaBlockStmtOutput;
 	catchClauses: JavaCatchClauseOutput[];
 	finallyBlock?: JavaBlockStmtOutput;
@@ -2045,6 +2087,37 @@ const javaTryStmtParser: Parser<JavaTryStmtOutput, string> = promiseCompose(
 	createTupleParser([
 		createExactSequenceParser('try'),
 		javaSkippableParser,
+		// Optional resources for try-with-resources: try (Resource r = ...)
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					createExactSequenceParser('('),
+					javaSkippableParser,
+					createSeparatedNonEmptyArrayParser(
+						promiseCompose(
+							createTupleParser([
+								javaVariableDeclarationExprParser,
+								javaSkippableParser,
+							]),
+							([resource]) => resource,
+						),
+						promiseCompose(
+							createTupleParser([
+								createExactSequenceParser(';'),
+								javaSkippableParser,
+							]),
+							() => ';',
+						),
+					),
+					// Optional trailing semicolon
+					createOptionalParser(createExactSequenceParser(';')),
+					javaSkippableParser,
+					createExactSequenceParser(')'),
+					javaSkippableParser,
+				]),
+				([, , resources]) => resources,
+			),
+		),
 		(ctx) => javaBlockStmtParserWithStatements(ctx),
 		javaSkippableParser,
 		createArrayParser(
@@ -2067,8 +2140,9 @@ const javaTryStmtParser: Parser<JavaTryStmtOutput, string> = promiseCompose(
 			),
 		),
 	]),
-	([, , tryBlock, , catchClauses, finallyBlock]) => ({
+	([, , resources, tryBlock, , catchClauses, finallyBlock]) => ({
 		type: 'TryStmt' as const,
+		resources: resources ?? [],
 		tryBlock,
 		catchClauses,
 		...(finallyBlock ? { finallyBlock } : {}),
