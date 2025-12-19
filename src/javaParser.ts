@@ -2467,25 +2467,36 @@ setParserName(javaClassDeclarationParser, 'javaClassDeclarationParser');
 
 const javaInterfaceDeclarationParser: Parser<JavaClassOrInterfaceDeclarationOutput, string> = promiseCompose(
 	createTupleParser([
+		javaSkippableParser, // Skip leading comments (e.g., javadoc)
 		javaAnnotationsParser,
 		javaModifiersParser,
 		createExactSequenceParser('interface'),
 		javaSkippableParser,
 		javaSimpleNameParser,
 		javaSkippableParser,
-		// TODO: type parameters
-		// TODO: extends clause
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([javaTypeParametersParser, javaSkippableParser]),
+				([params]) => params,
+			),
+		),
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([javaExtendsClauseParser, javaSkippableParser]),
+				([types]) => types,
+			),
+		),
 		// TODO: permits clause
 		javaClassBodyParser,
 	]),
-	([annotations, modifiers, , , name, , members]) => ({
+	([, annotations, modifiers, , , name, , typeParameters, extendedTypes, members]) => ({
 		type: 'ClassOrInterfaceDeclaration' as const,
 		modifiers,
 		annotations,
 		name,
 		isInterface: true,
-		typeParameters: [],
-		extendedTypes: [],
+		typeParameters: typeParameters ?? [],
+		extendedTypes: extendedTypes ?? [],
 		implementedTypes: [],
 		permittedTypes: [],
 		members,

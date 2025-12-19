@@ -1588,3 +1588,5 @@ test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/ParseResult.java');
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/Providers.java');
 test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/TokenTypes.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/ParseProblemException.java');
+test(compareWithJavaparser, 'javaparser-core/src/main/java/com/github/javaparser/HasParentNode.java');
