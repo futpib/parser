@@ -2151,6 +2151,114 @@ const javaTryStmtParser: Parser<JavaTryStmtOutput, string> = promiseCompose(
 
 setParserName(javaTryStmtParser, 'javaTryStmtParser');
 
+// SwitchEntry: case CONST: statements or default: statements
+// In JavaParser, each case/default is its own entry
+type JavaSwitchEntryOutput = {
+	type: 'SwitchEntry';
+	isDefault: boolean;
+	labels: unknown[];
+	statements: unknown[];
+	type_: 'STATEMENT_GROUP';
+};
+
+const javaSwitchEntryParser: Parser<JavaSwitchEntryOutput, string> = createDisjunctionParser([
+	// case expression:
+	promiseCompose(
+		createTupleParser([
+			createExactSequenceParser('case'),
+			javaSkippableParser,
+			javaExpressionParser,
+			javaSkippableParser,
+			createExactSequenceParser(':'),
+			javaSkippableParser,
+			// Parse statements until we hit another case/default or closing brace
+			createArrayParser(
+				promiseCompose(
+					createTupleParser([
+						(ctx) => javaStatementParser(ctx),
+						javaSkippableParser,
+					]),
+					([stmt]) => stmt,
+				),
+			),
+		]),
+		([, , expr, , , , statements]) => ({
+			type: 'SwitchEntry' as const,
+			isDefault: false,
+			labels: [expr],
+			statements,
+			type_: 'STATEMENT_GROUP' as const,
+		}),
+	),
+	// default:
+	promiseCompose(
+		createTupleParser([
+			createExactSequenceParser('default'),
+			javaSkippableParser,
+			createExactSequenceParser(':'),
+			javaSkippableParser,
+			// Parse statements until we hit another case/default or closing brace
+			createArrayParser(
+				promiseCompose(
+					createTupleParser([
+						(ctx) => javaStatementParser(ctx),
+						javaSkippableParser,
+					]),
+					([stmt]) => stmt,
+				),
+			),
+		]),
+		([, , , , statements]) => ({
+			type: 'SwitchEntry' as const,
+			isDefault: true,
+			labels: [],
+			statements,
+			type_: 'STATEMENT_GROUP' as const,
+		}),
+	),
+]);
+
+setParserName(javaSwitchEntryParser, 'javaSwitchEntryParser');
+
+// SwitchStmt: switch (selector) { entries }
+type JavaSwitchStmtOutput = {
+	type: 'SwitchStmt';
+	selector: unknown;
+	entries: JavaSwitchEntryOutput[];
+};
+
+const javaSwitchStmtParser: Parser<JavaSwitchStmtOutput, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('switch'),
+		javaSkippableParser,
+		createExactSequenceParser('('),
+		javaSkippableParser,
+		javaExpressionParser,
+		javaSkippableParser,
+		createExactSequenceParser(')'),
+		javaSkippableParser,
+		createExactSequenceParser('{'),
+		javaSkippableParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					javaSwitchEntryParser,
+					javaSkippableParser,
+				]),
+				([entry]) => entry,
+			),
+		),
+		createExactSequenceParser('}'),
+	]),
+	([, , , , selector, , , , , , entries]) => ({
+		type: 'SwitchStmt' as const,
+		selector,
+		entries,
+	}),
+);
+
+setParserName(javaSwitchStmtParser, 'javaSwitchStmtParser');
+
 // Statement parser - combines all statement types
 javaStatementParser = createDisjunctionParser([
 	javaReturnStmtParser,
@@ -2159,6 +2267,7 @@ javaStatementParser = createDisjunctionParser([
 	javaForEachStmtParser, // Must come before ForStmt (both start with 'for')
 	javaForStmtParser,
 	javaTryStmtParser,
+	javaSwitchStmtParser,
 	javaExplicitConstructorInvocationStmtParser, // Must come before expression statement
 	javaBlockStmtParserWithStatements,
 	javaLocalVarDeclStmtParser, // Local variable declarations
