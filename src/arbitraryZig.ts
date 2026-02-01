@@ -195,10 +195,8 @@ const arbitraryStatementSafeExpression: fc.Arbitrary<ZigExpression> = fc.oneof(
 
 // Statements
 
-const arbitraryExprStmt: fc.Arbitrary<ZigStatement> = fc.record({
-	type: fc.constant('ExprStmt' as const),
-	expression: arbitraryStatementSafeExpression,
-});
+// Expression statements are bare expressions (no wrapper)
+const arbitraryExprStmt: fc.Arbitrary<ZigStatement> = arbitraryStatementSafeExpression as fc.Arbitrary<ZigStatement>;
 
 const arbitraryReturnStmt: fc.Arbitrary<ZigStatement> = fc.oneof(
 	fc.constant({ type: 'ReturnStmt' as const }),
@@ -217,7 +215,7 @@ const arbitraryContinueStmt: fc.Arbitrary<ZigStatement> = fc.constant({
 });
 
 const arbitraryVarDeclStmt: fc.Arbitrary<ZigStatement> = fc.record({
-	type: fc.constant('VarDeclStmt' as const),
+	type: fc.constant('VarDecl' as const),
 	isConst: fc.boolean(),
 	isPub: fc.constant(false),
 	isExtern: fc.constant(false),
@@ -255,17 +253,14 @@ const arbitraryAssignStmt: fc.Arbitrary<ZigStatement> = fc.record({
 });
 
 const arbitraryBlockStmt: fc.Arbitrary<ZigStatement> = fc.record({
-	type: fc.constant('BlockStmt' as const),
+	type: fc.constant('BlockExpr' as const),
 	statements: fc.constant([] as ZigStatement[]),
-});
+}) as fc.Arbitrary<ZigStatement>;
 
 const arbitraryDeferStmt: fc.Arbitrary<ZigStatement> = fc.record({
 	type: fc.constant('DeferStmt' as const),
 	isErrdefer: fc.boolean(),
-	body: fc.record({
-		type: fc.constant('ExprStmt' as const),
-		expression: arbitraryStatementSafeExpression,
-	}),
+	body: arbitraryStatementSafeExpression as fc.Arbitrary<ZigStatement>,
 });
 
 const arbitraryStatement: fc.Arbitrary<ZigStatement> = fc.oneof(

@@ -14,7 +14,6 @@ import {
 	type ZigBlockExpr,
 	type ZigSwitchProng,
 	type ZigStructInitField,
-	type ZigAssignOp,
 	type ZigBinaryOp,
 } from './zig.js';
 
@@ -88,14 +87,14 @@ function unparseExpression(node: ZigExpression): string {
 				result += ' |' + node.capture + '|';
 			}
 
-			result += ' ' + unparseExpression(node.body);
+			result += ' ' + unparseExpression(node.body as ZigExpression);
 			if (node.elseBody) {
 				result += ' else';
 				if (node.elseCapture) {
 					result += ' |' + node.elseCapture + '|';
 				}
 
-				result += ' ' + unparseExpression(node.elseBody);
+				result += ' ' + unparseExpression(node.elseBody as ZigExpression);
 			}
 
 			return result;
@@ -178,6 +177,28 @@ function unparseExpression(node: ZigExpression): string {
 
 		case 'OptionalType':
 			return '?' + unparseTypeExpression(node.child);
+
+		case 'FnProtoType':
+			return 'fn(' + node.params.map(p => unparseFnParam(p)).join(', ') + ') ' + unparseTypeExpression(node.returnType);
+
+		case 'StructExpr': {
+			let result = 'struct { ';
+			for (const member of node.members) {
+				result += unparseContainerMember(member) + ' ';
+			}
+			result += '}';
+			return result;
+		}
+
+		case 'ArrayType': {
+			let result = '[' + unparseExpression(node.length);
+			if (node.sentinel) {
+				result += ':' + unparseExpression(node.sentinel);
+			}
+			result += ']';
+			result += unparseTypeExpression(node.child);
+			return result;
+		}
 
 		default:
 			throw new Error(`Unknown expression type: ${(node as { type: string }).type}`);
@@ -301,13 +322,10 @@ function unparseStatement(node: ZigStatement): string {
 		case 'AssignStmt':
 			return unparseExpression(node.target) + ' ' + node.operator + ' ' + unparseExpression(node.value) + ';';
 
-		case 'ExprStmt':
-			return unparseExpression(node.expression) + ';';
-
-		case 'VarDeclStmt':
+		case 'VarDecl':
 			return unparseVarDeclCommon(node);
 
-		case 'IfStmt': {
+		case 'IfExpr': {
 			let result = 'if (' + unparseExpression(node.condition) + ')';
 			if (node.capture) {
 				result += ' |' + node.capture + '|';
@@ -412,23 +430,11 @@ function unparseStatement(node: ZigStatement): string {
 			return result;
 		}
 
-		case 'BlockStmt': {
-			let result = '';
-			if (node.label) {
-				result += node.label + ': ';
-			}
-
-			result += '{ ';
-			for (const stmt of node.statements) {
-				result += unparseStatement(stmt) + ' ';
-			}
-
-			result += '}';
-			return result;
-		}
+		case 'BlockExpr':
+			return unparseBlockExpr(node);
 
 		default:
-			throw new Error(`Unknown statement type: ${(node as { type: string }).type}`);
+			return unparseExpression(node as ZigExpression) + ';';
 	}
 }
 

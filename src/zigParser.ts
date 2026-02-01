@@ -22,6 +22,7 @@ import {
 	type ZigTestDecl,
 	type ZigUsingnamespaceDecl,
 	type ZigContainerMember,
+	type ZigContainerField,
 	type ZigRoot,
 } from './zig.js';
 
@@ -75,7 +76,10 @@ const zigIdentifierParser: Parser<string, string> = createDisjunctionParser([
 		createRegExpParser(/[a-zA-Z_][a-zA-Z0-9_]*/),
 		match => {
 			if (zigKeywords.has(match[0])) {
-				throw new Error(`Expected identifier, got keyword "${match[0]}"`);
+				throw Object.assign(
+					new Error(`Expected identifier, got keyword "${match[0]}"`),
+					{ depth: 0, position: 0, furthestReadPosition: 0, furthestPeekedPosition: 0 },
+				);
 			}
 			return match[0];
 		},
@@ -158,6 +162,7 @@ setParserName(zigEnumLiteralParser, 'zigEnumLiteralParser');
 
 // Forward references via accessor parsers
 const zigExpressionParser: Parser<ZigExpression, string> = createParserAccessorParser(() => zigExpressionParserImpl);
+const zigTypeExprParser: Parser<ZigExpression, string> = createParserAccessorParser(() => zigErrorUnionExprParser);
 const zigStatementParser: Parser<ZigStatement, string> = createParserAccessorParser(() => zigStatementParserImpl);
 const zigBlockExprParser: Parser<ZigBlockExpr, string> = createParserAccessorParser(() => zigBlockExprParserImpl);
 const zigPrefixExprParser: Parser<ZigExpression, string> = createParserAccessorParser(() => zigPrefixExprParserImpl);
@@ -523,6 +528,87 @@ const zigIdentifierExprParser: Parser<ZigExpression, string> = promiseCompose(
 
 setParserName(zigIdentifierExprParser, 'zigIdentifierExprParser');
 
+// Forward references for items defined later
+const zigFnParamListParserRef: Parser<ZigFnParam[], string> = createParserAccessorParser(() => zigFnParamListParser);
+const zigContainerMemberParserRef: Parser<ZigContainerMember, string> = createParserAccessorParser(() => zigContainerMemberParser);
+
+// Function prototype type expression: fn(params) returnType
+const zigFnProtoTypeExprParser: Parser<ZigExpression, string> = promiseCompose(
+	createTupleParser([
+		zigKeyword('fn'),
+		zigSkippableParser,
+		zigFnParamListParserRef,
+		zigSkippableParser,
+		zigTypeExprParser,
+	]),
+	([, , params, , returnType]): ZigExpression => ({
+		type: 'FnProtoType' as const,
+		params,
+		returnType,
+	}),
+);
+
+setParserName(zigFnProtoTypeExprParser, 'zigFnProtoTypeExprParser');
+
+// Container field: name: type [align(expr)] [= default],
+const zigContainerFieldParser: Parser<ZigContainerMember, string> = promiseCompose(
+	createTupleParser([
+		zigIdentifierParser,
+		zigSkippableParser,
+		createOptionalParser(promiseCompose(
+			createTupleParser([createExactSequenceParser(':'), zigSkippableParser, zigExpressionParser, zigSkippableParser]),
+			([, , type_]) => type_,
+		)),
+		createOptionalParser(promiseCompose(
+			createTupleParser([zigKeyword('align'), zigSkippableParser, createExactSequenceParser('('), zigSkippableParser, zigExpressionParser, zigSkippableParser, createExactSequenceParser(')'), zigSkippableParser]),
+			([, , , , expr]) => expr,
+		)),
+		createOptionalParser(promiseCompose(
+			createTupleParser([createExactSequenceParser('='), zigSkippableParser, zigExpressionParser, zigSkippableParser]),
+			([, , init]) => init,
+		)),
+		createExactSequenceParser(','),
+	]),
+	([name, , typeExpr, alignExpr, defaultValue]): ZigContainerMember => ({
+		type: 'ContainerField',
+		name,
+		...(typeExpr !== undefined ? { typeExpr } : {}),
+		...(alignExpr !== undefined ? { alignExpr } : {}),
+		...(defaultValue !== undefined ? { defaultValue } : {}),
+	}),
+);
+
+setParserName(zigContainerFieldParser, 'zigContainerFieldParser');
+
+// Anonymous struct expression: struct { members... }
+const zigStructExprParser: Parser<ZigExpression, string> = promiseCompose(
+	createTupleParser([
+		zigKeyword('struct'),
+		zigSkippableParser,
+		createExactSequenceParser('{'),
+		zigSkippableParser,
+		createArrayParser(
+			promiseCompose(
+				createTupleParser([
+					createDisjunctionParser([
+						zigContainerMemberParserRef,
+						zigContainerFieldParser,
+					]),
+					zigSkippableParser,
+				]),
+				([member]) => member,
+			),
+		),
+		createExactSequenceParser('}'),
+	]),
+	([, , , , members]): ZigExpression => ({
+		type: 'StructExpr',
+		members,
+	}),
+);
+
+setParserName(zigStructExprParser, 'zigStructExprParser');
+
 // Primary expression impl
 const zigPrimaryExprParserImpl: Parser<ZigExpression, string> = createDisjunctionParser([
 	zigBuiltinCallExprParser,
@@ -542,6 +628,9 @@ const zigPrimaryExprParserImpl: Parser<ZigExpression, string> = createDisjunctio
 	zigSwitchExprParser,
 	zigAnonStructInitParser,
 	zigAnonArrayInitParser,
+	zigFnProtoTypeExprParser,
+	zigStructExprParser,
+	promiseCompose(zigKeyword('type'), (): ZigExpression => ({ type: 'Identifier', name: 'type' })),
 	zigBlockExprParser,
 	zigGroupedExprParser,
 	zigEnumLiteralParser,
@@ -557,7 +646,9 @@ type SuffixOp =
 	| { kind: 'index'; index: ZigExpression }
 	| { kind: 'slice'; start: ZigExpression; end?: ZigExpression; sentinel?: ZigExpression }
 	| { kind: 'deref' }
-	| { kind: 'unwrap' };
+	| { kind: 'unwrap' }
+	| { kind: 'structInit'; fields: { type: 'StructInitField'; name: string; value: ZigExpression }[] }
+	| { kind: 'arrayInit'; elements: ZigExpression[] };
 
 const zigFieldAccessSuffixParser: Parser<SuffixOp, string> = promiseCompose(
 	createTupleParser([
@@ -640,6 +731,71 @@ const zigIndexSuffixParser: Parser<SuffixOp, string> = promiseCompose(
 	},
 );
 
+// Typed struct init suffix: { .field = value, ... }
+const zigStructInitSuffixParser: Parser<SuffixOp, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('{'),
+		zigSkippableParser,
+		createOptionalParser(
+			createSeparatedNonEmptyArrayParser(
+				promiseCompose(
+					createTupleParser([
+						createExactSequenceParser('.'),
+						zigIdentifierParser,
+						zigSkippableParser,
+						createExactSequenceParser('='),
+						zigSkippableParser,
+						zigExpressionParser,
+						zigSkippableParser,
+					]),
+					([, name, , , , value]) => ({ type: 'StructInitField' as const, name, value }),
+				),
+				promiseCompose(
+					createTupleParser([
+						createExactSequenceParser(','),
+						zigSkippableParser,
+					]),
+					() => ',',
+				),
+			),
+		),
+		createOptionalParser(createExactSequenceParser(',')),
+		zigSkippableParser,
+		createExactSequenceParser('}'),
+	]),
+	([, , fields]): SuffixOp => ({ kind: 'structInit', fields: fields ?? [] }),
+);
+
+// Typed array init suffix: { expr, expr, ... }
+const zigArrayInitSuffixParser: Parser<SuffixOp, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('{'),
+		zigSkippableParser,
+		createOptionalParser(
+			createSeparatedNonEmptyArrayParser(
+				promiseCompose(
+					createTupleParser([
+						zigExpressionParser,
+						zigSkippableParser,
+					]),
+					([expr]) => expr,
+				),
+				promiseCompose(
+					createTupleParser([
+						createExactSequenceParser(','),
+						zigSkippableParser,
+					]),
+					() => ',',
+				),
+			),
+		),
+		createOptionalParser(createExactSequenceParser(',')),
+		zigSkippableParser,
+		createExactSequenceParser('}'),
+	]),
+	([, , elements]): SuffixOp => ({ kind: 'arrayInit', elements: elements ?? [] }),
+);
+
 const zigSuffixOpParser: Parser<SuffixOp, string> = createDisjunctionParser([
 	zigDerefSuffixParser,
 	zigUnwrapSuffixParser,
@@ -684,6 +840,12 @@ const zigPostfixExprParser: Parser<ZigExpression, string> = promiseCompose(
 				case 'unwrap':
 					result = { type: 'FieldAccessExpr', operand: result, member: '?' };
 					break;
+				case 'structInit':
+					result = { type: 'StructInitExpr', operand: result, fields: suffix.fields };
+					break;
+				case 'arrayInit':
+					result = { type: 'ArrayInitExpr', operand: result, elements: suffix.elements };
+					break;
 			}
 		}
 		return result;
@@ -723,6 +885,31 @@ const zigBracketTypePrefixParser: Parser<ZigExpression, string> = promiseCompose
 
 setParserName(zigBracketTypePrefixParser, 'zigBracketTypePrefixParser');
 
+// Array type prefix: [N]T or [N:sentinel]T
+const zigArrayTypePrefixParser: Parser<ZigExpression, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('['),
+		zigSkippableParser,
+		zigExpressionParser,
+		zigSkippableParser,
+		createOptionalParser(promiseCompose(
+			createTupleParser([createExactSequenceParser(':'), zigSkippableParser, zigExpressionParser, zigSkippableParser]),
+			([, , sentinel]) => sentinel,
+		)),
+		createExactSequenceParser(']'),
+		zigSkippableParser,
+		zigPrefixExprParser,
+	]),
+	([, , length, , sentinel, , , child]): ZigExpression => ({
+		type: 'ArrayType' as const,
+		length,
+		...(sentinel !== undefined ? { sentinel } : {}),
+		child,
+	}),
+);
+
+setParserName(zigArrayTypePrefixParser, 'zigArrayTypePrefixParser');
+
 // Optional type prefix: ?T
 const zigOptionalTypePrefixParser: Parser<ZigExpression, string> = promiseCompose(
 	createTupleParser([
@@ -755,6 +942,7 @@ const zigSinglePointerPrefixParser: Parser<ZigExpression, string> = promiseCompo
 
 // Prefix unary operators
 const zigPrefixUnaryParser: Parser<ZigExpression, string> = createDisjunctionParser([
+	zigArrayTypePrefixParser,
 	zigBracketTypePrefixParser,
 	zigOptionalTypePrefixParser,
 	zigSinglePointerPrefixParser,
@@ -985,8 +1173,39 @@ const zigErrorUnionExprParser: Parser<ZigExpression, string> = promiseCompose(
 
 setParserName(zigErrorUnionExprParser, 'zigErrorUnionExprParser');
 
+// Curly suffix expression: TypeExpr { .field = val, ... } or TypeExpr { val1, val2, ... }
+// In Zig grammar, CurlySuffixExpr = TypeExpr ("{" init "}")?
+type CurlySuffix =
+	| { kind: 'structInit'; fields: { type: 'StructInitField'; name: string; value: ZigExpression }[] }
+	| { kind: 'arrayInit'; elements: ZigExpression[] };
+
+const zigCurlySuffixExprParser: Parser<ZigExpression, string> = promiseCompose(
+	createTupleParser([
+		zigErrorUnionExprParser,
+		createOptionalParser(
+			promiseCompose(
+				createTupleParser([
+					zigSkippableParser,
+					createDisjunctionParser([
+						zigStructInitSuffixParser,
+						zigArrayInitSuffixParser,
+					]),
+				]),
+				([, suffix]): CurlySuffix => suffix as CurlySuffix,
+			),
+		),
+	]),
+	([expr, suffix]): ZigExpression => {
+		if (!suffix) return expr;
+		if (suffix.kind === 'structInit') {
+			return { type: 'StructInitExpr', operand: expr, fields: suffix.fields };
+		}
+		return { type: 'ArrayInitExpr', operand: expr, elements: suffix.elements };
+	},
+);
+
 // Expression impl
-const zigExpressionParserImpl: Parser<ZigExpression, string> = zigErrorUnionExprParser;
+const zigExpressionParserImpl: Parser<ZigExpression, string> = zigCurlySuffixExprParser;
 
 setParserName(zigExpressionParserImpl, 'zigExpressionParserImpl');
 
@@ -1021,7 +1240,7 @@ const zigVarDeclStmtParser: Parser<ZigStatement, string> = promiseCompose(
 		createExactSequenceParser(';'),
 	]),
 	([isPub, isExtern, isComptime, isThreadlocal, isConst, , name, , typeExpr, alignExpr, initExpr]): ZigStatement => ({
-		type: 'VarDeclStmt',
+		type: 'VarDecl' as const,
 		isConst,
 		isPub: isPub ?? false,
 		isExtern: isExtern ?? false,
@@ -1119,7 +1338,7 @@ const zigDeferStmtParser: Parser<ZigStatement, string> = promiseCompose(
 
 setParserName(zigDeferStmtParser, 'zigDeferStmtParser');
 
-// If statement
+// If statement (produces IfExpr with statement bodies)
 const zigIfStmtParser: Parser<ZigStatement, string> = promiseCompose(
 	createTupleParser([
 		zigKeyword('if'),
@@ -1139,7 +1358,7 @@ const zigIfStmtParser: Parser<ZigStatement, string> = promiseCompose(
 		)),
 	]),
 	([, , , , condition, , , , capture, body, , elsePart]): ZigStatement => ({
-		type: 'IfStmt',
+		type: 'IfExpr' as const,
 		condition,
 		...(capture ? { capture } : {}),
 		body,
@@ -1213,7 +1432,15 @@ const zigForStmtParser: Parser<ZigStatement, string> = promiseCompose(
 		createExactSequenceParser('|'),
 		zigSkippableParser,
 		createSeparatedNonEmptyArrayParser(
-			promiseCompose(createTupleParser([zigIdentifierParser, zigSkippableParser]), ([name]) => name),
+			promiseCompose(
+				createTupleParser([
+					createOptionalParser(createExactSequenceParser('*')),
+					zigSkippableParser,
+					zigIdentifierParser,
+					zigSkippableParser,
+				]),
+				([star, , name]) => (star ? '*' + name : name),
+			),
 			promiseCompose(createTupleParser([createExactSequenceParser(','), zigSkippableParser]), () => ','),
 		),
 		createExactSequenceParser('|'),
@@ -1238,7 +1465,7 @@ const zigForStmtParser: Parser<ZigStatement, string> = promiseCompose(
 
 setParserName(zigForStmtParser, 'zigForStmtParser');
 
-// Block statement: [label:] { statements... }
+// Block statement (produces BlockExpr)
 const zigBlockStmtParser: Parser<ZigStatement, string> = promiseCompose(
 	createTupleParser([
 		createOptionalParser(promiseCompose(
@@ -1254,7 +1481,7 @@ const zigBlockStmtParser: Parser<ZigStatement, string> = promiseCompose(
 		createExactSequenceParser('}'),
 	]),
 	([label, , , statements]): ZigStatement => ({
-		type: 'BlockStmt',
+		type: 'BlockExpr' as const,
 		...(label ? { label } : {}),
 		statements,
 	}),
@@ -1295,17 +1522,14 @@ const zigAssignStmtParser: Parser<ZigStatement, string> = promiseCompose(
 
 setParserName(zigAssignStmtParser, 'zigAssignStmtParser');
 
-// Expression statement: expr;
+// Expression statement: expr; (returns the expression directly without wrapping)
 const zigExprStmtParser: Parser<ZigStatement, string> = promiseCompose(
 	createTupleParser([
 		zigExpressionParser,
 		zigSkippableParser,
 		createExactSequenceParser(';'),
 	]),
-	([expression]): ZigStatement => ({
-		type: 'ExprStmt',
-		expression,
-	}),
+	([expression]): ZigStatement => expression,
 );
 
 setParserName(zigExprStmtParser, 'zigExprStmtParser');
@@ -1385,7 +1609,7 @@ const zigFnDeclParser: Parser<ZigFnDecl, string> = promiseCompose(
 		zigSkippableParser,
 		zigFnParamListParser,
 		zigSkippableParser,
-		zigExpressionParser,
+		zigTypeExprParser,
 		zigSkippableParser,
 		createDisjunctionParser([
 			zigBlockExprParser,

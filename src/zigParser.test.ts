@@ -172,6 +172,18 @@ fn dumpNode(tree: *const Ast, node_index: Node.Index, writer: anytype) anyerror!
             }
             try writer.writeAll("]}");
         },
+        .builtin_call, .builtin_call_comma => {
+            const name = tree.tokenSlice(main_token);
+            try writer.writeAll("{\\"type\\":\\"BuiltinCallExpr\\",\\"name\\":");
+            try writeJsonString(writer, name[1..]);
+            try writer.writeAll(",\\"args\\":[");
+            const args_range = tree.extraDataSlice(data.extra_range, Node.Index);
+            for (args_range, 0..) |arg, i| {
+                if (i > 0) try writer.writeByte(',');
+                try dumpNode(tree, arg, writer);
+            }
+            try writer.writeAll("]}");
+        },
         .field_access => {
             const fa = data.node_and_token;
             try writer.writeAll("{\\"type\\":\\"FieldAccessExpr\\",\\"operand\\":");
@@ -186,6 +198,21 @@ fn dumpNode(tree: *const Ast, node_index: Node.Index, writer: anytype) anyerror!
             try dumpNode(tree, callee, writer);
             try writer.writeAll(",\\"args\\":[");
             if (first_arg.unwrap()) |arg| {
+                try dumpNode(tree, arg, writer);
+            }
+            try writer.writeAll("]}");
+        },
+        .call, .call_comma => {
+            var buf1: [1]Node.Index = undefined;
+            const full_call = tree.fullCall(&buf1, node_index) orelse {
+                try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":\\"call_error\\"}");
+                return;
+            };
+            try writer.writeAll("{\\"type\\":\\"CallExpr\\",\\"callee\\":");
+            try dumpNode(tree, full_call.ast.fn_expr, writer);
+            try writer.writeAll(",\\"args\\":[");
+            for (full_call.ast.params, 0..) |arg, i| {
+                if (i > 0) try writer.writeByte(',');
                 try dumpNode(tree, arg, writer);
             }
             try writer.writeAll("]}");
@@ -339,16 +366,16 @@ fn dumpNode(tree: *const Ast, node_index: Node.Index, writer: anytype) anyerror!
             try writer.writeAll("]}");
         },
         .simple_var_decl => {
-            try dumpVarDecl(tree, node_index, writer, false);
+            try dumpVarDecl(tree, node_index, writer);
         },
         .global_var_decl => {
-            try dumpVarDecl(tree, node_index, writer, false);
+            try dumpVarDecl(tree, node_index, writer);
         },
         .local_var_decl => {
-            try dumpVarDecl(tree, node_index, writer, true);
+            try dumpVarDecl(tree, node_index, writer);
         },
         .aligned_var_decl => {
-            try dumpVarDecl(tree, node_index, writer, false);
+            try dumpVarDecl(tree, node_index, writer);
         },
         .fn_decl => {
             try dumpFnDecl(tree, node_index, writer);
@@ -412,6 +439,220 @@ fn dumpNode(tree: *const Ast, node_index: Node.Index, writer: anytype) anyerror!
             const si = tree.structInitDot(node_index);
             try dumpStructInit(tree, si, writer);
         },
+        .struct_init_one, .struct_init_one_comma => {
+            var buf1: [1]Node.Index = undefined;
+            const si = tree.structInitOne(&buf1, node_index);
+            try dumpStructInit(tree, si, writer);
+        },
+        .struct_init, .struct_init_comma => {
+            const si = tree.structInit(node_index);
+            try dumpStructInit(tree, si, writer);
+        },
+        .array_init_one, .array_init_one_comma => {
+            var buf1: [1]Node.Index = undefined;
+            const ai = tree.arrayInitOne(&buf1, node_index);
+            try dumpArrayInit(tree, ai, writer);
+        },
+        .array_init_dot_two, .array_init_dot_two_comma => {
+            var buf2: [2]Node.Index = undefined;
+            const ai = tree.arrayInitDotTwo(&buf2, node_index);
+            try dumpArrayInit(tree, ai, writer);
+        },
+        .array_init_dot, .array_init_dot_comma => {
+            const ai = tree.arrayInitDot(node_index);
+            try dumpArrayInit(tree, ai, writer);
+        },
+        .array_init, .array_init_comma => {
+            const ai = tree.arrayInit(node_index);
+            try dumpArrayInit(tree, ai, writer);
+        },
+        .deref => {
+            try writer.writeAll("{\\"type\\":\\"FieldAccessExpr\\",\\"operand\\":");
+            try dumpNode(tree, data.node, writer);
+            try writer.writeAll(",\\"member\\":\\"*\\"}");
+        },
+        .unwrap_optional => {
+            try writer.writeAll("{\\"type\\":\\"FieldAccessExpr\\",\\"operand\\":");
+            try dumpNode(tree, data.node, writer);
+            try writer.writeAll(",\\"member\\":\\"?\\"}");
+        },
+        .slice_open => {
+            const lhs, const start = data.node_and_node;
+            try writer.writeAll("{\\"type\\":\\"SliceExpr\\",\\"operand\\":");
+            try dumpNode(tree, lhs, writer);
+            try writer.writeAll(",\\"start\\":");
+            try dumpNode(tree, start, writer);
+            try writer.writeAll("}");
+        },
+        .slice, .slice_sentinel => {
+            const full_slice = tree.fullSlice(node_index) orelse {
+                try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":\\"slice_error\\"}");
+                return;
+            };
+            try writer.writeAll("{\\"type\\":\\"SliceExpr\\",\\"operand\\":");
+            try dumpNode(tree, full_slice.ast.sliced, writer);
+            try writer.writeAll(",\\"start\\":");
+            try dumpNode(tree, full_slice.ast.start, writer);
+            if (full_slice.ast.end.unwrap()) |end| {
+                try writer.writeAll(",\\"end\\":");
+                try dumpNode(tree, end, writer);
+            }
+            try writer.writeAll("}");
+        },
+        .array_access => {
+            const lhs, const index = data.node_and_node;
+            try writer.writeAll("{\\"type\\":\\"IndexExpr\\",\\"operand\\":");
+            try dumpNode(tree, lhs, writer);
+            try writer.writeAll(",\\"index\\":");
+            try dumpNode(tree, index, writer);
+            try writer.writeAll("}");
+        },
+        .array_type => {
+            const full_at = tree.arrayType(node_index);
+            try writer.writeAll("{\\"type\\":\\"ArrayType\\",\\"length\\":");
+            try dumpNode(tree, full_at.ast.elem_count, writer);
+            try writer.writeAll(",\\"child\\":");
+            try dumpNode(tree, full_at.ast.elem_type, writer);
+            try writer.writeAll("}");
+        },
+        .array_type_sentinel => {
+            const full_at = tree.arrayTypeSentinel(node_index);
+            try writer.writeAll("{\\"type\\":\\"ArrayType\\",\\"length\\":");
+            try dumpNode(tree, full_at.ast.elem_count, writer);
+            if (full_at.ast.sentinel.unwrap()) |sentinel| {
+                try writer.writeAll(",\\"sentinel\\":");
+                try dumpNode(tree, sentinel, writer);
+            }
+            try writer.writeAll(",\\"child\\":");
+            try dumpNode(tree, full_at.ast.elem_type, writer);
+            try writer.writeAll("}");
+        },
+        .ptr_type_aligned, .ptr_type_sentinel, .ptr_type, .ptr_type_bit_range => {
+            const full_pt = tree.fullPtrType(node_index) orelse {
+                try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":\\"ptr_type_error\\"}");
+                return;
+            };
+            try writer.writeAll("{\\"type\\":\\"PointerType\\",\\"size\\":");
+            const size_str = switch (full_pt.size) {
+                .one => "\\"one\\"",
+                .many => "\\"many\\"",
+                .slice => "\\"slice\\"",
+                .c => "\\"c\\"",
+            };
+            try writer.writeAll(size_str);
+            try writer.writeAll(",\\"isConst\\":");
+            try writer.writeAll(if (full_pt.const_token != null) "true" else "false");
+            try writer.writeAll(",\\"child\\":");
+            try dumpNode(tree, full_pt.ast.child_type, writer);
+            try writer.writeAll("}");
+        },
+        .for_simple => {
+            try dumpForLoop(tree, tree.forSimple(node_index), writer);
+        },
+        .for_range => {
+            // lhs..rhs range expression (used inside for inputs)
+            const lhs, const rhs_opt = data.node_and_opt_node;
+            try writer.writeAll("{\\"type\\":\\"BinaryExpr\\",\\"operator\\":\\"..\\",\\"left\\":");
+            try dumpNode(tree, lhs, writer);
+            try writer.writeAll(",\\"right\\":");
+            if (rhs_opt.unwrap()) |rhs| {
+                try dumpNode(tree, rhs, writer);
+            } else {
+                try writer.writeAll("null");
+            }
+            try writer.writeAll("}");
+        },
+        .@"for" => {
+            try dumpForLoop(tree, tree.forFull(node_index), writer);
+        },
+        .while_simple => {
+            const full_while = tree.whileSimple(node_index);
+            try dumpWhileLoop(tree, full_while, writer);
+        },
+        .while_cont => {
+            const full_while = tree.whileCont(node_index);
+            try dumpWhileLoop(tree, full_while, writer);
+        },
+        .@"while" => {
+            const full_while = tree.whileFull(node_index);
+            try dumpWhileLoop(tree, full_while, writer);
+        },
+        .container_decl_two, .container_decl_two_trailing => {
+            var buf2: [2]Node.Index = undefined;
+            const cd = tree.containerDeclTwo(&buf2, node_index);
+            try dumpContainerDecl(tree, cd, writer);
+        },
+        .container_decl, .container_decl_trailing => {
+            const cd = tree.containerDecl(node_index);
+            try dumpContainerDecl(tree, cd, writer);
+        },
+        .container_field_init => {
+            try dumpContainerField(tree, tree.containerFieldInit(node_index), writer);
+        },
+        .container_field => {
+            try dumpContainerField(tree, tree.containerField(node_index), writer);
+        },
+        .char_literal => {
+            const slice = tree.tokenSlice(main_token);
+            const inner = slice[1..slice.len - 1];
+            try writer.writeAll("{\\"type\\":\\"CharLiteral\\",\\"value\\":");
+            try writeJsonString(writer, inner);
+            try writer.writeByte('}');
+        },
+        .multiline_string_literal => {
+            const slice = tree.tokenSlice(main_token);
+            try writer.writeAll("{\\"type\\":\\"MultilineStringLiteral\\",\\"value\\":");
+            try writeJsonString(writer, slice);
+            try writer.writeByte('}');
+        },
+        .error_set_decl => {
+            try writer.writeAll("{\\"type\\":\\"ErrorSetExpr\\",\\"names\\":[");
+            // Iterate tokens between the { and } of error set
+            var tok = main_token + 2; // skip 'error' and '{'
+            var first = true;
+            while (true) {
+                const tok_tag = tree.tokenTag(tok);
+                if (tok_tag == .r_brace) break;
+                if (tok_tag == .identifier) {
+                    if (!first) try writer.writeByte(',');
+                    first = false;
+                    try writeJsonString(writer, tree.tokenSlice(tok));
+                }
+                tok += 1;
+            }
+            try writer.writeAll("]}");
+        },
+        .@"switch", .switch_comma => {
+            const full_switch = tree.fullSwitch(node_index) orelse {
+                try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":\\"switch_error\\"}");
+                return;
+            };
+            try writer.writeAll("{\\"type\\":\\"SwitchExpr\\",\\"operand\\":");
+            try dumpNode(tree, full_switch.ast.condition, writer);
+            try writer.writeAll(",\\"prongs\\":[");
+            for (full_switch.ast.cases, 0..) |case, i| {
+                if (i > 0) try writer.writeByte(',');
+                const full_case = tree.fullSwitchCase(case) orelse continue;
+                try dumpSwitchProng(tree, full_case, writer);
+            }
+            try writer.writeAll("]}");
+        },
+        .assign_mul => {
+            const lhs, const rhs = data.node_and_node;
+            try writer.writeAll("{\\"type\\":\\"AssignStmt\\",\\"target\\":");
+            try dumpNode(tree, lhs, writer);
+            try writer.writeAll(",\\"operator\\":\\"*=\\",\\"value\\":");
+            try dumpNode(tree, rhs, writer);
+            try writer.writeByte('}');
+        },
+        .assign_sub => {
+            const lhs, const rhs = data.node_and_node;
+            try writer.writeAll("{\\"type\\":\\"AssignStmt\\",\\"target\\":");
+            try dumpNode(tree, lhs, writer);
+            try writer.writeAll(",\\"operator\\":\\"-=\\",\\"value\\":");
+            try dumpNode(tree, rhs, writer);
+            try writer.writeByte('}');
+        },
         else => {
             try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":");
             try writeJsonString(writer, @tagName(tag));
@@ -433,7 +674,12 @@ fn dumpIfExpr(tree: *const Ast, full_if: Ast.full.If, writer: anytype) !void {
 }
 
 fn dumpStructInit(tree: *const Ast, si: Ast.full.StructInit, writer: anytype) !void {
-    try writer.writeAll("{\\"type\\":\\"StructInitExpr\\",\\"fields\\":[");
+    try writer.writeAll("{\\"type\\":\\"StructInitExpr\\"");
+    if (si.ast.type_expr.unwrap()) |te| {
+        try writer.writeAll(",\\"operand\\":");
+        try dumpNode(tree, te, writer);
+    }
+    try writer.writeAll(",\\"fields\\":[");
     for (si.ast.fields, 0..) |field, i| {
         if (i > 0) try writer.writeByte(',');
         const name_token = tree.firstToken(field) - 2;
@@ -446,7 +692,7 @@ fn dumpStructInit(tree: *const Ast, si: Ast.full.StructInit, writer: anytype) !v
     try writer.writeAll("]}");
 }
 
-fn dumpVarDecl(tree: *const Ast, node_index: Node.Index, writer: anytype, is_local: bool) !void {
+fn dumpVarDecl(tree: *const Ast, node_index: Node.Index, writer: anytype) !void {
     const var_decl = tree.fullVarDecl(node_index) orelse {
         try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":\\"var_decl_error\\"}");
         return;
@@ -462,7 +708,7 @@ fn dumpVarDecl(tree: *const Ast, node_index: Node.Index, writer: anytype, is_loc
     const is_comptime = var_decl.comptime_token != null;
     const is_threadlocal = var_decl.threadlocal_token != null;
 
-    const type_str = if (is_local) "VarDeclStmt" else "VarDecl";
+    const type_str = "VarDecl";
     try writer.writeAll("{\\"type\\":");
     try writeJsonString(writer, type_str);
     try writer.writeAll(",\\"isConst\\":");
@@ -522,7 +768,7 @@ fn dumpFnProtoAsDecl(tree: *const Ast, proto_index: Node.Index, writer: anytype,
     }
 
     const name_token = fn_proto.name_token orelse {
-        try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":\\"fn_proto_unnamed\\"}");
+        try dumpFnProtoType(tree, fn_proto, writer);
         return;
     };
     const name = tree.tokenSlice(name_token);
@@ -552,7 +798,12 @@ fn dumpFnProtoAsDecl(tree: *const Ast, proto_index: Node.Index, writer: anytype,
             try writer.writeAll(",\\"name\\":");
             try writeJsonString(writer, tree.tokenSlice(nt));
         }
-        try writer.writeAll(",\\"isComptime\\":false,\\"isNoalias\\":false");
+        const param_is_comptime = param.comptime_noalias != null and tree.tokenTag(param.comptime_noalias.?) == .keyword_comptime;
+        const param_is_noalias = param.comptime_noalias != null and tree.tokenTag(param.comptime_noalias.?) == .keyword_noalias;
+        try writer.writeAll(",\\"isComptime\\":");
+        try writer.writeAll(if (param_is_comptime) "true" else "false");
+        try writer.writeAll(",\\"isNoalias\\":");
+        try writer.writeAll(if (param_is_noalias) "true" else "false");
         if (param.type_expr) |te| {
             try writer.writeAll(",\\"typeExpr\\":");
             try dumpNode(tree, te, writer);
@@ -579,6 +830,39 @@ fn dumpFnProtoAsDecl(tree: *const Ast, proto_index: Node.Index, writer: anytype,
     try writer.writeByte('}');
 }
 
+fn dumpFnProtoType(tree: *const Ast, fn_proto: Ast.full.FnProto, writer: anytype) !void {
+    try writer.writeAll("{\\"type\\":\\"FnProtoType\\",\\"params\\":[");
+    var param_it = fn_proto.iterate(tree);
+    var first_param = true;
+    while (param_it.next()) |param| {
+        if (!first_param) try writer.writeByte(',');
+        first_param = false;
+        try writer.writeAll("{\\"type\\":\\"FnParam\\"");
+        if (param.name_token) |nt| {
+            try writer.writeAll(",\\"name\\":");
+            try writeJsonString(writer, tree.tokenSlice(nt));
+        }
+        const param_is_comptime = param.comptime_noalias != null and tree.tokenTag(param.comptime_noalias.?) == .keyword_comptime;
+        const param_is_noalias = param.comptime_noalias != null and tree.tokenTag(param.comptime_noalias.?) == .keyword_noalias;
+        try writer.writeAll(",\\"isComptime\\":");
+        try writer.writeAll(if (param_is_comptime) "true" else "false");
+        try writer.writeAll(",\\"isNoalias\\":");
+        try writer.writeAll(if (param_is_noalias) "true" else "false");
+        if (param.type_expr) |te| {
+            try writer.writeAll(",\\"typeExpr\\":");
+            try dumpNode(tree, te, writer);
+        }
+        try writer.writeByte('}');
+    }
+    try writer.writeAll("],\\"returnType\\":");
+    if (fn_proto.ast.return_type.unwrap()) |rt| {
+        try dumpNode(tree, rt, writer);
+    } else {
+        try writer.writeAll("{\\"type\\":\\"Identifier\\",\\"name\\":\\"void\\"}");
+    }
+    try writer.writeByte('}');
+}
+
 fn dumpTestDecl(tree: *const Ast, node_index: Node.Index, writer: anytype) !void {
     const name_tok, const body = tree.nodeData(node_index).opt_token_and_node;
 
@@ -597,6 +881,144 @@ fn dumpTestDecl(tree: *const Ast, node_index: Node.Index, writer: anytype) !void
     try writer.writeAll(",\\"body\\":");
     try dumpNode(tree, body, writer);
     try writer.writeByte('}');
+}
+
+fn dumpArrayInit(tree: *const Ast, ai: Ast.full.ArrayInit, writer: anytype) !void {
+    try writer.writeAll("{\\"type\\":\\"ArrayInitExpr\\"");
+    if (ai.ast.type_expr.unwrap()) |te| {
+        try writer.writeAll(",\\"operand\\":");
+        try dumpNode(tree, te, writer);
+    }
+    try writer.writeAll(",\\"elements\\":[");
+    for (ai.ast.elements, 0..) |elem, i| {
+        if (i > 0) try writer.writeByte(',');
+        try dumpNode(tree, elem, writer);
+    }
+    try writer.writeAll("]}");
+}
+
+fn dumpForLoop(tree: *const Ast, full_for: Ast.full.For, writer: anytype) !void {
+    try writer.writeAll("{\\"type\\":\\"ForStmt\\",\\"inputs\\":[");
+    for (full_for.ast.inputs, 0..) |input, i| {
+        if (i > 0) try writer.writeByte(',');
+        try dumpNode(tree, input, writer);
+    }
+    try writer.writeAll("],\\"captures\\":[");
+    // Extract captures from token stream starting at payload_token
+    var tok = full_for.payload_token;
+    var first_cap = true;
+    while (tree.tokenTag(tok) != .pipe) {
+        const is_ptr = tree.tokenTag(tok) == .asterisk;
+        if (is_ptr) tok += 1;
+        if (tree.tokenTag(tok) == .identifier) {
+            if (!first_cap) try writer.writeByte(',');
+            first_cap = false;
+            const name = tree.tokenSlice(tok);
+            if (is_ptr) {
+                try writer.writeByte('"');
+                try writer.writeByte('*');
+                try writer.writeAll(name);
+                try writer.writeByte('"');
+            } else {
+                try writeJsonString(writer, name);
+            }
+        }
+        tok += 1;
+    }
+    try writer.writeAll("],\\"body\\":");
+    try dumpNode(tree, full_for.ast.then_expr, writer);
+    try writer.writeAll(",\\"isInline\\":");
+    try writer.writeAll(if (full_for.inline_token != null) "true" else "false");
+    if (full_for.ast.else_expr.unwrap()) |else_expr| {
+        try writer.writeAll(",\\"elseBody\\":");
+        try dumpNode(tree, else_expr, writer);
+    }
+    if (full_for.label_token) |lt| {
+        try writer.writeAll(",\\"label\\":");
+        try writeJsonString(writer, tree.tokenSlice(lt));
+    }
+    try writer.writeAll("}");
+}
+
+fn dumpWhileLoop(tree: *const Ast, full_while: Ast.full.While, writer: anytype) !void {
+    try writer.writeAll("{\\"type\\":\\"WhileStmt\\",\\"condition\\":");
+    try dumpNode(tree, full_while.ast.cond_expr, writer);
+    if (full_while.payload_token) |pt| {
+        try writer.writeAll(",\\"capture\\":");
+        try writeJsonString(writer, tree.tokenSlice(pt));
+    }
+    if (full_while.ast.cont_expr.unwrap()) |cont| {
+        try writer.writeAll(",\\"continuation\\":");
+        try dumpNode(tree, cont, writer);
+    }
+    try writer.writeAll(",\\"body\\":");
+    try dumpNode(tree, full_while.ast.then_expr, writer);
+    if (full_while.ast.else_expr.unwrap()) |else_expr| {
+        try writer.writeAll(",\\"elseBody\\":");
+        try dumpNode(tree, else_expr, writer);
+    }
+    if (full_while.label_token) |lt| {
+        try writer.writeAll(",\\"label\\":");
+        try writeJsonString(writer, tree.tokenSlice(lt));
+    }
+    try writer.writeAll(",\\"isInline\\":");
+    try writer.writeAll(if (full_while.inline_token != null) "true" else "false");
+    try writer.writeAll("}");
+}
+
+fn dumpContainerDecl(tree: *const Ast, cd: Ast.full.ContainerDecl, writer: anytype) !void {
+    const kw_tok = cd.ast.main_token;
+    const kw = tree.tokenTag(kw_tok);
+    if (kw == .keyword_struct) {
+        try writer.writeAll("{\\"type\\":\\"StructExpr\\",\\"members\\":[");
+        for (cd.ast.members, 0..) |member, i| {
+            if (i > 0) try writer.writeByte(',');
+            try dumpNode(tree, member, writer);
+        }
+        try writer.writeAll("]}");
+    } else {
+        try writer.writeAll("{\\"type\\":\\"Unknown\\",\\"tag\\":\\"container_decl\\"}");
+    }
+}
+
+fn dumpContainerField(tree: *const Ast, cf: Ast.full.ContainerField, writer: anytype) !void {
+    try writer.writeAll("{\\"type\\":\\"ContainerField\\",\\"name\\":");
+    try writeJsonString(writer, tree.tokenSlice(cf.ast.main_token));
+    if (cf.ast.type_expr.unwrap()) |te| {
+        try writer.writeAll(",\\"typeExpr\\":");
+        try dumpNode(tree, te, writer);
+    }
+    if (cf.ast.align_expr.unwrap()) |ae| {
+        try writer.writeAll(",\\"alignExpr\\":");
+        try dumpNode(tree, ae, writer);
+    }
+    if (cf.ast.value_expr.unwrap()) |dv| {
+        try writer.writeAll(",\\"defaultValue\\":");
+        try dumpNode(tree, dv, writer);
+    }
+    try writer.writeAll("}");
+}
+
+fn dumpSwitchProng(tree: *const Ast, full_case: Ast.full.SwitchCase, writer: anytype) !void {
+    try writer.writeAll("{\\"type\\":\\"SwitchProng\\"");
+    const is_else = full_case.ast.values.len == 0;
+    if (is_else) {
+        try writer.writeAll(",\\"isElse\\":true,\\"cases\\":[]");
+    } else {
+        try writer.writeAll(",\\"isElse\\":false,\\"cases\\":[");
+        for (full_case.ast.values, 0..) |item, i| {
+            if (i > 0) try writer.writeByte(',');
+            try dumpNode(tree, item, writer);
+        }
+        try writer.writeAll("]");
+    }
+    if (full_case.payload_token) |pt| {
+        try writer.writeAll(",\\"capture\\":");
+        try writeJsonString(writer, tree.tokenSlice(pt));
+    }
+    try writer.writeAll(",\\"body\\":");
+    try dumpNode(tree, full_case.ast.target_expr, writer);
+    try writer.writeAll("}");
 }
 `;
 
@@ -780,7 +1202,7 @@ test('test declaration', async t => {
 			body: {
 				type: 'BlockExpr',
 				statements: [{
-					type: 'VarDeclStmt',
+					type: 'VarDecl',
 					isConst: true,
 					isPub: false,
 					isExtern: false,
@@ -1196,3 +1618,4 @@ const compareWithZigParser = test.macro({
 });
 
 test(compareWithZigParser, 'lib/std/compress.zig');
+test(compareWithZigParser, 'lib/std/once.zig');

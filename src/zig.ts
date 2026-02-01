@@ -182,9 +182,9 @@ export type ZigIfExpr = {
 	type: 'IfExpr';
 	condition: ZigExpression;
 	capture?: string;
-	body: ZigExpression;
+	body: ZigStatement;
 	elseCapture?: string;
-	elseBody?: ZigExpression;
+	elseBody?: ZigStatement;
 };
 
 export type ZigSwitchProng = {
@@ -245,6 +245,11 @@ export type ZigErrorSetExpr = {
 	names: string[];
 };
 
+export type ZigStructExpr = {
+	type: 'StructExpr';
+	members: ZigContainerMember[];
+};
+
 export type ZigExpression =
 	| ZigIdentifier
 	| ZigLiteral
@@ -266,7 +271,10 @@ export type ZigExpression =
 	| ZigErrorSetExpr
 	| ZigErrorUnionType
 	| ZigPointerType
-	| ZigOptionalType;
+	| ZigOptionalType
+	| ZigFnProtoType
+	| ZigStructExpr
+	| ZigArrayType;
 
 // Statements
 export type ZigAssignOp = '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=';
@@ -276,33 +284,6 @@ export type ZigAssignStmt = {
 	target: ZigExpression;
 	operator: ZigAssignOp;
 	value: ZigExpression;
-};
-
-export type ZigExprStmt = {
-	type: 'ExprStmt';
-	expression: ZigExpression;
-};
-
-export type ZigVarDeclStmt = {
-	type: 'VarDeclStmt';
-	isConst: boolean;
-	isPub: boolean;
-	isExtern: boolean;
-	isComptime: boolean;
-	isThreadlocal: boolean;
-	name: string;
-	typeExpr?: ZigTypeExpression;
-	alignExpr?: ZigExpression;
-	initExpr?: ZigExpression;
-};
-
-export type ZigIfStmt = {
-	type: 'IfStmt';
-	condition: ZigExpression;
-	capture?: string;
-	body: ZigStatement;
-	elseCapture?: string;
-	elseBody?: ZigStatement;
 };
 
 export type ZigWhileStmt = {
@@ -349,24 +330,16 @@ export type ZigDeferStmt = {
 	body: ZigStatement;
 };
 
-export type ZigBlockStmt = {
-	type: 'BlockStmt';
-	label?: string;
-	statements: ZigStatement[];
-};
-
 export type ZigStatement =
 	| ZigAssignStmt
-	| ZigExprStmt
-	| ZigVarDeclStmt
-	| ZigIfStmt
+	| ZigVarDecl
 	| ZigWhileStmt
 	| ZigForStmt
 	| ZigReturnStmt
 	| ZigBreakStmt
 	| ZigContinueStmt
 	| ZigDeferStmt
-	| ZigBlockStmt;
+	| ZigExpression;
 
 // Function parameters
 export type ZigFnParam = {
