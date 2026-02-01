@@ -1,3 +1,4 @@
+import { escapeJavaString } from './stringEscapes.js';
 import { type Unparser } from './unparser.js';
 
 type JavaAstNode = {
@@ -144,7 +145,8 @@ function unparseExpression(node: JavaAstNode): string {
 			return (node.name as JavaAstNode).identifier as string;
 
 		case 'StringLiteralExpr':
-			return `"${node.value as string}"`;
+			return `"${escapeJavaString(node.value as string)}"`;
+
 
 		case 'IntegerLiteralExpr':
 			return node.value as string;

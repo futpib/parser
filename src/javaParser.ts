@@ -1,4 +1,5 @@
 import { type Parser, setParserName } from './parser.js';
+import { unescapeJavaString } from './stringEscapes.js';
 import { createUnionParser } from './unionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { promiseCompose } from './promiseCompose.js';
@@ -864,7 +865,7 @@ const javaStringLiteralExprParser: Parser<JavaStringLiteralExprOutput, string> =
 	createRegExpParser(/"(?:[^"\\]|\\.)*"/),
 	match => ({
 		type: 'StringLiteralExpr' as const,
-		value: match[0].slice(1, -1), // Remove quotes
+		value: unescapeJavaString(match[0].slice(1, -1)),
 	}),
 );
 

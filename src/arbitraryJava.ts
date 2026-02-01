@@ -187,7 +187,10 @@ const arbitraryNameExpr = fc.record({
 
 const arbitraryStringLiteralExpr = fc.record({
 	type: fc.constant('StringLiteralExpr' as const),
-	value: fc.stringMatching(/^[a-zA-Z0-9 ]*$/),
+	value: fc.oneof(
+		fc.stringMatching(/^[a-zA-Z0-9 ]*$/),
+		fc.constantFrom('hello\nworld', 'tab\there', 'back\\slash', 'quote\ttab\nnewline'),
+	),
 });
 
 const arbitraryIntegerLiteralExpr = fc.record({

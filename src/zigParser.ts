@@ -11,6 +11,7 @@ import { createSeparatedNonEmptyArrayParser } from './separatedNonEmptyArrayPars
 import { createObjectParser } from './objectParser.js';
 import { createNonEmptyArrayParser } from './nonEmptyArrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
+import { unescapeZigString } from './stringEscapes.js';
 import {
 	type ZigExpression,
 	type ZigTypeExpression,
@@ -121,7 +122,7 @@ const zigStringLiteralParser: Parser<ZigExpression, string> = promiseCompose(
 	createRegExpParser(/"(?:[^"\\]|\\.)*"/),
 	match => ({
 		type: 'StringLiteral' as const,
-		value: match[0].slice(1, -1),
+		value: unescapeZigString(match[0].slice(1, -1)),
 	}),
 );
 
@@ -141,7 +142,7 @@ const zigCharLiteralParser: Parser<ZigExpression, string> = promiseCompose(
 	createRegExpParser(/'(?:[^'\\]|\\.)*'/),
 	match => ({
 		type: 'CharLiteral' as const,
-		value: match[0].slice(1, -1),
+		value: unescapeZigString(match[0].slice(1, -1)),
 	}),
 );
 

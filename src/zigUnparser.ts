@@ -1,3 +1,4 @@
+import { escapeZigString, escapeZigChar } from './stringEscapes.js';
 import { type Unparser } from './unparser.js';
 import {
 	type ZigRoot,
@@ -29,13 +30,13 @@ function unparseExpression(node: ZigExpression): string {
 			return node.value;
 
 		case 'StringLiteral':
-			return '"' + node.value + '"';
+			return '"' + escapeZigString(node.value) + '"';
 
 		case 'MultilineStringLiteral':
 			return node.value;
 
 		case 'CharLiteral':
-			return "'" + node.value + "'";
+			return "'" + escapeZigChar(node.value) + "'";
 
 		case 'EnumLiteral':
 			return '.' + node.name;
@@ -563,7 +564,7 @@ function unparseFnDecl(node: ZigFnDecl): string {
 function unparseTestDecl(node: ZigTestDecl): string {
 	let result = 'test';
 	if (node.name) {
-		result += ' "' + node.name + '"';
+		result += ' "' + escapeZigString(node.name) + '"';
 	}
 
 	result += ' ' + unparseBlockExpr(node.body);

@@ -38,7 +38,10 @@ const arbitraryIntegerLiteral: fc.Arbitrary<ZigExpression> = fc.record({
 
 const arbitraryStringLiteral: fc.Arbitrary<ZigExpression> = fc.record({
 	type: fc.constant('StringLiteral' as const),
-	value: fc.stringMatching(/^[a-zA-Z0-9 ]*$/),
+	value: fc.oneof(
+		fc.stringMatching(/^[a-zA-Z0-9 ]*$/),
+		fc.constantFrom('hello\nworld', 'tab\there', 'back\\slash', 'quote\ttab\nnewline'),
+	),
 });
 
 const arbitraryCharLiteral: fc.Arbitrary<ZigExpression> = fc.record({
