@@ -11,7 +11,8 @@ export type BashWordPart =
 	| BashWordPartVariableBraced
 	| BashWordPartCommandSubstitution
 	| BashWordPartBacktickSubstitution
-	| BashWordPartArithmeticExpansion;
+	| BashWordPartArithmeticExpansion
+	| BashWordPartProcessSubstitution;
 
 export type BashWordPartLiteral = {
 	type: 'literal';
@@ -53,6 +54,12 @@ export type BashWordPartBacktickSubstitution = {
 export type BashWordPartArithmeticExpansion = {
 	type: 'arithmeticExpansion';
 	expression: string;
+};
+
+export type BashWordPartProcessSubstitution = {
+	type: 'processSubstitution';
+	direction: '<' | '>';
+	command: BashCommand;
 };
 
 // Redirect: file descriptor operations

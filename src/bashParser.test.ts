@@ -391,6 +391,191 @@ test('[[ treated as command name', async t => {
 	}
 });
 
+// Braced variable expansion: ${VAR}
+test('braced variable expansion', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo ${HOME}',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.is(cmd.args[0].parts[0].type, 'variableBraced');
+	}
+});
+
+// Braced variable with default: ${VAR:-default}
+test('braced variable with default value', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo ${VAR:-default}',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.is(cmd.args[0].parts[0].type, 'variableBraced');
+	}
+});
+
+// Arithmetic expansion: $((1+2))
+test('arithmetic expansion', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo $((1+2))',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.is(cmd.args[0].parts[0].type, 'arithmeticExpansion');
+	}
+});
+
+// Bare $ at end of unquoted word
+test('bare dollar at end of unquoted word', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo foo$',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.deepEqual(cmd.args[0], {
+			parts: [
+				{ type: 'literal', value: 'foo' },
+				{ type: 'literal', value: '$' },
+			],
+		});
+	}
+});
+
+// Bare $ as its own unquoted word
+test('bare dollar as standalone unquoted word', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo $',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.deepEqual(cmd.args[0], {
+			parts: [
+				{ type: 'literal', value: '$' },
+			],
+		});
+	}
+});
+
+// Comment after command
+test('comment after command', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo hello # this is a comment',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.is(cmd.args.length, 1);
+		t.deepEqual(cmd.args[0], {
+			parts: [{ type: 'literal', value: 'hello' }],
+		});
+	}
+});
+
+// ANSI-C quoting: $'...'
+test('ansi-c quoting', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		"echo $'hello\\nworld'",
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.is(cmd.args.length, 1);
+	}
+});
+
+// Braced variable in double quotes: "${VAR}"
+test('braced variable in double quotes', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo "${HOME}"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		const dq = cmd.args[0].parts[0];
+		if (dq.type === 'doubleQuoted') {
+			t.is(dq.parts[0].type, 'variableBraced');
+		}
+	}
+});
+
+// Arithmetic expansion in double quotes
+test('arithmetic expansion in double quotes', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo "$((1+2))"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		const dq = cmd.args[0].parts[0];
+		if (dq.type === 'doubleQuoted') {
+			t.is(dq.parts[0].type, 'arithmeticExpansion');
+		}
+	}
+});
+
+// Process substitution: <(cmd)
+test('process substitution input', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'diff <(sort file1) <(sort file2)',
+		stringParserInputCompanion,
+	);
+
+	t.truthy(result);
+});
+
+// Line continuation (backslash-newline)
+test('line continuation', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo hello \\\nworld',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.is(cmd.args.length, 2);
+	}
+});
+
+// Hash in middle of unquoted word is literal, not a comment
+test('hash in middle of unquoted word', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo foo#bar',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.deepEqual(cmd.args[0], {
+			parts: [{ type: 'literal', value: 'foo#bar' }],
+		});
+	}
+});
+
 test('if treated as command name', async t => {
 	const result = await runParser(
 		bashScriptParser,
