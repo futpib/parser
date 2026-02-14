@@ -166,6 +166,79 @@ test('double quoted string with variable', async t => {
 	}
 });
 
+test('double quoted string with trailing dollar', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo "hello$"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.deepEqual(cmd.args[0], {
+			parts: [{
+				type: 'doubleQuoted',
+				parts: [
+					{ type: 'literal', value: 'hello' },
+					{ type: 'literal', value: '$' },
+				],
+			}],
+		});
+	}
+});
+
+test('double quoted string with only dollar', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo "$"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.deepEqual(cmd.args[0], {
+			parts: [{
+				type: 'doubleQuoted',
+				parts: [
+					{ type: 'literal', value: '$' },
+				],
+			}],
+		});
+	}
+});
+
+test('grep with dollar anchor in double quotes', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'grep "\\.ts$"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0];
+	if (cmd.type === 'simple') {
+		t.deepEqual(cmd.args[0], {
+			parts: [{
+				type: 'doubleQuoted',
+				parts: [
+					{ type: 'literal', value: '\\' },
+					{ type: 'literal', value: '.ts' },
+					{ type: 'literal', value: '$' },
+				],
+			}],
+		});
+	}
+});
+
+test('pipeline with dollar anchor in double quoted grep pattern', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'ls -la /home | grep "\\.ts$" | grep -v "\\.test\\.ts"',
+		stringParserInputCompanion,
+	);
+
+	t.is(result.entries[0].pipeline.commands.length, 3);
+});
+
 test('simple variable', async t => {
 	const result = await runParser(
 		bashScriptParser,

@@ -118,6 +118,22 @@ const bashDoubleQuotedPartParser: Parser<BashWordPart, string> = createDisjuncti
 			value: match[0],
 		}),
 	),
+	// Bare $ not followed by a valid expansion start (e.g. $" at end of double-quoted string)
+	promiseCompose(
+		createRegExpParser(/\$/),
+		() => ({
+			type: 'literal' as const,
+			value: '$',
+		}),
+	),
+	// Bare \ not followed by a recognized escape character (treated as literal backslash in bash)
+	promiseCompose(
+		createRegExpParser(/\\/),
+		() => ({
+			type: 'literal' as const,
+			value: '\\',
+		}),
+	),
 ]);
 
 // Double quoted string: "..."
