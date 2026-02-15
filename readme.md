@@ -3,6 +3,7 @@
 > A functional TypeScript library for parsing and serializing binary data formats using composable parser combinators
 
 [![Coverage Status](https://coveralls.io/repos/github/futpib/parser/badge.svg?branch=master)](https://coveralls.io/github/futpib/parser?branch=master)
+[![npm version](https://img.shields.io/npm/v/@futpib/parser.svg)](https://www.npmjs.com/package/@futpib/parser)
 
 ## Overview
 
