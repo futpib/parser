@@ -89,6 +89,8 @@ import {
 } from '@futpib/parser';
 
 // Parse a simple key-value format
+// Note: RegExpParser returns a RegExpExecArray (match array), not just the string
+// Note: Underscore-prefixed keys like _separator are omitted from output
 const keyValueParser = createObjectParser({
   key: createRegExpParser(/[a-z]+/),
   _separator: createExactSequenceParser('='),
@@ -101,10 +103,8 @@ const result = await runParser(
   stringParserInputCompanion
 );
 
-console.log(result.key[0]);   // 'name' - matched text is at index 0
+console.log(result.key[0]);   // 'name' - the [0] element contains the matched string
 console.log(result.value[0]); // '123'
-// Note: _separator is omitted from output (underscore-prefixed keys are skipped)
-// Note: RegExpParser returns a RegExpExecArray (match array), not just the string
 ```
 
 ### Array Parsing Example
