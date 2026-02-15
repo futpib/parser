@@ -198,21 +198,55 @@ type Parser<Output, Sequence, Element> = (
 
 Build complex parsers from simple ones:
 
-- **`createTupleParser(parsers)`** - Parse a tuple of values in sequence
-- **`createObjectParser(parsers)`** - Parse an object with named fields
-- **`createArrayParser(parser)`** - Parse an array of values
-- **`createUnionParser(parsers)`** - Try multiple parsers (first success wins)
-- **`createOptionalParser(parser)`** - Parse optional values
+#### Basic Combinators
+- **`createElementParser()`** - Parse a single element from the input
+- **`createExactElementParser(element)`** - Parse and match an exact element value
 - **`createExactSequenceParser(sequence)`** - Match exact byte/string sequences
-- **`createFixedLengthSequenceParser(length)`** - Parse fixed-length sequences
-- **`createTerminatedArrayParser(elementParser, terminatorParser)`** - Parse until terminator
-- **`createSeparatedArrayParser(elementParser, separatorParser)`** - Parse separated values
-- **`createRegExpParser(regexp)`** - Parse using regular expressions (strings only)
-- **`createElementParser()`** - Parse a single element
-- **`createLookaheadParser(parser)`** - Parse without consuming input
-- **`createSkipParser(length)`** - Skip a fixed number of elements
+- **`createFixedLengthSequenceParser(length)`** - Parse a fixed-length sequence
+- **`createPredicateElementParser(predicate)`** - Parse element matching a predicate function
 
-### Unparser (Serializer)
+#### Structural Combinators
+- **`createTupleParser(parsers)`** - Parse a tuple of values in sequence
+- **`createObjectParser(parsers)`** - Parse an object with named fields (underscore-prefixed keys omitted)
+- **`createArrayParser(parser)`** - Parse an array of values (until parser fails)
+- **`createNonEmptyArrayParser(parser)`** - Parse at least one element into an array
+- **`createListParser(parser)`** - Parse a list of values
+
+#### Array & Sequence Combinators
+- **`createTerminatedArrayParser(elementParser, terminatorParser)`** - Parse until terminator is found
+- **`createSeparatedArrayParser(elementParser, separatorParser)`** - Parse values separated by delimiters
+- **`createSeparatedNonEmptyArrayParser(elementParser, separatorParser)`** - Parse at least one separated value
+- **`createElementTerminatedSequenceParser(terminator)`** - Parse sequence until element terminator
+- **`createElementTerminatedSequenceArrayParser(terminator)`** - Parse array of sequences terminated by element
+- **`createSequenceTerminatedSequenceParser(terminator)`** - Parse sequence until sequence terminator
+
+#### Choice & Optional Combinators
+- **`createUnionParser(parsers)`** - Try multiple parsers (first success wins)
+- **`createDisjunctionParser(parsers)`** - Try multiple parsers and collect all results
+- **`createOptionalParser(parser)`** - Parse optional values (returns undefined on failure)
+
+#### Lookahead & Control Flow
+- **`createLookaheadParser(parser)`** - Parse without consuming input (peek ahead)
+- **`createNegativeLookaheadParser(parser)`** - Succeed only if parser would fail (without consuming)
+- **`createParserAccessorParser(accessor)`** - Dynamically select parser based on context
+- **`createElementSwitchParser(cases, defaultParser?)`** - Switch parser based on next element
+
+#### Utility Combinators
+- **`createSkipParser(length)`** - Skip a fixed number of elements
+- **`createSkipToParser(parser)`** - Skip until parser succeeds
+- **`createSliceBoundedParser(parser, maxLength)`** - Limit parser to slice bounds
+- **`createEndOfInputParser()`** - Ensure all input has been consumed
+- **`createQuantifierParser(parser, min, max)`** - Parse between min and max repetitions
+- **`createParserConsumedSequenceParser(parser)`** - Parse and return consumed sequence
+
+#### String-Specific Combinators
+- **`createRegExpParser(regexp)`** - Parse using regular expressions (returns RegExpExecArray)
+
+#### Debugging Combinators
+- **`createDebugLogParser(label, parser)`** - Log parser execution for debugging
+- **`createDebugLogInputParser(label)`** - Log current input position
+
+### Unparser (Serializer) Combinators
 
 An `Unparser<Input, Sequence, Element>` converts data back into binary/string format:
 
@@ -222,6 +256,68 @@ type Unparser<Input, Sequence, Element> = (
   unparserContext: UnparserContext<Sequence, Element>
 ) => AsyncIterable<Sequence | Element>;
 ```
+
+#### Available Unparsers
+- **`createArrayUnparser(elementUnparser)`** - Serialize an array of elements
+- **`createSequenceUnparser(elementUnparsers)`** - Serialize a sequence of values
+
+#### Advanced Unparser Features: WriteLater and WriteEarlier
+
+When serializing complex formats, you may need to write a size or offset field before you know its value. Use `WriteLater` and `WriteEarlier` for this:
+
+```typescript
+import {
+  runUnparser,
+  uint8ArrayUnparserOutputCompanion,
+  type UnparserContext,
+} from '@futpib/parser';
+
+// Example: Write a length-prefixed string
+async function* lengthPrefixedStringUnparser(
+  text: string,
+  ctx: UnparserContext<Uint8Array, number>
+) {
+  // Reserve 4 bytes for length (to be written later)
+  const lengthPlaceholder = yield* ctx.writeLater(4);
+  
+  // Write the string content
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(text);
+  yield bytes;
+  
+  // Now write the length back to the reserved space
+  const lengthBytes = new Uint8Array(4);
+  new DataView(lengthBytes.buffer).setUint32(0, bytes.length, false);
+  yield* ctx.writeEarlier(
+    lengthPlaceholder,
+    async function*() { yield lengthBytes; },
+    null
+  );
+}
+
+// Collect results from the async iterable
+const chunks: Uint8Array[] = [];
+for await (const chunk of runUnparser(
+  lengthPrefixedStringUnparser,
+  'Hello',
+  uint8ArrayUnparserOutputCompanion
+)) {
+  chunks.push(chunk);
+}
+const result = uint8ArrayUnparserOutputCompanion.concat(chunks);
+
+// result: Uint8Array([0, 0, 0, 5, 72, 101, 108, 108, 111])
+//         length=5 ---^        H   e   l   l   o
+```
+
+**`WriteLater`** - Reserve space in the output to be filled later
+- `writeLater(length)` - Returns a `WriteLater` token representing reserved space
+- Used when you need to write a value that depends on data processed later
+
+**`WriteEarlier`** - Fill in previously reserved space
+- `writeEarlier(writeLater, unparser, input)` - Write data to previously reserved space
+- The `writeLater` token identifies which space to fill
+- Allows writing forward references (e.g., file sizes, offsets)
 
 ### Input/Output Companions
 
