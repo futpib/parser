@@ -97,6 +97,10 @@ export {
 } from './elementParser.js';
 
 export {
+	createPredicateElementParser,
+} from './predicateElementParser.js';
+
+export {
 	createTerminatedArrayParser,
 } from './terminatedArrayParser.js';
 

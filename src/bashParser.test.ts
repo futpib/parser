@@ -2,6 +2,7 @@ import test from 'ava';
 import { runParser, runParserWithRemainingInput } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { bashScriptParser, bashWordParser, bashSimpleCommandParser } from './bashParser.js';
+import type { BashSimpleCommand, BashWordPartLiteral } from './bash.js';
 
 test('simple command parser - single word', async t => {
 	const result = await runParser(
@@ -586,5 +587,142 @@ test('if treated as command name', async t => {
 	const cmd = result.entries[0].pipeline.commands[0];
 	if (cmd.type === 'simple') {
 		t.deepEqual(cmd.name, { parts: [{ type: 'literal', value: 'if' }] });
+	}
+});
+
+test('find -exec with {} placeholder', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'find . -name "*.tmp" -exec rm {} \\;',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.is(cmd.name!.parts[0].type, 'literal');
+	t.is((cmd.name!.parts[0] as BashWordPartLiteral).value, 'find');
+	// {} should be parsed as a literal word argument
+	const braceArg = cmd.args[5]; // ., -name, "*.tmp", -exec, rm, {}, \;
+	t.is(braceArg.parts[0].type, 'literal');
+	t.is((braceArg.parts[0] as BashWordPartLiteral).value, '{}');
+});
+
+test('lone open brace as argument', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo {',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.deepEqual(cmd.args[0], {
+		parts: [{ type: 'literal', value: '{' }],
+	});
+});
+
+test('close brace mid-word', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo foo}bar',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.is(cmd.args.length, 1);
+	t.is(cmd.args[0].parts[0].type, 'literal');
+});
+
+test('open brace mid-word', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo foo{bar',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.is(cmd.args.length, 1);
+	t.is(cmd.args[0].parts[0].type, 'literal');
+});
+
+test('braces mid-word like brace expansion', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo file.{c,h}',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.is(cmd.args.length, 1);
+	t.is(cmd.args[0].parts[0].type, 'literal');
+});
+
+test('find -exec with {.} placeholder variant', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo {.}',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.is(cmd.args.length, 1);
+	t.is(cmd.args[0].parts[0].type, 'literal');
+});
+
+test('lone close brace as argument', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo }',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.deepEqual(cmd.args[0], {
+		parts: [{ type: 'literal', value: '}' }],
+	});
+});
+
+test('close brace at start of word', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo }hello',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.is(cmd.args.length, 1);
+	t.is(cmd.args[0].parts[0].type, 'literal');
+});
+
+test('multi-line script with blank lines', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo hello\n\necho world',
+		stringParserInputCompanion,
+	);
+
+	t.is(result.entries.length, 2);
+});
+
+test('mid-script comment', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo hello\n# comment\necho world',
+		stringParserInputCompanion,
+	);
+
+	t.is(result.entries.length, 2);
+});
+
+test('nested parentheses in arithmetic expansion', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'echo $((1 + (2 * 3)))',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	const arith = cmd.args[0].parts[0];
+	t.is(arith.type, 'arithmeticExpansion');
+	if (arith.type === 'arithmeticExpansion') {
+		t.is(arith.expression, '1 + (2 * 3)');
 	}
 });

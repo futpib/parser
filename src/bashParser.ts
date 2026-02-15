@@ -1,13 +1,15 @@
 import { type Parser, setParserName } from './parser.js';
-import { createUnionParser } from './unionParser.js';
 import { createExactSequenceParser } from './exactSequenceParser.js';
+import { createElementParser } from './elementParser.js';
+import { createPredicateElementParser } from './predicateElementParser.js';
+import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
+import { createLookaheadParser } from './lookaheadParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createOptionalParser } from './optionalParser.js';
-import { createRegExpParser } from './regexpParser.js';
 import { createNonEmptyArrayParser } from './nonEmptyArrayParser.js';
 import { createSeparatedNonEmptyArrayParser } from './separatedNonEmptyArrayParser.js';
 import { createObjectParser } from './objectParser.js';
@@ -34,47 +36,125 @@ import {
 	type BashCommand,
 } from './bash.js';
 
+// Character predicates
+function isDigit(ch: string): boolean {
+	return ch >= '0' && ch <= '9';
+}
+
+function isLetter(ch: string): boolean {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+}
+
+function isIdentStart(ch: string): boolean {
+	return isLetter(ch) || ch === '_';
+}
+
+function isIdentChar(ch: string): boolean {
+	return isIdentStart(ch) || isDigit(ch);
+}
+
 // Whitespace (spaces, tabs, and line continuations - not bare newlines which are significant)
+const bashInlineWhitespaceUnitParser: Parser<string, string> = createDisjunctionParser([
+	promiseCompose(createExactSequenceParser(' '), () => ' '),
+	promiseCompose(createExactSequenceParser('\t'), () => '\t'),
+	promiseCompose(createExactSequenceParser('\\\n'), () => '\\\n'),
+]);
+
 const bashInlineWhitespaceParser: Parser<string, string> = promiseCompose(
-	createRegExpParser(/(?:[ \t]|\\\n)+/),
-	match => match[0],
+	createNonEmptyArrayParser(bashInlineWhitespaceUnitParser),
+	parts => parts.join(''),
 );
 
 const bashOptionalInlineWhitespaceParser: Parser<string, string> = promiseCompose(
-	createRegExpParser(/(?:[ \t]|\\\n)*/),
-	match => match[0],
-);
-
-// Newline
-const bashNewlineParser: Parser<string, string> = promiseCompose(
-	createRegExpParser(/\n/),
-	match => match[0],
+	createArrayParser(bashInlineWhitespaceUnitParser),
+	parts => parts.join(''),
 );
 
 // Word characters (unquoted, no special chars)
-// Note: {} are excluded so brace groups are parsed correctly
-// # is excluded from the first character (starts a comment) but allowed mid-word
-const bashUnquotedWordCharsParser: Parser<string, string> = promiseCompose(
-	createRegExpParser(/[^\s\n|&;<>(){}$`"'\\#][^\s\n|&;<>(){}$`"'\\]*/),
-	match => match[0],
+// Note: {} and # are excluded from the first character so brace groups and comments are parsed correctly,
+// but allowed as continuation characters for mid-word braces (e.g., file.{c,h}, foo}bar) and hash (foo#bar)
+const bashSpecialCharParser: Parser<unknown, string> = createDisjunctionParser(
+	[...' \t\n|&;<>()$`"\'\\'].map(ch => createExactSequenceParser(ch)),
 );
+
+const bashWordStartExcludeParser: Parser<unknown, string> = createDisjunctionParser([
+	bashSpecialCharParser,
+	createExactSequenceParser('{'),
+	createExactSequenceParser('}'),
+	createExactSequenceParser('#'),
+]);
+
+const bashUnquotedWordStartCharParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(bashWordStartExcludeParser),
+		createElementParser<string>(),
+	]),
+	([, ch]) => ch,
+);
+
+const bashUnquotedWordContinueCharParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(bashSpecialCharParser),
+		createElementParser<string>(),
+	]),
+	([, ch]) => ch,
+);
+
+const bashUnquotedWordCharsParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		bashUnquotedWordStartCharParser,
+		createArrayParser(bashUnquotedWordContinueCharParser),
+	]),
+	([first, rest]) => first + rest.join(''),
+);
+
+// Consume characters until a given terminator, returning the accumulated string
+function createUntilCharParser(terminator: string): Parser<string, string> {
+	return promiseCompose(
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				createNegativeLookaheadParser(createExactSequenceParser(terminator)),
+				createElementParser<string>(),
+			]),
+			([, ch]) => ch,
+		)),
+		chars => chars.join(''),
+	);
+}
 
 // Single quoted string: '...'
 const bashSingleQuotedParser: Parser<BashWordPartSingleQuoted, string> = createObjectParser({
 	type: 'singleQuoted' as const,
 	_open: createExactSequenceParser("'"),
-	value: promiseCompose(
-		createRegExpParser(/[^']*/),
-		match => match[0],
-	),
+	value: createUntilCharParser("'"),
 	_close: createExactSequenceParser("'"),
 });
 
-// Variable name
-const bashVariableNameParser: Parser<string, string> = promiseCompose(
-	createRegExpParser(/[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|[@*#?$!-]/),
-	match => match[0],
+// Variable name: identifiers, positional params ($0, $1...), or special params ($@, $*, $#, $?, $$, $!, $-)
+const bashSpecialParams = new Set(['@', '*', '#', '?', '$', '!', '-']);
+
+const bashIdentifierParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createPredicateElementParser<string>(isIdentStart),
+		createArrayParser(createPredicateElementParser<string>(isIdentChar)),
+	]),
+	([first, rest]) => first + rest.join(''),
 );
+
+const bashDigitsParser: Parser<string, string> = promiseCompose(
+	createNonEmptyArrayParser(createPredicateElementParser<string>(isDigit)),
+	chars => chars.join(''),
+);
+
+const bashSpecialParamParser: Parser<string, string> = createPredicateElementParser<string>(
+	ch => bashSpecialParams.has(ch),
+);
+
+const bashVariableNameParser: Parser<string, string> = createDisjunctionParser([
+	bashIdentifierParser,
+	bashDigitsParser,
+	bashSpecialParamParser,
+]);
 
 // Simple variable: $var
 const bashSimpleVariableParser: Parser<BashWordPartVariable, string> = createObjectParser({
@@ -101,55 +181,202 @@ const bashBacktickSubstitutionParser: Parser<BashWordPartBacktickSubstitution, s
 	_close: createExactSequenceParser('`'),
 });
 
+// Word characters for use inside ${...} operands (} excluded from continuation to not consume the closing brace)
+const bashBracedVarContinueExcludeParser: Parser<unknown, string> = createDisjunctionParser([
+	bashSpecialCharParser,
+	createExactSequenceParser('{'),
+	createExactSequenceParser('}'),
+]);
+
+const bashBracedVarUnquotedWordCharsParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		bashUnquotedWordStartCharParser,
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				createNegativeLookaheadParser(bashBracedVarContinueExcludeParser),
+				createElementParser<string>(),
+			]),
+			([, ch]) => ch,
+		)),
+	]),
+	([first, rest]) => first + rest.join(''),
+);
+
+const bashBracedVarLiteralWordPartParser: Parser<BashWordPartLiteral, string> = createObjectParser({
+	type: 'literal' as const,
+	value: bashBracedVarUnquotedWordCharsParser,
+});
+
 // Braced variable expansion: ${VAR} or ${VAR:-default}
 const bashBracedVariableParser: Parser<BashWordPartVariableBraced, string> = createObjectParser({
 	type: 'variableBraced' as const,
 	_open: createExactSequenceParser('${'),
 	name: bashVariableNameParser,
-	operator: createOptionalParser(promiseCompose(
-		createRegExpParser(/:-|:=|:\+|:\?|-|=|\+|\?|##|#|%%|%/),
-		match => match[0],
-	)),
-	operand: createOptionalParser(createParserAccessorParser(() => bashWordParser)),
+	operator: createOptionalParser(createDisjunctionParser([
+		promiseCompose(createExactSequenceParser(':-'), () => ':-'),
+		promiseCompose(createExactSequenceParser(':='), () => ':='),
+		promiseCompose(createExactSequenceParser(':+'), () => ':+'),
+		promiseCompose(createExactSequenceParser(':?'), () => ':?'),
+		promiseCompose(createExactSequenceParser('##'), () => '##'),
+		promiseCompose(createExactSequenceParser('%%'), () => '%%'),
+		promiseCompose(createExactSequenceParser('-'), () => '-'),
+		promiseCompose(createExactSequenceParser('='), () => '='),
+		promiseCompose(createExactSequenceParser('+'), () => '+'),
+		promiseCompose(createExactSequenceParser('?'), () => '?'),
+		promiseCompose(createExactSequenceParser('#'), () => '#'),
+		promiseCompose(createExactSequenceParser('%'), () => '%'),
+	])),
+	operand: createOptionalParser(createParserAccessorParser(() => bashBracedVarWordParser)),
 	_close: createExactSequenceParser('}'),
 });
 
-// Arithmetic expansion: $((expression))
+// Arithmetic expansion: $((expression)) - handles nested parentheses
+const bashArithmeticExpressionParser: Parser<string, string> = async (parserContext) => {
+	let result = '';
+	let depth = 0;
+	for (;;) {
+		const ch = await parserContext.peek(0);
+		if (ch === undefined) {
+			break;
+		}
+
+		if (ch === '(') {
+			depth++;
+			result += ch;
+			parserContext.skip(1);
+			continue;
+		}
+
+		if (ch === ')') {
+			if (depth > 0) {
+				depth--;
+				result += ch;
+				parserContext.skip(1);
+				continue;
+			}
+
+			// At depth 0, a ')' means we've hit the closing '))' of $((
+			break;
+		}
+
+		result += ch;
+		parserContext.skip(1);
+	}
+
+	return result;
+};
+
 const bashArithmeticExpansionParser: Parser<BashWordPartArithmeticExpansion, string> = createObjectParser({
 	type: 'arithmeticExpansion' as const,
 	_open: createExactSequenceParser('$(('),
-	expression: promiseCompose(
-		createRegExpParser(/(?:[^)]|\)(?!\)))*/),
-		match => match[0],
-	),
+	expression: bashArithmeticExpressionParser,
 	_close: createExactSequenceParser('))'),
 });
 
-// ANSI-C quoting: $'...'
+// ANSI-C quoting: $'...' - content can include \' escapes
+// Each unit is either a backslash-escape pair or a non-quote character
+const bashAnsiCContentUnitParser: Parser<string, string> = createDisjunctionParser([
+	// Backslash escape: \x (any char after backslash)
+	promiseCompose(
+		createTupleParser([
+			createExactSequenceParser('\\'),
+			createElementParser<string>(),
+		]),
+		([bs, ch]) => bs + ch,
+	),
+	// Any character that isn't ' (and isn't \ which is handled above)
+	promiseCompose(
+		createTupleParser([
+			createNegativeLookaheadParser(createExactSequenceParser("'")),
+			createElementParser<string>(),
+		]),
+		([, ch]) => ch,
+	),
+]);
+
+const bashAnsiCContentParser: Parser<string, string> = promiseCompose(
+	createArrayParser(bashAnsiCContentUnitParser),
+	parts => parts.join(''),
+);
+
 const bashAnsiCQuotedParser: Parser<BashWordPartSingleQuoted, string> = createObjectParser({
 	type: 'singleQuoted' as const,
 	_prefix: createExactSequenceParser('$'),
 	_open: createExactSequenceParser("'"),
-	value: promiseCompose(
-		createRegExpParser(/(?:[^'\\]|\\.)*/),
-		match => match[0],
-	),
+	value: bashAnsiCContentParser,
 	_close: createExactSequenceParser("'"),
 });
 
 // Process substitution: <(cmd) or >(cmd)
+const bashProcessSubstitutionDirectionParser: Parser<'<' | '>', string> = promiseCompose(
+	createTupleParser([
+		createDisjunctionParser([
+			createExactSequenceParser('<' as const),
+			createExactSequenceParser('>' as const),
+		]),
+		createLookaheadParser(createExactSequenceParser('(')),
+	]),
+	([dir]) => dir as '<' | '>',
+);
+
 const bashProcessSubstitutionParser: Parser<BashWordPartProcessSubstitution, string> = createObjectParser({
 	type: 'processSubstitution' as const,
-	direction: promiseCompose(
-		createRegExpParser(/[<>](?=\()/),
-		match => match[0] as '<' | '>',
-	),
+	direction: bashProcessSubstitutionDirectionParser,
 	_open: createExactSequenceParser('('),
 	_ws1: bashOptionalInlineWhitespaceParser,
 	command: createParserAccessorParser(() => bashCommandParser),
 	_ws2: bashOptionalInlineWhitespaceParser,
 	_close: createExactSequenceParser(')'),
 });
+
+// Escape sequences in double quotes: \\ \$ \` \" \! \newline
+const bashDoubleQuotedEscapeCharParser: Parser<string, string> = createDisjunctionParser([
+	createExactSequenceParser('\\'),
+	createExactSequenceParser('$'),
+	createExactSequenceParser('`'),
+	createExactSequenceParser('"'),
+	createExactSequenceParser('!'),
+	createExactSequenceParser('\n'),
+]);
+
+const bashDoubleQuotedEscapeParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('\\'),
+		bashDoubleQuotedEscapeCharParser,
+	]),
+	([, ch]) => ({ type: 'literal' as const, value: ch }),
+);
+
+// Literal text inside double quotes (no special chars)
+const bashDoubleQuotedLiteralCharParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(createDisjunctionParser([
+			createExactSequenceParser('$'),
+			createExactSequenceParser('`'),
+			createExactSequenceParser('"'),
+			createExactSequenceParser('\\'),
+		])),
+		createElementParser<string>(),
+	]),
+	([, ch]) => ch,
+);
+
+const bashDoubleQuotedLiteralParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createNonEmptyArrayParser(bashDoubleQuotedLiteralCharParser),
+	chars => ({ type: 'literal' as const, value: chars.join('') }),
+);
+
+// Bare $ not followed by a valid expansion start
+const bashBareDollarParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createExactSequenceParser('$'),
+	() => ({ type: 'literal' as const, value: '$' }),
+);
+
+// Bare \ not followed by a recognized escape character
+const bashBareBackslashParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createExactSequenceParser('\\'),
+	() => ({ type: 'literal' as const, value: '\\' }),
+);
 
 // Double quoted string parts (inside "...")
 const bashDoubleQuotedPartParser: Parser<BashWordPart, string> = createDisjunctionParser([
@@ -158,38 +385,10 @@ const bashDoubleQuotedPartParser: Parser<BashWordPart, string> = createDisjuncti
 	bashSimpleVariableParser,
 	bashCommandSubstitutionParser,
 	bashBacktickSubstitutionParser,
-	// Escape sequences in double quotes
-	promiseCompose(
-		createRegExpParser(/\\[\\$`"!\n]/),
-		match => ({
-			type: 'literal' as const,
-			value: match[0].slice(1),
-		}),
-	),
-	// Literal text (no special chars)
-	promiseCompose(
-		createRegExpParser(/[^$`"\\]+/),
-		match => ({
-			type: 'literal' as const,
-			value: match[0],
-		}),
-	),
-	// Bare $ not followed by a valid expansion start (e.g. $" at end of double-quoted string)
-	promiseCompose(
-		createRegExpParser(/\$/),
-		() => ({
-			type: 'literal' as const,
-			value: '$',
-		}),
-	),
-	// Bare \ not followed by a recognized escape character (treated as literal backslash in bash)
-	promiseCompose(
-		createRegExpParser(/\\/),
-		() => ({
-			type: 'literal' as const,
-			value: '\\',
-		}),
-	),
+	bashDoubleQuotedEscapeParser,
+	bashDoubleQuotedLiteralParser,
+	bashBareDollarParser,
+	bashBareBackslashParser,
 ]);
 
 // Double quoted string: "..."
@@ -206,16 +405,63 @@ const bashLiteralWordPartParser: Parser<BashWordPartLiteral, string> = createObj
 	value: bashUnquotedWordCharsParser,
 });
 
-// Escape sequence outside quotes
-const bashEscapeParser: Parser<BashWordPartLiteral, string> = promiseCompose(
-	createRegExpParser(/\\./),
-	match => ({
+// Bare {} treated as a literal word (e.g., find -exec cmd {} \;)
+const bashBraceWordPartParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createExactSequenceParser('{}'),
+	() => ({
 		type: 'literal' as const,
-		value: match[0].slice(1),
+		value: '{}',
 	}),
 );
 
-// Word part (any part of a word)
+// Bare { treated as a literal word part (e.g., echo {, echo {.})
+// Note: } is NOT included here because it would break brace group closing
+const bashOpenBraceWordPartParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createExactSequenceParser('{'),
+	() => ({
+		type: 'literal' as const,
+		value: '{',
+	}),
+);
+
+// Bare } treated as a literal word part (e.g., echo }, echo }hello)
+const bashCloseBraceWordPartParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createExactSequenceParser('}'),
+	() => ({
+		type: 'literal' as const,
+		value: '}',
+	}),
+);
+
+// Escape sequence outside quotes: backslash followed by any character
+const bashEscapeParser: Parser<BashWordPartLiteral, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('\\'),
+		createElementParser<string>(),
+	]),
+	([, ch]) => ({ type: 'literal' as const, value: ch }),
+);
+
+// Word part for use inside ${...} operands (uses literal parser that excludes } from continuation)
+const bashBracedVarWordPartParser: Parser<BashWordPart, string> = createDisjunctionParser([
+	bashAnsiCQuotedParser,
+	bashSingleQuotedParser,
+	bashDoubleQuotedParser,
+	bashBracedVariableParser,
+	bashArithmeticExpansionParser,
+	bashCommandSubstitutionParser,
+	bashBacktickSubstitutionParser,
+	bashSimpleVariableParser,
+	bashEscapeParser,
+	bashBracedVarLiteralWordPartParser,
+	bashBareDollarParser,
+]);
+
+const bashBracedVarWordParser: Parser<BashWord, string> = createObjectParser({
+	parts: createNonEmptyArrayParser(bashBracedVarWordPartParser),
+});
+
+// Word part (any part of a word, } excluded from first position so brace groups work)
 const bashWordPartParser: Parser<BashWordPart, string> = createDisjunctionParser([
 	bashAnsiCQuotedParser,
 	bashSingleQuotedParser,
@@ -227,15 +473,29 @@ const bashWordPartParser: Parser<BashWordPart, string> = createDisjunctionParser
 	bashSimpleVariableParser,
 	bashProcessSubstitutionParser,
 	bashEscapeParser,
+	bashBraceWordPartParser,
+	bashOpenBraceWordPartParser,
 	bashLiteralWordPartParser,
-	// Bare $ not followed by a valid expansion start
-	promiseCompose(
-		createRegExpParser(/\$/),
-		() => ({
-			type: 'literal' as const,
-			value: '$',
-		}),
-	),
+	bashBareDollarParser,
+]);
+
+// Word part including } as a starter (for argument positions where } is not reserved)
+const bashArgWordPartParser: Parser<BashWordPart, string> = createDisjunctionParser([
+	bashAnsiCQuotedParser,
+	bashSingleQuotedParser,
+	bashDoubleQuotedParser,
+	bashBracedVariableParser,
+	bashArithmeticExpansionParser,
+	bashCommandSubstitutionParser,
+	bashBacktickSubstitutionParser,
+	bashSimpleVariableParser,
+	bashProcessSubstitutionParser,
+	bashEscapeParser,
+	bashBraceWordPartParser,
+	bashOpenBraceWordPartParser,
+	bashCloseBraceWordPartParser,
+	bashLiteralWordPartParser,
+	bashBareDollarParser,
 ]);
 
 // Word (sequence of word parts)
@@ -243,14 +503,25 @@ export const bashWordParser: Parser<BashWord, string> = createObjectParser({
 	parts: createNonEmptyArrayParser(bashWordPartParser),
 });
 
+// Argument word (allows } as first character)
+const bashArgWordParser: Parser<BashWord, string> = createObjectParser({
+	parts: createNonEmptyArrayParser(bashArgWordPartParser),
+});
+
 setParserName(bashWordParser, 'bashWordParser');
+
+// Assignment name: identifier followed by =
+const bashAssignmentNameParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		bashIdentifierParser,
+		createExactSequenceParser('='),
+	]),
+	([name]) => name,
+);
 
 // Assignment: NAME=value or NAME=
 const bashAssignmentParser: Parser<BashAssignment, string> = createObjectParser({
-	name: promiseCompose(
-		createRegExpParser(/[a-zA-Z_][a-zA-Z0-9_]*=/),
-		match => match[0].slice(0, -1),
-	),
+	name: bashAssignmentNameParser,
 	value: createOptionalParser(bashWordParser),
 });
 
@@ -266,12 +537,15 @@ const bashRedirectOperatorParser: Parser<BashRedirect['operator'], string> = cre
 	promiseCompose(createExactSequenceParser('<'), () => '<' as const),
 ]);
 
+// File descriptor number
+const bashFdParser: Parser<number, string> = promiseCompose(
+	bashDigitsParser,
+	digits => Number.parseInt(digits, 10),
+);
+
 // Redirect: [n]op word
 const bashRedirectParser: Parser<BashRedirect, string> = createObjectParser({
-	fd: createOptionalParser(promiseCompose(
-		createRegExpParser(/[0-9]+/),
-		match => Number.parseInt(match[0], 10),
-	)),
+	fd: createOptionalParser(bashFdParser),
 	operator: bashRedirectOperatorParser,
 	_ws: bashOptionalInlineWhitespaceParser,
 	target: bashWordParser,
@@ -286,6 +560,15 @@ const bashWordWithWhitespaceParser: Parser<BashWord, string> = promiseCompose(
 	([word]) => word,
 );
 
+// Arg word (allows }) with optional trailing whitespace
+const bashArgWordWithWhitespaceParser: Parser<BashWord, string> = promiseCompose(
+	createTupleParser([
+		bashArgWordParser,
+		bashOptionalInlineWhitespaceParser,
+	]),
+	([word]) => word,
+);
+
 // Redirect with optional trailing whitespace
 const bashRedirectWithWhitespaceParser: Parser<BashRedirect, string> = promiseCompose(
 	createTupleParser([
@@ -295,49 +578,54 @@ const bashRedirectWithWhitespaceParser: Parser<BashRedirect, string> = promiseCo
 	([redirect]) => redirect,
 );
 
-// Word or redirect - for interleaved parsing in simple commands
-const bashWordOrRedirectParser: Parser<{ type: 'word'; word: BashWord } | { type: 'redirect'; redirect: BashRedirect }, string> = createDisjunctionParser([
+// Word or redirect for argument position (} allowed)
+const bashArgWordOrRedirectParser: Parser<{ type: 'word'; word: BashWord } | { type: 'redirect'; redirect: BashRedirect }, string> = createDisjunctionParser([
 	createObjectParser({ type: 'redirect' as const, redirect: bashRedirectWithWhitespaceParser }),
-	createObjectParser({ type: 'word' as const, word: bashWordWithWhitespaceParser }),
+	createObjectParser({ type: 'word' as const, word: bashArgWordWithWhitespaceParser }),
 ]);
 
 // Simple command: [assignments] [name] [args] [redirects]
-export const bashSimpleCommandParser: Parser<BashSimpleCommand, string> = promiseCompose(
-	createTupleParser([
-		// Assignments at the start
-		createArrayParser(promiseCompose(
-			createTupleParser([
-				bashAssignmentParser,
-				bashOptionalInlineWhitespaceParser,
-			]),
-			([assignment]) => assignment,
-		)),
-		// Command name, args, and redirects (interleaved)
-		createArrayParser(bashWordOrRedirectParser),
-	]),
-	([assignments, items]) => {
-		const words: BashWord[] = [];
-		const redirects: BashRedirect[] = [];
+export const bashSimpleCommandParser: Parser<BashSimpleCommand, string> = async (parserContext) => {
+	// Parse assignments at the start
+	const assignmentsParser = createArrayParser(promiseCompose(
+		createTupleParser([
+			bashAssignmentParser,
+			bashOptionalInlineWhitespaceParser,
+		]),
+		([assignment]) => assignment,
+	));
+	const assignments = await assignmentsParser(parserContext);
 
-		for (const item of items) {
+	// Parse leading redirects before command name
+	const leadingRedirectsParser = createArrayParser(bashRedirectWithWhitespaceParser);
+	const leadingRedirects = await leadingRedirectsParser(parserContext);
+
+	// Parse command name (} not allowed here, so brace group closing works)
+	const name = await createOptionalParser(bashWordWithWhitespaceParser)(parserContext);
+
+	// Only parse args if we have a command name
+	const args: BashWord[] = [];
+	const redirects: BashRedirect[] = [...leadingRedirects];
+
+	if (name !== undefined) {
+		const argItems = await createArrayParser(bashArgWordOrRedirectParser)(parserContext);
+		for (const item of argItems) {
 			if (item.type === 'word') {
-				words.push(item.word);
+				args.push(item.word);
 			} else {
 				redirects.push(item.redirect);
 			}
 		}
+	}
 
-		const [name, ...args] = words;
-
-		return {
-			type: 'simple' as const,
-			name,
-			args,
-			redirects,
-			assignments,
-		};
-	},
-);
+	return {
+		type: 'simple' as const,
+		name,
+		args,
+		redirects,
+		assignments,
+	};
+};
 
 setParserName(bashSimpleCommandParser, 'bashSimpleCommandParser');
 
@@ -378,8 +666,11 @@ setParserName(bashCommandUnitParser, 'bashCommandUnitParser');
 
 // Single pipe (not ||) - matches | only when not followed by another |
 const bashSinglePipeParser: Parser<string, string> = promiseCompose(
-	createRegExpParser(/\|(?!\|)/),
-	match => match[0],
+	createTupleParser([
+		createExactSequenceParser('|'),
+		createNegativeLookaheadParser(createExactSequenceParser('|')),
+	]),
+	() => '|',
 );
 
 // Pipeline: [!] cmd [| cmd]...
@@ -410,13 +701,51 @@ const bashPipelineParser: Parser<BashPipeline, string> = promiseCompose(
 
 setParserName(bashPipelineParser, 'bashPipelineParser');
 
+// Non-newline character
+const bashNonNewlineCharParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(createExactSequenceParser('\n')),
+		createElementParser<string>(),
+	]),
+	([, ch]) => ch,
+);
+
+// Comment: # through end of line (not consuming the newline)
+const bashCommentParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('#'),
+		createArrayParser(bashNonNewlineCharParser),
+	]),
+	([hash, chars]) => hash + chars.join(''),
+);
+
+// Blank line filler: whitespace, newlines, and comments
+const bashBlankLineFillerParser: Parser<void, string> = promiseCompose(
+	createArrayParser(createDisjunctionParser([
+		bashInlineWhitespaceUnitParser,
+		promiseCompose(createExactSequenceParser('\n'), () => '\n'),
+		bashCommentParser,
+	])),
+	() => {},
+);
+
+// Newline separator: consumes a newline plus any following blank lines, comments, and whitespace
+// This allows multi-line scripts with blank lines and mid-script comments
+const bashNewlineSeparatorParser: Parser<'\n', string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('\n'),
+		bashBlankLineFillerParser,
+	]),
+	() => '\n' as const,
+);
+
 // Command list separator
 const bashListSeparatorParser: Parser<'&&' | '||' | ';' | '&' | '\n', string> = createDisjunctionParser([
 	promiseCompose(createExactSequenceParser('&&'), () => '&&' as const),
 	promiseCompose(createExactSequenceParser('||'), () => '||' as const),
 	promiseCompose(createExactSequenceParser(';'), () => ';' as const),
 	promiseCompose(createExactSequenceParser('&'), () => '&' as const),
-	promiseCompose(bashNewlineParser, () => '\n' as const),
+	bashNewlineSeparatorParser,
 ]);
 
 // Command list: pipeline [sep pipeline]...
@@ -478,19 +807,18 @@ export const bashCommandParser: Parser<BashCommand, string> = bashCommandListPar
 
 setParserName(bashCommandParser, 'bashCommandParser');
 
-// Comment: # through end of line
-const bashOptionalCommentParser: Parser<string | undefined, string> = createOptionalParser(promiseCompose(
-	createRegExpParser(/#[^\n]*/),
-	match => match[0],
-));
+// Trailing whitespace/comments/blank lines at end of script
+const bashTrailingWhitespaceAndCommentsParser: Parser<undefined, string> = promiseCompose(
+	bashBlankLineFillerParser,
+	() => undefined,
+);
 
 // Script parser (handles leading/trailing whitespace and comments)
 export const bashScriptParser: Parser<BashCommand, string> = promiseCompose(
 	createTupleParser([
 		bashOptionalInlineWhitespaceParser,
 		bashCommandParser,
-		bashOptionalInlineWhitespaceParser,
-		bashOptionalCommentParser,
+		bashTrailingWhitespaceAndCommentsParser,
 	]),
 	([, command]) => command,
 );
