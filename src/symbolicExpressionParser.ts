@@ -60,13 +60,19 @@ const symbolicExpressionStringParser: Parser<SymbolicExpressionString, string> =
 setParserName(symbolicExpressionStringParser, 'symbolicExpressionStringParser');
 
 // Atom parser: unquoted symbols (any chars except whitespace, parens, quotes, etc.)
-// Supports backslash escapes: \x becomes x, trailing \ becomes nothing
+// Supports backslash escapes: \x becomes x
+// Note: A lone backslash or one that produces an empty atom should fail parsing
 const symbolicExpressionAtomParser: Parser<SymbolicExpressionAtom, string> = promiseCompose(
-	createRegExpParser(/(?:[^\s()"'`,;\\]|\\.)+\\?|\\$/),
+	createRegExpParser(/(?:[^\s()"'`,;\\]|\\.)+\\?/),
 	match => {
 		const raw = match[0];
-		// Process backslash escapes: \x becomes x, trailing \ becomes nothing
+		// Process backslash escapes: \x becomes x
 		const value = raw.replace(/\\(.?)/g, '$1');
+		// Reject atoms that result in empty strings
+		if (value.length === 0) {
+			throw new Error('Atom cannot be empty');
+		}
+
 		return {
 			type: 'atom' as const,
 			value,

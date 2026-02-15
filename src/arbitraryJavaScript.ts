@@ -256,7 +256,7 @@ const arbitraryArrowFunctionExpression = fc.oneof(
 	fc.record({
 		type: fc.constant('ArrowFunctionExpression' as const),
 		id: fc.constant(null),
-		params: fc.array(arbitraryIdentifier, { minLength: 0, maxLength: 3 }),
+		params: fc.uniqueArray(arbitraryIdentifier, { minLength: 0, maxLength: 3, selector: (id: Identifier) => id.name }),
 		body: arbitraryFunctionBodyBlockStatement,
 		expression: fc.constant(false),
 		generator: fc.constant(false),
@@ -265,7 +265,7 @@ const arbitraryArrowFunctionExpression = fc.oneof(
 	fc.record({
 		type: fc.constant('ArrowFunctionExpression' as const),
 		id: fc.constant(null),
-		params: fc.array(arbitraryIdentifier, { minLength: 0, maxLength: 3 }),
+		params: fc.uniqueArray(arbitraryIdentifier, { minLength: 0, maxLength: 3, selector: (id: Identifier) => id.name }),
 		body: arbitraryLeafExpression,
 		expression: fc.constant(true),
 		generator: fc.constant(false),
@@ -276,7 +276,7 @@ const arbitraryArrowFunctionExpression = fc.oneof(
 const arbitraryFunctionExpression = fc.record({
 	type: fc.constant('FunctionExpression' as const),
 	id: fc.constant(null),
-	params: fc.array(arbitraryIdentifier, { minLength: 0, maxLength: 3 }),
+	params: fc.uniqueArray(arbitraryIdentifier, { minLength: 0, maxLength: 3, selector: (id: Identifier) => id.name }),
 	body: arbitraryFunctionBodyBlockStatement,
 	expression: fc.constant(false),
 	generator: fc.constant(false),
@@ -359,7 +359,7 @@ const arbitraryTryStatement: fc.Arbitrary<Statement> = fc.oneof(
 const arbitraryFunctionDeclaration: fc.Arbitrary<Statement> = fc.record({
 	type: fc.constant('FunctionDeclaration' as const),
 	id: arbitraryIdentifier,
-	params: fc.array(arbitraryIdentifier, { minLength: 0, maxLength: 3 }),
+	params: fc.uniqueArray(arbitraryIdentifier, { minLength: 0, maxLength: 3, selector: (id: Identifier) => id.name }),
 	body: arbitraryFunctionBodyBlockStatement,
 	expression: fc.constant(false),
 	generator: fc.constant(false),
