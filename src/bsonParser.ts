@@ -6,10 +6,10 @@ import { createTupleParser } from './tupleParser.js';
 import { createSkipParser } from './skipParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
-import { createElementParser } from './elementParser.js';
 import { createExactElementParser } from './exactElementParser.js';
 import { createUnionParser } from './unionParser.js';
 import { parserCreatorCompose } from './parserCreatorCompose.js';
+import { createPredicateElementParser } from './predicateElementParser.js';
 
 const createFixedLengthBufferParser = (length: number): Parser<Buffer, Uint8Array> => promiseCompose(createFixedLengthSequenceParser<Uint8Array>(length), sequence => Buffer.from(sequence));
 
@@ -17,16 +17,13 @@ const buffer1Parser = createFixedLengthBufferParser(1);
 const buffer4Parser = createFixedLengthBufferParser(4);
 const buffer8Parser = createFixedLengthBufferParser(8);
 
-const elementParser: Parser<number, Uint8Array> = createElementParser();
-
 const nullByteParser: Parser<number, Uint8Array> = createExactElementParser(0);
+
+const nonNullByteParser: Parser<number, Uint8Array> = createPredicateElementParser((byte: number) => byte !== 0);
 
 const cstringParser: Parser<string, Uint8Array> = promiseCompose(
 	createTerminatedArrayParser(
-		parserCreatorCompose(
-			() => elementParser,
-			(byte: number) => async parserContext => parserContext.invariant(byte, 'Expected non-null byte'),
-		)(),
+		nonNullByteParser,
 		nullByteParser,
 	),
 	([ sequence ]) => Buffer.from(sequence).toString('utf8'),

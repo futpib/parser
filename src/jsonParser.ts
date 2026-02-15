@@ -11,8 +11,7 @@ import { createDisjunctionParser } from './disjunctionParser.js';
 import { createTerminatedArrayParser } from './terminatedArrayParser.js';
 import { createArrayParser } from './arrayParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
-import { createElementParser } from './elementParser.js';
-import { parserCreatorCompose } from './parserCreatorCompose.js';
+import { createPredicateElementParser } from './predicateElementParser.js';
 import { createSeparatedArrayParser } from './separatedArrayParser.js';
 import { createRegExpParser } from './regexpParser.js';
 
@@ -52,17 +51,9 @@ const jsonStringEscapeSequenceParser: Parser<string, string> = createUnionParser
 	jsonUnicodeEscapeSequenceParser,
 ]);
 
-const elementParser: Parser<string, string> = createElementParser();
-
 const jsonStringCharacterParser: Parser<string, string> = createDisjunctionParser([
 	jsonStringEscapeSequenceParser,
-	parserCreatorCompose(
-		() => elementParser,
-		character => async parserContext => {
-			parserContext.invariant(character !== '"', 'Unexpected """');
-			return character;
-		},
-	)(),
+	createPredicateElementParser((character: string) => character !== '"'),
 ]);
 
 export const jsonStringParser: Parser<string, string> = promiseCompose(

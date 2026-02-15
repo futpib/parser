@@ -8,7 +8,6 @@ import {
 import { createExactSequenceParser } from './exactSequenceParser.js';
 import { createObjectParser } from './objectParser.js';
 import { cloneParser, type Parser, setParserName } from './parser.js';
-import { type ParserContext } from './parserContext.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
 import { createUnionParser } from './unionParser.js';
@@ -18,6 +17,7 @@ import { createNonEmptyArrayParser } from './nonEmptyArrayParser.js';
 import { createOptionalParser } from './optionalParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 import { createSeparatedArrayParser } from './separatedArrayParser.js';
+import { createPredicateElementParser } from './predicateElementParser.js';
 import { smaliMemberNameParser, smaliTypeDescriptorParser } from './dalvikExecutableParser/stringSyntaxParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
 import { createSeparatedNonEmptyArrayParser } from './separatedNonEmptyArrayParser.js';
@@ -348,28 +348,16 @@ const smaliCharacterLiteralParser: Parser<number, string> = promiseCompose(
 setParserName(smaliCharacterLiteralParser, 'smaliCharacterLiteralParser');
 
 // Parser that matches identifier continuation characters (letters, digits, $, -, _)
-const smaliIdentifierContinuationParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
-	const character = await parserContext.peek(0);
-	
-	parserContext.invariant(character !== undefined, 'Unexpected end of input');
-	
-	invariant(character !== undefined, 'Unexpected end of input');
-	
-	parserContext.invariant(
-		(character >= 'a' && character <= 'z')
-		|| (character >= 'A' && character <= 'Z')
-		|| (character >= '0' && character <= '9')
-		|| character === '$'
-		|| character === '-'
-		|| character === '_',
-		'Expected identifier continuation character, got "%s"',
-		character,
-	);
-	
-	parserContext.skip(1);
-	
-	return character;
-};
+const smaliIdentifierContinuationParser: Parser<string, string> = createPredicateElementParser(
+	function isSmaliIdentifierContinuation(character: string) {
+		return (character >= 'a' && character <= 'z')
+			|| (character >= 'A' && character <= 'Z')
+			|| (character >= '0' && character <= '9')
+			|| character === '$'
+			|| character === '-'
+			|| character === '_';
+	},
+);
 
 setParserName(smaliIdentifierContinuationParser, 'smaliIdentifierContinuationParser');
 

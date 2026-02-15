@@ -1,84 +1,37 @@
-import invariant from 'invariant';
 import { type Parser, setParserName } from '../parser.js';
-import { type ParserContext } from '../parserContext.js';
 import { promiseCompose } from '../promiseCompose.js';
 import { createSeparatedArrayParser } from '../separatedArrayParser.js';
 import { createExactSequenceParser } from '../exactSequenceParser.js';
 import { createUnionParser } from '../unionParser.js';
 import { createTupleParser } from '../tupleParser.js';
 import { createArrayParser } from '../arrayParser.js';
+import { createNonEmptyArrayParser } from '../nonEmptyArrayParser.js';
+import { createPredicateElementParser } from '../predicateElementParser.js';
 
-export const smaliSimpleNameParser: Parser<string, string> = async (parserContext: ParserContext<string, string>) => {
-	const characters: string[] = [];
+function isSmaliSimpleNameChar(character: string): boolean {
+	return (
+		(character >= 'a' && character <= 'z')
+		|| (character >= 'A' && character <= 'Z')
+		|| (character >= '0' && character <= '9')
+		|| character === ' '
+		|| character === '$'
+		|| character === '-'
+		|| character === '_'
+		|| character === '\u00A0'
+		|| (character >= '\u00A1' && character <= '\u1FFF')
+		|| (character >= '\u2000' && character <= '\u200A')
+		|| (character >= '\u2010' && character <= '\u2027')
+		|| character === '\u202F'
+		|| (character >= '\u2030' && character <= '\uD7FF')
+		|| (character >= '\uE000' && character <= '\uFFEF')
+		|| (character >= '\uD800' && character <= '\uDBFF')
+	);
+}
 
-	while (true) {
-		const character = await parserContext.peek(0);
-
-		parserContext.invariant(character !== undefined, 'Unexpected end of input');
-
-		invariant(character !== undefined, 'Unexpected end of input');
-
-		if (
-			(
-				character >= 'a' && character <= 'z'
-			)
-			|| (
-				character >= 'A' && character <= 'Z'
-			)
-			|| (
-				character >= '0' && character <= '9'
-			)
-			|| (
-				character === ' '
-			)
-			|| (
-				character === '$'
-			)
-			|| (
-				character === '-'
-			)
-				|| (
-					character === '_'
-				)
-				|| (
-					character === '\u00A0'
-				)
-				|| (
-					character >= '\u00A1' && character <= '\u1FFF'
-				)
-				|| (
-					character >= '\u2000' && character <= '\u200A'
-				)
-				|| (
-					character >= '\u2010' && character <= '\u2027'
-				)
-				|| (
-					character === '\u202F'
-				)
-				|| (
-					character >= '\u2030' && character <= '\uD7FF'
-				)
-				|| (
-					character >= '\uE000' && character <= '\uFFEF'
-				)
-				|| (
-					character >= '\uD800' && character <= '\uDBFF'
-				)
-		) {
-			parserContext.skip(1);
-
-			characters.push(character);
-
-			continue;
-		}
-
-		parserContext.invariant(characters.length > 0, 'Expected at least one character');
-
-		break;
-	}
-
-	return characters.join('');
-};
+export const smaliSimpleNameParser: Parser<string, string> = promiseCompose(
+	createNonEmptyArrayParser(createPredicateElementParser(isSmaliSimpleNameChar)),
+	characters => characters.join(''),
+);
 
 setParserName(smaliSimpleNameParser, 'smaliSimpleNameParser');
 

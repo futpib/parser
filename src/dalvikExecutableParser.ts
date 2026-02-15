@@ -13,6 +13,7 @@ import { createTupleParser } from './tupleParser.js';
 import { createParserAccessorParser } from './parserAccessorParser.js';
 import { createSkipToParser } from './skipToParser.js';
 import { createLookaheadParser } from './lookaheadParser.js';
+import { createPredicateElementParser } from './predicateElementParser.js';
 import {
 	getIsoTypedNumberArray,
 	type IndexIntoFieldIds,
@@ -843,16 +844,9 @@ type DalvikExecutableTaggedEncodedValue =
 	| { type: 'boolean'; value: boolean };
 
 const createByteWith5LeastSignificantBitsEqualParser = (leastSignificant5: number): Parser<number, Uint8Array> => {
-	const byteWith5LeastSignificantBitsEqualParser: Parser<number, Uint8Array> = async parserContext => {
-		const byte = await parserContext.read(0);
-		parserContext.invariant(
-			(byte & 0b0001_1111) === leastSignificant5,
-			'Expected byte with 5 least significant bits equal to %s, but got %s',
-			leastSignificant5.toString(2).padStart(8, '0'),
-			byte.toString(2).padStart(8, '0'),
-		);
-		return byte;
-	};
+	const byteWith5LeastSignificantBitsEqualParser: Parser<number, Uint8Array> = createPredicateElementParser(
+		(byte: number) => (byte & 0b0001_1111) === leastSignificant5,
+	);
 
 	setParserName(byteWith5LeastSignificantBitsEqualParser, `createByteWith5LeastSignificantBitsEqualParser(${leastSignificant5.toString(2).padStart(5, '0')})`);
 
