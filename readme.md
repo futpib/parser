@@ -307,7 +307,7 @@ for await (const chunk of runUnparser(
 const result = uint8ArrayUnparserOutputCompanion.concat(chunks);
 
 // result: Uint8Array([0, 0, 0, 5, 72, 101, 108, 108, 111])
-//         length=5 ---^        H   e   l   l   o
+//                         length=5 ^  H   e   l   l   o
 ```
 
 **`WriteLater`** - Reserve space in the output to be filled later
