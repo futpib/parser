@@ -101,8 +101,10 @@ const result = await runParser(
   stringParserInputCompanion
 );
 
-console.log(result); // { key: 'name', value: '123' }
+console.log(result.key[0]);   // 'name' - matched text is at index 0
+console.log(result.value[0]); // '123'
 // Note: _separator is omitted from output (underscore-prefixed keys are skipped)
+// Note: RegExpParser returns a RegExpExecArray (match array), not just the string
 ```
 
 ### Array Parsing Example
@@ -110,26 +112,29 @@ console.log(result); // { key: 'name', value: '123' }
 ```typescript
 import {
   createTerminatedArrayParser,
-  createElementParser,
+  createUnionParser,
   createExactElementParser,
   runParser,
   uint8ArrayParserInputCompanion,
 } from '@futpib/parser';
 
-// Parse an array of bytes until we hit a zero byte
+// Parse an array of specific bytes (1 or 2) until we hit a zero byte
 const byteArrayParser = createTerminatedArrayParser(
-  createElementParser(),
+  createUnionParser([
+    createExactElementParser(1),
+    createExactElementParser(2),
+  ]),
   createExactElementParser(0)
 );
 
-const data = new Uint8Array([1, 2, 3, 4, 5, 0]);
+const data = new Uint8Array([1, 2, 1, 2, 1, 0]);
 const result = await runParser(
   byteArrayParser,
   data,
   uint8ArrayParserInputCompanion
 );
 
-console.log(result); // [[1, 2, 3, 4, 5], 0]
+console.log(result); // [[1, 2, 1, 2, 1], 0]
 ```
 
 ### Real-world Example: Parsing ZIP Files
