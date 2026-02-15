@@ -11,7 +11,13 @@ import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { arbitrarilySlicedAsyncIterator } from './arbitrarilySlicedAsyncInterator.js';
 import type { RegularExpression, CharacterSet } from './regularExpression.js';
 
+// Unicode code point boundaries
+const MAX_BMP_CODE_POINT = 0xFFFF; // 65535 - Basic Multilingual Plane max
+const MAX_UNICODE_CODE_POINT = 0x10FFFF; // 1114111 - Full Unicode max
+
 // Convert @gruhn/regex-utils AST format (v2.9.1+) to our RegularExpression format
+// Note: We use 'any' here because @gruhn/regex-utils doesn't export proper TypeScript types
+// for its internal AST structure, and the types have changed between versions.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function convertFromGruhnAST(ast: any): RegularExpression {
 	if (!ast || typeof ast !== 'object') {
@@ -22,7 +28,9 @@ function convertFromGruhnAST(ast: any): RegularExpression {
 		case 'epsilon':
 			return { type: 'epsilon' };
 		case 'literal':
-			return { type: 'literal', charset: ast.charset as any };
+			// The charset from @gruhn/regex-utils has a compatible structure with our CharacterSet
+			// but uses additional internal properties (like 'hash') that we ignore
+			return { type: 'literal', charset: ast.charset as CharacterSet };
 		case 'concat':
 			return { type: 'concat', left: convertFromGruhnAST(ast.left), right: convertFromGruhnAST(ast.right) };
 		case 'union':
@@ -64,12 +72,14 @@ function normalizeCharacterSet(charset: CharacterSet): CharacterSet {
 	if (charset.type === 'empty') {
 		return { type: 'empty' };
 	}
-	// Normalize Unicode max code point differences (65535 vs 1114111)
-	// Both are valid representations of "all characters" in different contexts
+	// Normalize Unicode max code point differences between library versions:
+	// - 65535 (0xFFFF): Basic Multilingual Plane max (older version)
+	// - 1114111 (0x10FFFF): Full Unicode max (newer version)
+	// Both represent "all valid characters" in their respective contexts
 	const range = charset.range;
 	const normalizedRange = {
 		start: range.start,
-		end: range.end === 65535 || range.end === 1114111 ? 1114111 : range.end,
+		end: range.end === MAX_BMP_CODE_POINT || range.end === MAX_UNICODE_CODE_POINT ? MAX_UNICODE_CODE_POINT : range.end,
 	};
 	return {
 		type: 'node',
