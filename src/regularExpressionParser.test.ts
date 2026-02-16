@@ -9,7 +9,7 @@ import { parseRegExpString } from '../node_modules/@gruhn/regex-utils/dist/regex
 import { runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { arbitrarilySlicedAsyncIterator } from './arbitrarilySlicedAsyncInterator.js';
-import type { RegularExpression, CharacterSet } from './regularExpression.js';
+import { AssertionDir, AssertionSign, type RegularExpression, type CharacterSet } from './regularExpression.js';
 
 // Normalize AST for comparison - removes hashes from CharSets and normalizes structure
 function normalizeCharacterSet(charset: CharacterSet): CharacterSet {
@@ -47,8 +47,8 @@ function normalizeRegularExpression(ast: RegularExpression): RegularExpression {
 				return { type: 'capture-group', inner: normalizeRegularExpression(ast.inner), name: ast.name };
 			}
 			return { type: 'capture-group', inner: normalizeRegularExpression(ast.inner) };
-		case 'lookahead':
-			return { type: 'lookahead', isPositive: ast.isPositive, inner: normalizeRegularExpression(ast.inner), right: normalizeRegularExpression(ast.right) };
+		case 'assertion':
+			return { type: 'assertion', direction: ast.direction, sign: ast.sign, inner: normalizeRegularExpression(ast.inner), outer: normalizeRegularExpression(ast.outer) };
 		case 'start-anchor':
 			return { type: 'start-anchor', left: normalizeRegularExpression(ast.left), right: normalizeRegularExpression(ast.right) };
 		case 'end-anchor':

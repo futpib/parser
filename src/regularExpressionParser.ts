@@ -14,6 +14,8 @@ import { createDisjunctionParser } from './disjunctionParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 import { createObjectParser } from './objectParser.js';
 import {
+	AssertionDir,
+	AssertionSign,
 	type CharacterSet,
 	type CodePointRange,
 	type RegularExpression,
@@ -292,8 +294,8 @@ function captureGroup(inner: RegularExpression, name?: string): RegularExpressio
 	return { type: 'capture-group', inner, name };
 }
 
-function lookahead(isPositive: boolean, inner: RegularExpression, right: RegularExpression): RegularExpression {
-	return { type: 'lookahead', isPositive, inner, right };
+function assertion(direction: AssertionDir, sign: AssertionSign, inner: RegularExpression, outer: RegularExpression): RegularExpression {
+	return { type: 'assertion', direction, sign, inner, outer };
 }
 
 function startAnchor(left: RegularExpression, right: RegularExpression): RegularExpression {
@@ -756,22 +758,24 @@ const nonCaptureGroupParser: Parser<RegularExpression, string> = promiseCompose(
 	([, inner]) => inner,
 );
 
-// Lookahead markers for internal use during parsing
-type LookaheadMarker = { type: 'lookahead-marker'; isPositive: boolean; inner: RegularExpression };
+// Assertion markers for internal use during parsing
+type AssertionMarker = { type: 'assertion-marker'; direction: AssertionDir; sign: AssertionSign; inner: RegularExpression };
 
 // Positive lookahead (?=...)
-const positiveLookaheadMarkerParser: Parser<LookaheadMarker, string> = createObjectParser({
-	type: 'lookahead-marker' as const,
-	isPositive: true as const,
+const positiveLookaheadMarkerParser: Parser<AssertionMarker, string> = createObjectParser({
+	type: 'assertion-marker' as const,
+	direction: AssertionDir.AHEAD as const,
+	sign: AssertionSign.POSITIVE as const,
 	_open: createExactSequenceParser('(?='),
 	inner: createParserAccessorParser(() => alternationParser),
 	_close: createExactSequenceParser(')'),
 });
 
 // Negative lookahead (?!...)
-const negativeLookaheadMarkerParser: Parser<LookaheadMarker, string> = createObjectParser({
-	type: 'lookahead-marker' as const,
-	isPositive: false as const,
+const negativeLookaheadMarkerParser: Parser<AssertionMarker, string> = createObjectParser({
+	type: 'assertion-marker' as const,
+	direction: AssertionDir.AHEAD as const,
+	sign: AssertionSign.NEGATIVE as const,
 	_open: createExactSequenceParser('(?!'),
 	inner: createParserAccessorParser(() => alternationParser),
 	_close: createExactSequenceParser(')'),
@@ -786,7 +790,7 @@ const groupParser: Parser<RegularExpression, string> = createUnionParser([
 // Anchors
 // Anchor markers for internal use during parsing
 type AnchorMarker = { type: 'start-anchor-marker' } | { type: 'end-anchor-marker' };
-type ParsedElement = RegularExpression | AnchorMarker | LookaheadMarker;
+type ParsedElement = RegularExpression | AnchorMarker | AssertionMarker;
 
 const startAnchorMarkerParser: Parser<AnchorMarker, string> = createObjectParser({
 	type: 'start-anchor-marker' as const,
@@ -847,9 +851,9 @@ function concatList(parts: RegularExpression[]): RegularExpression {
 	return parts.reduceRight((acc, part) => concat(part, acc));
 }
 
-// Process elements with anchor markers and lookahead markers into proper AST
-// Handles anchors and lookahead as infix operators like @gruhn/regex-utils
-// Precedence order (lowest to highest): union -> start-anchor -> end-anchor -> lookahead -> concat
+// Process elements with anchor markers and assertion markers into proper AST
+// Handles anchors and assertions as infix operators like @gruhn/regex-utils
+// Precedence order (lowest to highest): union -> start-anchor -> end-anchor -> assertion -> concat
 function processElements(elements: ParsedElement[]): RegularExpression {
 	if (elements.length === 0) {
 		return epsilon;
@@ -871,18 +875,18 @@ function processElements(elements: ParsedElement[]): RegularExpression {
 		return endAnchor(processElements(left), processElements(right));
 	}
 
-	// Then lookaheads (higher precedence than anchors)
-	const lookaheadIdx = elements.findIndex(e => 'type' in e && e.type === 'lookahead-marker');
-	if (lookaheadIdx !== -1) {
-		const marker = elements[lookaheadIdx] as LookaheadMarker;
-		const left = elements.slice(0, lookaheadIdx);
-		const right = elements.slice(lookaheadIdx + 1);
-		const lookaheadExpr = lookahead(marker.isPositive, marker.inner, processElements(right));
+	// Then assertions (higher precedence than anchors)
+	const assertionIdx = elements.findIndex(e => 'type' in e && e.type === 'assertion-marker');
+	if (assertionIdx !== -1) {
+		const marker = elements[assertionIdx] as AssertionMarker;
+		const left = elements.slice(0, assertionIdx);
+		const right = elements.slice(assertionIdx + 1);
+		const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, processElements(right));
 		if (left.length === 0) {
-			return lookaheadExpr;
+			return assertionExpr;
 		}
-		// If there's content before the lookahead, concatenate it
-		return concat(processElements(left), lookaheadExpr);
+		// If there's content before the assertion, concatenate it
+		return concat(processElements(left), assertionExpr);
 	}
 
 	// No markers, just regular expressions - concatenate them

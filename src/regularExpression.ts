@@ -9,6 +9,16 @@ export type CharacterSet =
 
 export type RepeatBounds = number | { min: number; max?: number } | { min?: number; max: number };
 
+export enum AssertionSign {
+	POSITIVE = 0,
+	NEGATIVE = 1,
+}
+
+export enum AssertionDir {
+	AHEAD = 0,
+	BEHIND = 1,
+}
+
 export type RegularExpression =
 	| { type: 'epsilon' }
 	| { type: 'literal'; charset: CharacterSet }
@@ -19,6 +29,6 @@ export type RegularExpression =
 	| { type: 'optional'; inner: RegularExpression }
 	| { type: 'repeat'; inner: RegularExpression; bounds: RepeatBounds }
 	| { type: 'capture-group'; inner: RegularExpression; name?: string }
-	| { type: 'lookahead'; isPositive: boolean; inner: RegularExpression; right: RegularExpression }
+	| { type: 'assertion'; direction: AssertionDir; sign: AssertionSign; inner: RegularExpression; outer: RegularExpression }
 	| { type: 'start-anchor'; left: RegularExpression; right: RegularExpression }
 	| { type: 'end-anchor'; left: RegularExpression; right: RegularExpression };
