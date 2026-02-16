@@ -215,6 +215,9 @@ function characterSetComplement(set: CharacterSet): CharacterSet {
 }
 
 // Pre-defined character sets
+// Note: Changed from 0x10FFFF to 0xFFFF to match @gruhn/regex-utils v2.8.0+
+// The library now only supports the Basic Multilingual Plane (BMP) for character sets.
+// This aligns with JavaScript's standard regex behavior for most operations.
 const alphabet: CharacterSet = characterSetFromRange({ start: 0, end: 0xFFFF });
 
 const wildcardCharacterSet: CharacterSet = characterSetDifference(
