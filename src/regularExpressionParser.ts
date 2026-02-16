@@ -18,6 +18,8 @@ import {
 	type CodePointRange,
 	type RegularExpression,
 	type RepeatBounds,
+	AssertionSign,
+	AssertionDir,
 } from './regularExpression.js';
 
 // CharacterSet helpers
@@ -213,10 +215,7 @@ function characterSetComplement(set: CharacterSet): CharacterSet {
 }
 
 // Pre-defined character sets
-const alphabet: CharacterSet = characterSetDifference(
-	characterSetFromRange({ start: 0, end: 0x10FFFF }),
-	characterSetFromArray(['\r', '\n', '\u2028', '\u2029']),
-);
+const alphabet: CharacterSet = characterSetFromRange({ start: 0, end: 0xFFFF });
 
 const wildcardCharacterSet: CharacterSet = characterSetDifference(
 	alphabet,
@@ -292,8 +291,8 @@ function captureGroup(inner: RegularExpression, name?: string): RegularExpressio
 	return { type: 'capture-group', inner, name };
 }
 
-function lookahead(isPositive: boolean, inner: RegularExpression, right: RegularExpression): RegularExpression {
-	return { type: 'lookahead', isPositive, inner, right };
+function assertion(sign: AssertionSign, inner: RegularExpression, outer: RegularExpression): RegularExpression {
+	return { type: 'assertion', direction: AssertionDir.AHEAD, sign, inner, outer };
 }
 
 function startAnchor(left: RegularExpression, right: RegularExpression): RegularExpression {
@@ -877,12 +876,13 @@ function processElements(elements: ParsedElement[]): RegularExpression {
 		const marker = elements[lookaheadIdx] as LookaheadMarker;
 		const left = elements.slice(0, lookaheadIdx);
 		const right = elements.slice(lookaheadIdx + 1);
-		const lookaheadExpr = lookahead(marker.isPositive, marker.inner, processElements(right));
+		const sign = marker.isPositive ? AssertionSign.POSITIVE : AssertionSign.NEGATIVE;
+		const assertionExpr = assertion(sign, marker.inner, processElements(right));
 		if (left.length === 0) {
-			return lookaheadExpr;
+			return assertionExpr;
 		}
 		// If there's content before the lookahead, concatenate it
-		return concat(processElements(left), lookaheadExpr);
+		return concat(processElements(left), assertionExpr);
 	}
 
 	// No markers, just regular expressions - concatenate them
