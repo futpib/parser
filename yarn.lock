@@ -224,7 +224,7 @@ __metadata:
     "@ava/typescript": "npm:^6.0.0"
     "@fast-check/ava": "npm:^2.0.2"
     "@futpib/fetch-cid": "npm:^1.0.2"
-    "@gruhn/regex-utils": "npm:^2.9.1"
+    "@gruhn/regex-utils": "npm:2.9.1"
     "@types/estree": "npm:^1.0.8"
     "@types/invariant": "npm:^2.2.37"
     "@types/node": "npm:^25.2.3"
@@ -262,7 +262,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@gruhn/regex-utils@npm:^2.9.1":
+"@gruhn/regex-utils@npm:2.9.1":
   version: 2.9.1
   resolution: "@gruhn/regex-utils@npm:2.9.1"
   checksum: 10/1c444c1451a39e0c7e7760fa7c80942067c284405d705e0e859d9e78824e3bc6562820011bb453a1fd2481c9a91092bd57445fc935fc0374e43d9c599d282012
