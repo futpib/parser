@@ -8,6 +8,8 @@ const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
 import { parseRegExpString } from '../node_modules/@gruhn/regex-utils/dist/regex-parser.js';
 // eslint-disable-next-line import/no-unresolved
 import { AssertionDir, AssertionSign, type RegExpAST } from '../node_modules/@gruhn/regex-utils/dist/ast.js';
+// eslint-disable-next-line import/no-unresolved
+import type { CharSet as LibCharSet } from '../node_modules/@gruhn/regex-utils/dist/char-set.js';
 import { runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { arbitrarilySlicedAsyncIterator } from './arbitrarilySlicedAsyncInterator.js';
@@ -62,7 +64,7 @@ function convertFromRegExpAST(ast: RegExpAST): RegularExpression {
 
 // Convert CharSet from @gruhn/regex-utils to our CharacterSet format
 // The CharSet from the library includes hash and other metadata we don't need
-function convertCharSet(charset: any): CharacterSet {
+function convertCharSet(charset: LibCharSet): CharacterSet {
 	if (charset.type === 'empty') {
 		return { type: 'empty' };
 	}
