@@ -214,7 +214,7 @@ function characterSetComplement(set: CharacterSet): CharacterSet {
 
 // Pre-defined character sets
 const alphabet: CharacterSet = characterSetDifference(
-	characterSetFromRange({ start: 0, end: 0x10FFFF }),
+	characterSetFromRange({ start: 0, end: 0xFFFF }),
 	characterSetFromArray(['\r', '\n', '\u2028', '\u2029']),
 );
 

@@ -6,10 +6,78 @@ const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
 // Import directly from file path to bypass package exports
 // eslint-disable-next-line import/no-unresolved
 import { parseRegExpString } from '../node_modules/@gruhn/regex-utils/dist/regex-parser.js';
+// eslint-disable-next-line import/no-unresolved
+import { AssertionDir, AssertionSign, type RegExpAST } from '../node_modules/@gruhn/regex-utils/dist/ast.js';
 import { runParser } from './parser.js';
 import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { arbitrarilySlicedAsyncIterator } from './arbitrarilySlicedAsyncInterator.js';
 import type { RegularExpression, CharacterSet } from './regularExpression.js';
+
+// Convert new @gruhn/regex-utils AST format to our internal format
+// The key difference: new version uses 'assertion' type instead of 'lookahead'
+function convertFromRegExpAST(ast: RegExpAST): RegularExpression {
+	switch (ast.type) {
+		case 'epsilon':
+			return { type: 'epsilon' };
+		case 'literal':
+			// CharSet from @gruhn/regex-utils has hash property, but our CharacterSet doesn't
+			// We need to convert it to our format
+			return { type: 'literal', charset: convertCharSet(ast.charset) };
+		case 'concat':
+			return { type: 'concat', left: convertFromRegExpAST(ast.left), right: convertFromRegExpAST(ast.right) };
+		case 'union':
+			return { type: 'union', left: convertFromRegExpAST(ast.left), right: convertFromRegExpAST(ast.right) };
+		case 'star':
+			return { type: 'star', inner: convertFromRegExpAST(ast.inner) };
+		case 'plus':
+			return { type: 'plus', inner: convertFromRegExpAST(ast.inner) };
+		case 'optional':
+			return { type: 'optional', inner: convertFromRegExpAST(ast.inner) };
+		case 'repeat':
+			return { type: 'repeat', inner: convertFromRegExpAST(ast.inner), bounds: ast.bounds };
+		case 'capture-group':
+			if (ast.name !== undefined) {
+				return { type: 'capture-group', inner: convertFromRegExpAST(ast.inner), name: ast.name };
+			}
+			return { type: 'capture-group', inner: convertFromRegExpAST(ast.inner) };
+		case 'assertion':
+			// Convert new 'assertion' format to old 'lookahead' format
+			// Only handle lookahead assertions (AHEAD direction)
+			if (ast.direction === AssertionDir.AHEAD) {
+				return {
+					type: 'lookahead',
+					isPositive: ast.sign === AssertionSign.POSITIVE,
+					inner: convertFromRegExpAST(ast.inner),
+					right: convertFromRegExpAST(ast.outer),
+				};
+			}
+			// For lookbehind, we'll throw an error as our parser doesn't support it yet
+			throw new Error('Lookbehind assertions are not supported');
+		case 'start-anchor':
+			return { type: 'start-anchor', left: convertFromRegExpAST(ast.left), right: convertFromRegExpAST(ast.right) };
+		case 'end-anchor':
+			return { type: 'end-anchor', left: convertFromRegExpAST(ast.left), right: convertFromRegExpAST(ast.right) };
+	}
+}
+
+// Convert CharSet from @gruhn/regex-utils to our CharacterSet format
+// The CharSet from the library includes hash and other metadata we don't need
+function convertCharSet(charset: any): CharacterSet {
+	if (charset.type === 'empty') {
+		return { type: 'empty' };
+	}
+	if (charset.type === 'node') {
+		return {
+			type: 'node',
+			range: { start: charset.range.start, end: charset.range.end },
+			left: convertCharSet(charset.left),
+			right: convertCharSet(charset.right),
+		};
+	}
+	// Fallback - return empty
+	return { type: 'empty' };
+}
+
 
 // Normalize AST for comparison - removes hashes from CharSets and normalizes structure
 function normalizeCharacterSet(charset: CharacterSet): CharacterSet {
@@ -88,7 +156,7 @@ testProp(
 		arbitrarilySlicedAsyncIterator(supportedRegexArbitrary),
 	],
 	async (t, [regexStr, regexStringChunkIterator]) => {
-		const expected = normalizeRegularExpression(parseRegExpString(regexStr));
+		const expected = normalizeRegularExpression(convertFromRegExpAST(parseRegExpString(regexStr)));
 		const actual = normalizeRegularExpression(await runParser(regularExpressionParser, regexStringChunkIterator, stringParserInputCompanion, {
 			errorJoinMode: 'none',
 		}));
