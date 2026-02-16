@@ -211,7 +211,7 @@ function characterSetFromArray(chars: string[]): CharacterSet {
 }
 
 function characterSetComplement(set: CharacterSet): CharacterSet {
-	return characterSetDifference(alphabet, set);
+	return characterSetDifference(bmpRange, set);
 }
 
 // Pre-defined character sets
