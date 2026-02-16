@@ -215,8 +215,10 @@ function characterSetComplement(set: CharacterSet): CharacterSet {
 }
 
 // Pre-defined character sets
+const bmpRange: CharacterSet = characterSetFromRange({ start: 0, end: 0xFFFF });
+
 const alphabet: CharacterSet = characterSetDifference(
-	characterSetFromRange({ start: 0, end: 0xFFFF }),
+	bmpRange,
 	characterSetFromArray(['\r', '\n', '\u2028', '\u2029']),
 );
 
@@ -226,7 +228,7 @@ const wildcardCharacterSet: CharacterSet = characterSetDifference(
 );
 
 const digitChars: CharacterSet = characterSetCharRange('0', '9');
-const nonDigitChars: CharacterSet = characterSetComplement(digitChars);
+const nonDigitChars: CharacterSet = characterSetDifference(bmpRange, digitChars);
 
 const wordChars: CharacterSet = [
 	characterSetCharRange('a', 'z'),
@@ -234,7 +236,7 @@ const wordChars: CharacterSet = [
 	characterSetCharRange('0', '9'),
 	characterSetSingleton('_'),
 ].reduce(characterSetUnion);
-const nonWordChars: CharacterSet = characterSetComplement(wordChars);
+const nonWordChars: CharacterSet = characterSetDifference(bmpRange, wordChars);
 
 const whiteSpaceChars: CharacterSet = [
 	characterSetSingleton('\f'),
@@ -253,7 +255,7 @@ const whiteSpaceChars: CharacterSet = [
 	characterSetSingleton('\u3000'),
 	characterSetSingleton('\ufeff'),
 ].reduce(characterSetUnion);
-const nonWhiteSpaceChars: CharacterSet = characterSetComplement(whiteSpaceChars);
+const nonWhiteSpaceChars: CharacterSet = characterSetDifference(bmpRange, whiteSpaceChars);
 
 // AST constructors
 
@@ -876,17 +878,30 @@ function processElements(elements: ParsedElement[]): RegularExpression {
 	}
 
 	// Then assertions (higher precedence than anchors)
+	// Special handling: Negative lookahead at the start with more content after it
+	// forms a concat with epsilon outer, instead of consuming everything into outer
 	const assertionIdx = elements.findIndex(e => 'type' in e && e.type === 'assertion-marker');
 	if (assertionIdx !== -1) {
 		const marker = elements[assertionIdx] as AssertionMarker;
 		const left = elements.slice(0, assertionIdx);
 		const right = elements.slice(assertionIdx + 1);
-		const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, processElements(right));
-		if (left.length === 0) {
-			return assertionExpr;
+		
+		// Special case: Negative lookahead at the start followed by more content
+		// Creates concat instead of nesting
+		if (left.length === 0 && marker.sign === AssertionSign.NEGATIVE && right.length > 0) {
+			const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, epsilon);
+			return concat(assertionExpr, processElements(right));
 		}
-		// If there's content before the assertion, concatenate it
-		return concat(processElements(left), assertionExpr);
+		
+		// Assertion after content: always concat with epsilon outer
+		if (left.length > 0) {
+			const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, epsilon);
+			return concat(processElements(left), concat(assertionExpr, processElements(right)));
+		}
+		
+		// Assertion at start (not negative lookahead with content after): consume everything
+		const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, processElements(right));
+		return assertionExpr;
 	}
 
 	// No markers, just regular expressions - concatenate them
