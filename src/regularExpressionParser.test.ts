@@ -15,8 +15,25 @@ import { stringParserInputCompanion } from './parserInputCompanion.js';
 import { arbitrarilySlicedAsyncIterator } from './arbitrarilySlicedAsyncInterator.js';
 import type { RegularExpression, CharacterSet } from './regularExpression.js';
 
-// Convert new @gruhn/regex-utils AST format to our internal format
-// The key difference: new version uses 'assertion' type instead of 'lookahead'
+/**
+ * Convert new @gruhn/regex-utils AST format to our internal format.
+ * 
+ * The key differences:
+ * - New version uses 'assertion' type with direction/sign fields instead of 'lookahead' with isPositive
+ * - The 'right' field in lookahead is now called 'outer' in assertion
+ * - The CharSet includes a hash field that we strip
+ * 
+ * Supported AST node types:
+ * - epsilon: empty regex
+ * - literal: character set
+ * - concat: concatenation of two regexes
+ * - union: alternation of two regexes
+ * - star, plus, optional: quantifiers
+ * - repeat: bounded repetition
+ * - capture-group: capturing group with optional name
+ * - assertion: lookahead/lookbehind (we only support lookahead)
+ * - start-anchor, end-anchor: ^ and $ anchors
+ */
 function convertFromRegExpAST(ast: RegExpAST): RegularExpression {
 	switch (ast.type) {
 		case 'epsilon':
@@ -62,22 +79,23 @@ function convertFromRegExpAST(ast: RegExpAST): RegularExpression {
 	}
 }
 
-// Convert CharSet from @gruhn/regex-utils to our CharacterSet format
-// The CharSet from the library includes hash and other metadata we don't need
+/**
+ * Convert CharSet from @gruhn/regex-utils to our CharacterSet format.
+ * The CharSet from the library includes a hash field that we don't need.
+ * 
+ * The library's CharSet type is a union of 'empty' and 'node', matching our format.
+ */
 function convertCharSet(charset: LibCharSet): CharacterSet {
 	if (charset.type === 'empty') {
 		return { type: 'empty' };
 	}
-	if (charset.type === 'node') {
-		return {
-			type: 'node',
-			range: { start: charset.range.start, end: charset.range.end },
-			left: convertCharSet(charset.left),
-			right: convertCharSet(charset.right),
-		};
-	}
-	// Fallback - return empty
-	return { type: 'empty' };
+	// charset.type === 'node'
+	return {
+		type: 'node',
+		range: { start: charset.range.start, end: charset.range.end },
+		left: convertCharSet(charset.left),
+		right: convertCharSet(charset.right),
+	};
 }
 
 
