@@ -37,7 +37,7 @@
     "@ava/typescript": "^6.0.0",
     "@fast-check/ava": "^2.0.2",
     "@futpib/fetch-cid": "^1.0.2",
-    "@gruhn/regex-utils": "2.7.3",
+    "@gruhn/regex-utils": "^2.9.1",
     "@types/estree": "^1.0.8",
     "@types/invariant": "^2.2.37",
     "@types/node": "^25.2.3",
