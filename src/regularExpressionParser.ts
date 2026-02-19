@@ -878,30 +878,19 @@ function processElements(elements: ParsedElement[]): RegularExpression {
 	}
 
 	// Then assertions (higher precedence than anchors)
-	// Special handling: Negative lookahead at the start with more content after it
-	// forms a concat with epsilon outer, instead of consuming everything into outer
 	const assertionIdx = elements.findIndex(e => 'type' in e && e.type === 'assertion-marker');
 	if (assertionIdx !== -1) {
 		const marker = elements[assertionIdx] as AssertionMarker;
 		const left = elements.slice(0, assertionIdx);
 		const right = elements.slice(assertionIdx + 1);
-		
-		// Special case: Negative lookahead at the start followed by more content
-		// Creates concat instead of nesting
-		if (left.length === 0 && marker.sign === AssertionSign.NEGATIVE && right.length > 0) {
-			const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, epsilon);
-			return concat(assertionExpr, processElements(right));
-		}
-		
-		// Assertion after content: always concat with epsilon outer
-		if (left.length > 0) {
-			const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, epsilon);
-			return concat(processElements(left), concat(assertionExpr, processElements(right)));
-		}
-		
-		// Assertion at start (not negative lookahead with content after): consume everything
+
+		// Everything after the assertion becomes its outer context
 		const assertionExpr = assertion(marker.direction, marker.sign, marker.inner, processElements(right));
-		return assertionExpr;
+		if (left.length === 0) {
+			return assertionExpr;
+		}
+
+		return concat(processElements(left), assertionExpr);
 	}
 
 	// No markers, just regular expressions - concatenate them
