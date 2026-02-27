@@ -153,9 +153,10 @@ const zip = await runParser(
 );
 
 for (const entry of zip.entries) {
-  console.log(`File: ${entry.path}`);
-  console.log(`Size: ${entry.uncompressedSize} bytes`);
-  console.log(`Compressed: ${entry.compressedSize} bytes`);
+  console.log(`${entry.type}: ${entry.path}`);
+  if (entry.type === 'file') {
+    console.log(`Content size: ${entry.content.length} bytes`);
+  }
 }
 ```
 
@@ -174,11 +175,17 @@ const byteArrayUnparser = createArrayUnparser(async function* (byte) {
 });
 
 const bytes = [0x48, 0x65, 0x6C, 0x6C, 0x6F]; // "Hello"
-const result = await runUnparser(
-  bytes,
+
+// runUnparser returns AsyncIterable<Uint8Array>, collect all chunks
+const chunks: Uint8Array[] = [];
+for await (const chunk of runUnparser(
   byteArrayUnparser,
+  bytes,
   uint8ArrayUnparserOutputCompanion
-);
+)) {
+  chunks.push(chunk);
+}
+const result = uint8ArrayUnparserOutputCompanion.concat(chunks);
 
 console.log(result); // Uint8Array([0x48, 0x65, 0x6C, 0x6C, 0x6F])
 ```
@@ -260,7 +267,7 @@ type Unparser<Input, Sequence, Element> = (
 
 #### Available Unparsers
 - **`createArrayUnparser(elementUnparser)`** - Serialize an array of elements
-- **`createSequenceUnparser(elementUnparsers)`** - Serialize a sequence of values
+- **`createSequenceUnparser()`** - Serialize a sequence as-is
 
 #### Advanced Unparser Features: WriteLater and WriteEarlier
 
@@ -291,8 +298,8 @@ async function* lengthPrefixedStringUnparser(
   new DataView(lengthBytes.buffer).setUint32(0, bytes.length, false);
   yield* ctx.writeEarlier(
     lengthPlaceholder,
-    async function*() { yield lengthBytes; },
-    null
+    async function*(b) { yield b; },
+    lengthBytes
   );
 }
 
@@ -348,17 +355,23 @@ runParserWithRemainingInput<Output, Sequence, Element>(
   input: Sequence,
   inputCompanion: ParserInputCompanion<Sequence, Element>,
   options?: RunParserOptions
-): Promise<{ output: Output; remainingInput: Sequence }>
+): Promise<{
+  output: Output;
+  position: number;
+  furthestReadPosition: number;
+  furthestPeekedPosition: number;
+  remainingInput: undefined | AsyncIterable<Sequence>;
+}>
 ```
 
 ### Running Unparsers
 
 ```typescript
 runUnparser<Input, Sequence, Element>(
-  input: Input,
   unparser: Unparser<Input, Sequence, Element>,
+  input: Input,
   outputCompanion: UnparserOutputCompanion<Sequence, Element>
-): Promise<Sequence>
+): AsyncIterable<Sequence>
 ```
 
 ### Error Handling
@@ -376,8 +389,10 @@ try {
 ```
 
 Options for error handling:
-- `errorJoinMode: 'first'` - Return first error (default, faster)
-- `errorJoinMode: 'all'` - Collect all errors (more detailed, slower)
+- `errorJoinMode: 'none'` - No error joining, use the first error (default, fastest)
+- `errorJoinMode: 'deepest'` - Use the deepest error in the parse tree
+- `errorJoinMode: 'furthest'` - Use the furthest error in the input
+- `errorJoinMode: 'all'` - Collect all errors (most detailed, slowest)
 
 ## Advanced Usage
 
