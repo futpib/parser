@@ -15,6 +15,7 @@ import {
 	type BashPipeline,
 	type BashCommandList,
 	type BashRedirect,
+	type BashHereDoc,
 	type BashAssignment,
 } from './bash.js';
 
@@ -134,8 +135,19 @@ const recursiveArbitraries = fc.letrec<RecursiveArbitraries>(tie => {
 		value: fc.option(arbitraryWord, { nil: undefined }),
 	});
 
+	const arbitraryBashHereDoc: fc.Arbitrary<BashHereDoc> = fc.record({
+		type: fc.constant('hereDoc' as const),
+		delimiter: fc.stringMatching(/^[A-Z_][A-Z_0-9]*$/),
+		content: fc.array(fc.stringMatching(/^[a-zA-Z0-9 .,!?_-]*$/), { minLength: 0, maxLength: 3 })
+			.map(lines => lines.join('\n') + (lines.length > 0 ? '\n' : '')),
+		quoted: fc.boolean(),
+	}).filter(hd =>
+		hd.delimiter.length > 0
+		&& !hd.content.split('\n').some(line => line === hd.delimiter),
+	);
+
 	// Always include fd key (even if undefined) to match createObjectParser behavior
-	const arbitraryBashRedirect: fc.Arbitrary<BashRedirect> = fc.record({
+	const arbitraryBashWordRedirect: fc.Arbitrary<BashRedirect> = fc.record({
 		fd: fc.constant(undefined),
 		operator: fc.oneof(
 			fc.constant('>' as const),
@@ -144,6 +156,17 @@ const recursiveArbitraries = fc.letrec<RecursiveArbitraries>(tie => {
 		),
 		target: arbitraryWord,
 	});
+
+	const arbitraryBashHereDocRedirect: fc.Arbitrary<BashRedirect> = fc.record({
+		fd: fc.constant(undefined),
+		operator: fc.constant('<<' as const),
+		target: arbitraryBashHereDoc,
+	});
+
+	const arbitraryBashRedirect: fc.Arbitrary<BashRedirect> = fc.oneof(
+		{ weight: 3, arbitrary: arbitraryBashWordRedirect },
+		{ weight: 1, arbitrary: arbitraryBashHereDocRedirect },
+	);
 
 	const arbitraryBashSimpleCommandWithName: fc.Arbitrary<BashSimpleCommand> = fc.record({
 		type: fc.constant('simple' as const),

@@ -32,6 +32,7 @@ import {
 	type BashPipeline,
 	type BashCommandList,
 	type BashRedirect,
+	type BashHereDoc,
 	type BashAssignment,
 	type BashCommand,
 } from './bash.js';
@@ -543,13 +544,108 @@ const bashFdParser: Parser<number, string> = promiseCompose(
 	digits => Number.parseInt(digits, 10),
 );
 
-// Redirect: [n]op word
-const bashRedirectParser: Parser<BashRedirect, string> = createObjectParser({
-	fd: createOptionalParser(bashFdParser),
-	operator: bashRedirectOperatorParser,
-	_ws: bashOptionalInlineWhitespaceParser,
-	target: bashWordParser,
-});
+// Heredoc: <<DELIM\ncontent\nDELIM or <<'DELIM'\ncontent\nDELIM or <<"DELIM"\ncontent\nDELIM
+const bashHereDocParser: Parser<BashHereDoc, string> = async (parserContext) => {
+	// Parse the delimiter - may be quoted or unquoted
+	let delimiter = '';
+	let quoted = false;
+
+	const firstChar = await parserContext.peek(0);
+
+	if (firstChar === "'") {
+		// Single-quoted delimiter: <<'EOF'
+		quoted = true;
+		parserContext.skip(1);
+		let ch = await parserContext.peek(0);
+		while (ch !== undefined && ch !== "'") {
+			delimiter += ch;
+			parserContext.skip(1);
+			ch = await parserContext.peek(0);
+		}
+
+		parserContext.skip(1); // consume closing quote
+	} else if (firstChar === '"') {
+		// Double-quoted delimiter: <<"EOF"
+		quoted = true;
+		parserContext.skip(1);
+		let ch = await parserContext.peek(0);
+		while (ch !== undefined && ch !== '"') {
+			delimiter += ch;
+			parserContext.skip(1);
+			ch = await parserContext.peek(0);
+		}
+
+		parserContext.skip(1); // consume closing quote
+	} else {
+		// Unquoted delimiter
+		let ch = await parserContext.peek(0);
+		while (ch !== undefined && ch !== '\n' && ch !== ' ' && ch !== '\t') {
+			delimiter += ch;
+			parserContext.skip(1);
+			ch = await parserContext.peek(0);
+		}
+	}
+
+	// Consume the newline after the delimiter
+	const newline = await parserContext.peek(0);
+	if (newline === '\n') {
+		parserContext.skip(1);
+	}
+
+	// Read lines until we find one that is exactly the delimiter
+	let content = '';
+	let currentLine = '';
+	for (;;) {
+		const ch = await parserContext.peek(0);
+		if (ch === undefined) {
+			break;
+		}
+
+		if (ch === '\n') {
+			if (currentLine === delimiter) {
+				parserContext.skip(1); // consume the newline after delimiter
+				break;
+			}
+
+			content += currentLine + '\n';
+			currentLine = '';
+			parserContext.skip(1);
+			continue;
+		}
+
+		currentLine += ch;
+		parserContext.skip(1);
+	}
+
+	// Handle case where delimiter is at EOF without trailing newline
+	if (currentLine === delimiter) {
+		// delimiter found at EOF, content is complete
+	} else if (currentLine.length > 0) {
+		content += currentLine;
+	}
+
+	return {
+		type: 'hereDoc' as const,
+		delimiter,
+		content,
+		quoted,
+	};
+};
+
+// Redirect: [n]op word (or heredoc for << operator)
+const bashRedirectParser: Parser<BashRedirect, string> = async (parserContext) => {
+	const fd = await createOptionalParser(bashFdParser)(parserContext);
+	const operator = await bashRedirectOperatorParser(parserContext);
+	await bashOptionalInlineWhitespaceParser(parserContext);
+
+	if (operator === '<<') {
+		const target = await bashHereDocParser(parserContext);
+		return { fd, operator, target };
+	}
+
+	const target = await bashWordParser(parserContext);
+	return { fd, operator, target };
+};
 
 // Word with optional trailing whitespace - for use in arrays
 const bashWordWithWhitespaceParser: Parser<BashWord, string> = promiseCompose(

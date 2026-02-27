@@ -9,6 +9,7 @@ import {
 	type BashPipeline,
 	type BashCommandList,
 	type BashRedirect,
+	type BashHereDoc,
 	type BashAssignment,
 	type BashCommand,
 } from './bash.js';
@@ -112,6 +113,14 @@ function escapeLiteral(value: string): string {
 	return result;
 }
 
+function unparseHereDocDelimiter(hereDoc: BashHereDoc): string {
+	if (hereDoc.quoted) {
+		return "'" + hereDoc.delimiter + "'";
+	}
+
+	return hereDoc.delimiter;
+}
+
 function unparseRedirect(redirect: BashRedirect): string {
 	let result = '';
 	if (redirect.fd !== undefined) {
@@ -120,7 +129,7 @@ function unparseRedirect(redirect: BashRedirect): string {
 
 	result += redirect.operator;
 	if ('type' in redirect.target && redirect.target.type === 'hereDoc') {
-		result += redirect.target.delimiter;
+		result += unparseHereDocDelimiter(redirect.target);
 	} else {
 		result += unparseWord(redirect.target as BashWord);
 	}
@@ -132,6 +141,17 @@ function unparseAssignment(assignment: BashAssignment): string {
 	let result = assignment.name + '=';
 	if (assignment.value !== undefined) {
 		result += unparseWord(assignment.value);
+	}
+
+	return result;
+}
+
+function collectHereDocBodies(cmd: BashSimpleCommand): string {
+	let result = '';
+	for (const redirect of cmd.redirects) {
+		if ('type' in redirect.target && redirect.target.type === 'hereDoc') {
+			result += '\n' + redirect.target.content + redirect.target.delimiter + '\n';
+		}
 	}
 
 	return result;
@@ -154,12 +174,16 @@ function unparseSimpleCommand(cmd: BashSimpleCommand): string {
 
 	const wordParts = parts.join(' ');
 	const redirectParts = cmd.redirects.map(r => unparseRedirect(r)).join(' ');
+	const hereDocBodies = collectHereDocBodies(cmd);
 
+	let result: string;
 	if (redirectParts) {
-		return wordParts ? wordParts + ' ' + redirectParts : redirectParts;
+		result = wordParts ? wordParts + ' ' + redirectParts : redirectParts;
+	} else {
+		result = wordParts;
 	}
 
-	return wordParts;
+	return result + hereDocBodies;
 }
 
 function unparseCommandUnit(unit: BashCommandUnit): string {

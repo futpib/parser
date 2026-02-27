@@ -712,6 +712,43 @@ test('mid-script comment', async t => {
 	t.is(result.entries.length, 2);
 });
 
+test('heredoc in command substitution', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'git commit -m "$(cat <<\'EOF\'\nSuppress terminal emulator responses during replay to prevent spurious input\n\nWhen replaying buffered output into a fresh Terminal on reattach, escape\nsequences like \\e[6n (cursor position request) and \\e[c (device attributes\nrequest) cause the terminal emulator to generate responses (e.g. \\e[24;80R\nand \\e[?1;0c). These were being forwarded to the SSH session as keyboard\ninput, appearing as garbage like "R2R0;0;0c" in TUI apps like htop.\n\nFix by setting a _replayingData flag during replay and dropping all\nonOutput callbacks while it is set.\nEOF\n)"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.deepEqual(cmd.name, { parts: [{ type: 'literal', value: 'git' }] });
+	t.is(cmd.args.length, 3);
+	t.deepEqual(cmd.args[0], { parts: [{ type: 'literal', value: 'commit' }] });
+	t.deepEqual(cmd.args[1], { parts: [{ type: 'literal', value: '-m' }] });
+
+	// The third arg is a double-quoted string containing $(cat <<'EOF'...EOF)
+	const dqArg = cmd.args[2];
+	t.is(dqArg.parts.length, 1);
+	const dq = dqArg.parts[0];
+	t.is(dq.type, 'doubleQuoted');
+	if (dq.type === 'doubleQuoted') {
+		t.is(dq.parts[0].type, 'commandSubstitution');
+		if (dq.parts[0].type === 'commandSubstitution') {
+			const catCmd = dq.parts[0].command.entries[0].pipeline.commands[0] as BashSimpleCommand;
+			t.deepEqual(catCmd.name, { parts: [{ type: 'literal', value: 'cat' }] });
+			t.is(catCmd.redirects.length, 1);
+			t.is(catCmd.redirects[0].operator, '<<');
+			const target = catCmd.redirects[0].target;
+			t.truthy('type' in target && target.type === 'hereDoc');
+			if ('type' in target && target.type === 'hereDoc') {
+				t.is(target.delimiter, 'EOF');
+				t.is(target.quoted, true);
+				t.true(target.content.startsWith('Suppress terminal emulator'));
+				t.true(target.content.endsWith('while it is set.\n'));
+			}
+		}
+	}
+});
+
 test('nested parentheses in arithmetic expansion', async t => {
 	const result = await runParser(
 		bashScriptParser,
