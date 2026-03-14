@@ -602,7 +602,7 @@ const bashHereDocParser: Parser<BashHereDoc, string> = async (parserContext) => 
 		}
 
 		if (ch === '\n') {
-			if (currentLine === delimiter) {
+			if (currentLine.trimStart() === delimiter) {
 				parserContext.skip(1); // consume the newline after delimiter
 				break;
 			}
@@ -618,7 +618,7 @@ const bashHereDocParser: Parser<BashHereDoc, string> = async (parserContext) => 
 	}
 
 	// Handle case where delimiter is at EOF without trailing newline
-	if (currentLine === delimiter) {
+	if (currentLine.trimStart() === delimiter) {
 		// delimiter found at EOF, content is complete
 	} else if (currentLine.length > 0) {
 		content += currentLine;

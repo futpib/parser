@@ -749,6 +749,106 @@ test('heredoc in command substitution', async t => {
 	}
 });
 
+test('heredoc in command substitution with gh in content', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'git commit -m "$(cat <<\'EOF\'\nDetect write subcommands in gh/ghx/glab/glabx CLI tools\n\nThe ban-write-operations hook previously only caught write operations\nvia the `api` subcommand (e.g. `gh api -X POST`). Now it also detects\nwrite-action subcommands like `gh pr create`, `gh issue close`,\n`gh pr merge`, etc. by scanning positional args against the shared\nwriteActionWords set.\nEOF\n)"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.deepEqual(cmd.name, { parts: [{ type: 'literal', value: 'git' }] });
+	t.is(cmd.args.length, 3);
+	t.deepEqual(cmd.args[0], { parts: [{ type: 'literal', value: 'commit' }] });
+	t.deepEqual(cmd.args[1], { parts: [{ type: 'literal', value: '-m' }] });
+
+	const dqArg = cmd.args[2];
+	t.is(dqArg.parts.length, 1);
+	const dq = dqArg.parts[0];
+	t.is(dq.type, 'doubleQuoted');
+	if (dq.type === 'doubleQuoted') {
+		t.is(dq.parts[0].type, 'commandSubstitution');
+		if (dq.parts[0].type === 'commandSubstitution') {
+			const catCmd = dq.parts[0].command.entries[0].pipeline.commands[0] as BashSimpleCommand;
+			t.deepEqual(catCmd.name, { parts: [{ type: 'literal', value: 'cat' }] });
+			t.is(catCmd.redirects.length, 1);
+			t.is(catCmd.redirects[0].operator, '<<');
+			const target = catCmd.redirects[0].target;
+			t.truthy('type' in target && target.type === 'hereDoc');
+			if ('type' in target && target.type === 'hereDoc') {
+				t.is(target.delimiter, 'EOF');
+				t.is(target.quoted, true);
+				t.true(target.content.includes('gh/ghx/glab/glabx'));
+				t.true(target.content.includes('writeActionWords set.'));
+			}
+		}
+	}
+});
+
+test('heredoc with indented delimiter in command substitution', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'git commit -m "$(cat <<\'EOF\'\n   Detect write subcommands in gh/ghx/glab/glabx CLI tools\n\n   The ban-write-operations hook previously only caught write operations\n   via the `api` subcommand (e.g. `gh api -X POST`). Now it also detects\n   write-action subcommands like `gh pr create`, `gh issue close`,\n   `gh pr merge`, etc. by scanning positional args against the shared\n   writeActionWords set.\n   EOF\n   )"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.deepEqual(cmd.name, { parts: [{ type: 'literal', value: 'git' }] });
+	t.is(cmd.args.length, 3);
+	t.deepEqual(cmd.args[0], { parts: [{ type: 'literal', value: 'commit' }] });
+	t.deepEqual(cmd.args[1], { parts: [{ type: 'literal', value: '-m' }] });
+
+	const dqArg = cmd.args[2];
+	t.is(dqArg.parts.length, 1);
+	const dq = dqArg.parts[0];
+	t.is(dq.type, 'doubleQuoted');
+	if (dq.type === 'doubleQuoted') {
+		t.is(dq.parts[0].type, 'commandSubstitution');
+		if (dq.parts[0].type === 'commandSubstitution') {
+			const catCmd = dq.parts[0].command.entries[0].pipeline.commands[0] as BashSimpleCommand;
+			t.deepEqual(catCmd.name, { parts: [{ type: 'literal', value: 'cat' }] });
+			t.is(catCmd.redirects.length, 1);
+			t.is(catCmd.redirects[0].operator, '<<');
+			const target = catCmd.redirects[0].target;
+			t.truthy('type' in target && target.type === 'hereDoc');
+			if ('type' in target && target.type === 'hereDoc') {
+				t.is(target.delimiter, 'EOF');
+				t.is(target.quoted, true);
+				t.true(target.content.includes('gh/ghx/glab/glabx'));
+			}
+		}
+	}
+});
+
+test('heredoc with backticks in content', async t => {
+	const result = await runParser(
+		bashScriptParser,
+		'git commit -m "$(cat <<\'EOF\'\nThe `api` subcommand (e.g. `gh api -X POST`) is detected.\nEOF\n)"',
+		stringParserInputCompanion,
+	);
+
+	const cmd = result.entries[0].pipeline.commands[0] as BashSimpleCommand;
+	t.deepEqual(cmd.name, { parts: [{ type: 'literal', value: 'git' }] });
+	t.is(cmd.args.length, 3);
+
+	const dqArg = cmd.args[2];
+	const dq = dqArg.parts[0];
+	t.is(dq.type, 'doubleQuoted');
+	if (dq.type === 'doubleQuoted') {
+		t.is(dq.parts[0].type, 'commandSubstitution');
+		if (dq.parts[0].type === 'commandSubstitution') {
+			const catCmd = dq.parts[0].command.entries[0].pipeline.commands[0] as BashSimpleCommand;
+			t.deepEqual(catCmd.name, { parts: [{ type: 'literal', value: 'cat' }] });
+			const target = catCmd.redirects[0].target;
+			t.truthy('type' in target && target.type === 'hereDoc');
+			if ('type' in target && target.type === 'hereDoc') {
+				t.is(target.delimiter, 'EOF');
+				t.true(target.content.includes('`gh api -X POST`'));
+			}
+		}
+	}
+});
+
 test('nested parentheses in arithmetic expansion', async t => {
 	const result = await runParser(
 		bashScriptParser,
