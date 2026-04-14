@@ -4,6 +4,7 @@ import { createElementParser } from './elementParser.js';
 import { createPredicateElementParser } from './predicateElementParser.js';
 import { createNegativeLookaheadParser } from './negativeLookaheadParser.js';
 import { createLookaheadParser } from './lookaheadParser.js';
+import { createEndOfInputParser } from './endOfInputParser.js';
 import { promiseCompose } from './promiseCompose.js';
 import { createTupleParser } from './tupleParser.js';
 import { createDisjunctionParser } from './disjunctionParser.js';
@@ -35,6 +36,14 @@ import {
 	type BashHereDoc,
 	type BashAssignment,
 	type BashCommand,
+	type BashWhileLoop,
+	type BashUntilLoop,
+	type BashForInLoop,
+	type BashForArithmeticLoop,
+	type BashIfExpression,
+	type BashCaseExpression,
+	type BashCaseTerminator,
+	type BashFunction,
 } from './bash.js';
 
 // Character predicates
@@ -511,6 +520,50 @@ const bashArgWordParser: Parser<BashWord, string> = createObjectParser({
 
 setParserName(bashWordParser, 'bashWordParser');
 
+// Bash reserved words (keywords that start or delimit compound commands).
+// At command-name position, these are treated as reserved and not parsed as a simple command name,
+// which lets loop/conditional/function parsers recognize their structural markers.
+const bashReservedWordList = [
+	'if', 'then', 'elif', 'else', 'fi',
+	'while', 'until', 'do', 'done',
+	'for', 'in', 'case', 'esac',
+	'function',
+];
+
+// A word boundary: whitespace, a separator, a redirect, or end of input.
+// Used as a non-consuming lookahead after keyword matches to ensure we didn't match a prefix
+// of a longer identifier (e.g. `whileish` should NOT match the `while` keyword).
+const bashWordBoundaryParser: Parser<unknown, string> = createDisjunctionParser([
+	createExactSequenceParser(' '),
+	createExactSequenceParser('\t'),
+	createExactSequenceParser('\n'),
+	createExactSequenceParser(';'),
+	createExactSequenceParser('&'),
+	createExactSequenceParser('|'),
+	createExactSequenceParser('('),
+	createExactSequenceParser(')'),
+	createExactSequenceParser('<'),
+	createExactSequenceParser('>'),
+	createEndOfInputParser<string>(),
+]);
+
+function createBashKeywordParser(keyword: string): Parser<string, string> {
+	return setParserName(
+		promiseCompose(
+			createTupleParser([
+				createExactSequenceParser(keyword),
+				createLookaheadParser(bashWordBoundaryParser),
+			]),
+			() => keyword,
+		),
+		`bashKeyword(${keyword})`,
+	);
+}
+
+const bashReservedWordParser: Parser<string, string> = createDisjunctionParser(
+	bashReservedWordList.map(w => createBashKeywordParser(w)),
+);
+
 // Assignment name: identifier followed by =
 const bashAssignmentNameParser: Parser<string, string> = promiseCompose(
 	createTupleParser([
@@ -656,6 +709,15 @@ const bashWordWithWhitespaceParser: Parser<BashWord, string> = promiseCompose(
 	([word]) => word,
 );
 
+// Word at command-name position: must not be a reserved keyword (those start compound commands).
+const bashCommandNameWordParser: Parser<BashWord, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(bashReservedWordParser),
+		bashWordWithWhitespaceParser,
+	]),
+	([, word]) => word,
+);
+
 // Arg word (allows }) with optional trailing whitespace
 const bashArgWordWithWhitespaceParser: Parser<BashWord, string> = promiseCompose(
 	createTupleParser([
@@ -696,8 +758,9 @@ export const bashSimpleCommandParser: Parser<BashSimpleCommand, string> = async 
 	const leadingRedirectsParser = createArrayParser(bashRedirectWithWhitespaceParser);
 	const leadingRedirects = await leadingRedirectsParser(parserContext);
 
-	// Parse command name (} not allowed here, so brace group closing works)
-	const name = await createOptionalParser(bashWordWithWhitespaceParser)(parserContext);
+	// Parse command name (} not allowed here, so brace group closing works;
+	// reserved keywords also excluded so loop/conditional/function parsers can match them)
+	const name = await createOptionalParser(bashCommandNameWordParser)(parserContext);
 
 	// Only parse args if we have a command name
 	const args: BashWord[] = [];
@@ -725,6 +788,35 @@ export const bashSimpleCommandParser: Parser<BashSimpleCommand, string> = async 
 
 setParserName(bashSimpleCommandParser, 'bashSimpleCommandParser');
 
+// Non-newline character
+const bashNonNewlineCharParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(createExactSequenceParser('\n')),
+		createElementParser<string>(),
+	]),
+	([, ch]) => ch,
+);
+
+// Comment: # through end of line (not consuming the newline)
+const bashCommentParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createExactSequenceParser('#'),
+		createArrayParser(bashNonNewlineCharParser),
+	]),
+	([hash, chars]) => hash + chars.join(''),
+);
+
+// Blank line filler: whitespace, newlines, and comments. Used to absorb flexible whitespace
+// (including blank lines and mid-construct comments) between compound-command keywords.
+const bashBlankLineFillerParser: Parser<void, string> = promiseCompose(
+	createArrayParser(createDisjunctionParser([
+		bashInlineWhitespaceUnitParser,
+		promiseCompose(createExactSequenceParser('\n'), () => '\n'),
+		bashCommentParser,
+	])),
+	() => {},
+);
+
 // Subshell: ( command )
 const bashSubshellParser: Parser<BashSubshell, string> = createObjectParser({
 	type: 'subshell' as const,
@@ -751,10 +843,365 @@ const bashBraceGroupParser: Parser<BashBraceGroup, string> = createObjectParser(
 
 setParserName(bashBraceGroupParser, 'bashBraceGroupParser');
 
-// Command unit: simple command, subshell, or brace group
+// While loop: while condition; do body; done
+const bashWhileLoopParser: Parser<BashWhileLoop, string> = createObjectParser({
+	type: 'whileLoop' as const,
+	_while: createBashKeywordParser('while'),
+	_ws1: bashBlankLineFillerParser,
+	condition: createParserAccessorParser(() => bashCommandParser),
+	_ws2: bashBlankLineFillerParser,
+	_do: createBashKeywordParser('do'),
+	_ws3: bashBlankLineFillerParser,
+	body: createParserAccessorParser(() => bashCommandParser),
+	_ws4: bashBlankLineFillerParser,
+	_done: createBashKeywordParser('done'),
+});
+
+setParserName(bashWhileLoopParser, 'bashWhileLoopParser');
+
+// Until loop: until condition; do body; done
+const bashUntilLoopParser: Parser<BashUntilLoop, string> = createObjectParser({
+	type: 'untilLoop' as const,
+	_until: createBashKeywordParser('until'),
+	_ws1: bashBlankLineFillerParser,
+	condition: createParserAccessorParser(() => bashCommandParser),
+	_ws2: bashBlankLineFillerParser,
+	_do: createBashKeywordParser('do'),
+	_ws3: bashBlankLineFillerParser,
+	body: createParserAccessorParser(() => bashCommandParser),
+	_ws4: bashBlankLineFillerParser,
+	_done: createBashKeywordParser('done'),
+});
+
+setParserName(bashUntilLoopParser, 'bashUntilLoopParser');
+
+// Word in the `in` list of a for-in loop: must not be the `do` keyword (that terminates the list)
+const bashForInWordItemParser: Parser<BashWord, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(createBashKeywordParser('do')),
+		bashWordWithWhitespaceParser,
+	]),
+	([, word]) => word,
+);
+
+// Optional `in WORD...` clause for a for-in loop
+const bashForInClauseParser: Parser<BashWord[], string> = promiseCompose(
+	createTupleParser([
+		createBashKeywordParser('in'),
+		bashOptionalInlineWhitespaceParser,
+		createArrayParser(bashForInWordItemParser),
+	]),
+	([, , words]) => words,
+);
+
+// For-in loop: for NAME [in WORDS] [;] do BODY; done
+// Unlike `while`/`until`, the for-header doesn't naturally end with a list separator,
+// so we must explicitly accept an optional `;` between the header and `do`.
+const bashForInLoopParser: Parser<BashForInLoop, string> = async parserContext => {
+	await createBashKeywordParser('for')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const name = await bashIdentifierParser(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const words = await createOptionalParser(bashForInClauseParser)(parserContext);
+	await bashOptionalInlineWhitespaceParser(parserContext);
+	await createOptionalParser(createExactSequenceParser(';'))(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	await createBashKeywordParser('do')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const body = await bashCommandParser(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	await createBashKeywordParser('done')(parserContext);
+	return {
+		type: 'forInLoop' as const,
+		name,
+		words,
+		body,
+	};
+};
+
+setParserName(bashForInLoopParser, 'bashForInLoopParser');
+
+// Reads chars until a bare `;` or `)` at depth 0. Used for for-arithmetic init/condition/update.
+const bashForArithmeticSegmentParser: Parser<string, string> = async parserContext => {
+	let result = '';
+	let depth = 0;
+	for (;;) {
+		const ch = await parserContext.peek(0);
+		if (ch === undefined) {
+			break;
+		}
+
+		if (ch === '(') {
+			depth++;
+			result += ch;
+			parserContext.skip(1);
+			continue;
+		}
+
+		if (ch === ')') {
+			if (depth > 0) {
+				depth--;
+				result += ch;
+				parserContext.skip(1);
+				continue;
+			}
+
+			break;
+		}
+
+		if (ch === ';' && depth === 0) {
+			break;
+		}
+
+		result += ch;
+		parserContext.skip(1);
+	}
+
+	return result;
+};
+
+// C-style for loop: for (( init; cond; update )) [;] do body; done
+const bashForArithmeticLoopParser: Parser<BashForArithmeticLoop, string> = createObjectParser({
+	type: 'forArithmeticLoop' as const,
+	_for: createBashKeywordParser('for'),
+	_ws0: bashBlankLineFillerParser,
+	_open: createExactSequenceParser('(('),
+	init: bashForArithmeticSegmentParser,
+	_semi1: createExactSequenceParser(';'),
+	condition: bashForArithmeticSegmentParser,
+	_semi2: createExactSequenceParser(';'),
+	update: bashForArithmeticSegmentParser,
+	_close: createExactSequenceParser('))'),
+	_ws1: bashOptionalInlineWhitespaceParser,
+	_optional_semi: createOptionalParser(createExactSequenceParser(';')),
+	_ws2: bashBlankLineFillerParser,
+	_do: createBashKeywordParser('do'),
+	_ws3: bashBlankLineFillerParser,
+	body: createParserAccessorParser(() => bashCommandParser),
+	_ws4: bashBlankLineFillerParser,
+	_done: createBashKeywordParser('done'),
+});
+
+setParserName(bashForArithmeticLoopParser, 'bashForArithmeticLoopParser');
+
+// One branch of an if/elif: condition + `then` + body
+const bashIfBranchCoreParser: Parser<{ condition: BashCommand; body: BashCommand }, string> = createObjectParser({
+	condition: createParserAccessorParser(() => bashCommandParser),
+	_ws1: bashBlankLineFillerParser,
+	_then: createBashKeywordParser('then'),
+	_ws2: bashBlankLineFillerParser,
+	body: createParserAccessorParser(() => bashCommandParser),
+});
+
+// An `elif` branch: `elif` keyword + branch core
+const bashElifBranchParser: Parser<{ condition: BashCommand; body: BashCommand }, string> = promiseCompose(
+	createTupleParser([
+		createBashKeywordParser('elif'),
+		bashBlankLineFillerParser,
+		bashIfBranchCoreParser,
+	]),
+	([, , branch]) => branch,
+);
+
+// The `else` clause: `else` keyword + body
+const bashElseClauseParser: Parser<BashCommand, string> = promiseCompose(
+	createTupleParser([
+		createBashKeywordParser('else'),
+		bashBlankLineFillerParser,
+		createParserAccessorParser(() => bashCommandParser),
+	]),
+	([, , body]) => body,
+);
+
+// If/elif/else chain
+const bashIfExpressionParser: Parser<BashIfExpression, string> = async parserContext => {
+	await createBashKeywordParser('if')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const firstBranch = await bashIfBranchCoreParser(parserContext);
+	const branches: BashIfExpression['branches'] = [firstBranch];
+	const elifBranches = await createArrayParser(promiseCompose(
+		createTupleParser([
+			bashBlankLineFillerParser,
+			bashElifBranchParser,
+		]),
+		([, branch]) => branch,
+	))(parserContext);
+	branches.push(...elifBranches);
+	await bashBlankLineFillerParser(parserContext);
+	const elseBody = await createOptionalParser(bashElseClauseParser)(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	await createBashKeywordParser('fi')(parserContext);
+	return {
+		type: 'ifExpression' as const,
+		branches,
+		elseBody,
+	};
+};
+
+setParserName(bashIfExpressionParser, 'bashIfExpressionParser');
+
+// Case branch terminator: ;;, ;&, ;;&. Order matters: ;;& before ;; before ;&.
+const bashCaseTerminatorParser: Parser<BashCaseTerminator, string> = createDisjunctionParser([
+	promiseCompose(createExactSequenceParser(';;&'), () => ';;&' as const),
+	promiseCompose(createExactSequenceParser(';;'), () => ';;' as const),
+	promiseCompose(createExactSequenceParser(';&'), () => ';&' as const),
+]);
+
+// Patterns in a case branch: pattern1 | pattern2 | pattern3
+const bashCasePatternsParser: Parser<BashWord[], string> = promiseCompose(
+	createTupleParser([
+		bashWordWithWhitespaceParser,
+		createArrayParser(promiseCompose(
+			createTupleParser([
+				createExactSequenceParser('|'),
+				bashOptionalInlineWhitespaceParser,
+				bashWordWithWhitespaceParser,
+			]),
+			([, , word]) => word,
+		)),
+	]),
+	([first, rest]) => [first, ...rest],
+);
+
+type BashCaseBranch = BashCaseExpression['branches'][number];
+
+const bashCaseBranchParser: Parser<BashCaseBranch, string> = async parserContext => {
+	await createOptionalParser(createExactSequenceParser('('))(parserContext);
+	await bashOptionalInlineWhitespaceParser(parserContext);
+	const patterns = await bashCasePatternsParser(parserContext);
+	await createExactSequenceParser(')')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const body = await createOptionalParser(createParserAccessorParser(() => bashCommandParser))(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const terminator = await createOptionalParser(bashCaseTerminatorParser)(parserContext);
+	return {
+		patterns,
+		body,
+		terminator,
+	};
+};
+
+// Case expression: case WORD in [BRANCH]... esac
+const bashCaseExpressionParser: Parser<BashCaseExpression, string> = async parserContext => {
+	await createBashKeywordParser('case')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const word = await bashWordParser(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	await createBashKeywordParser('in')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const branches: BashCaseBranch[] = [];
+	for (;;) {
+		// Stop when we see `esac`.
+		const esacNext = await createOptionalParser(createLookaheadParser(createBashKeywordParser('esac')))(parserContext);
+		if (esacNext !== undefined) {
+			break;
+		}
+
+		const branch = await createOptionalParser(bashCaseBranchParser)(parserContext);
+		if (branch === undefined) {
+			break;
+		}
+
+		branches.push(branch);
+		await bashBlankLineFillerParser(parserContext);
+		// If the branch had no terminator, only one more branch is legal (the last). The loop
+		// will exit on the next iteration because a missing `)` will make the branch parser fail.
+	}
+
+	await createBashKeywordParser('esac')(parserContext);
+	return {
+		type: 'caseExpression' as const,
+		word,
+		branches,
+	};
+};
+
+setParserName(bashCaseExpressionParser, 'bashCaseExpressionParser');
+
+// Function name: identifier, not a reserved word
+const bashFunctionNameParser: Parser<string, string> = promiseCompose(
+	createTupleParser([
+		createNegativeLookaheadParser(bashReservedWordParser),
+		bashIdentifierParser,
+	]),
+	([, name]) => name,
+);
+
+// Function body: a compound command (brace group, subshell, loop, conditional, etc.),
+// but NOT a simple command (bash grammar requires the body to be compound).
+const bashFunctionBodyParser: Parser<BashCommandUnit, string> = createDisjunctionParser([
+	createParserAccessorParser(() => bashSubshellParser),
+	createParserAccessorParser(() => bashBraceGroupParser),
+	createParserAccessorParser(() => bashWhileLoopParser),
+	createParserAccessorParser(() => bashUntilLoopParser),
+	createParserAccessorParser(() => bashForArithmeticLoopParser),
+	createParserAccessorParser(() => bashForInLoopParser),
+	createParserAccessorParser(() => bashIfExpressionParser),
+	createParserAccessorParser(() => bashCaseExpressionParser),
+]);
+
+// Function form with `function` keyword: `function NAME [()] BODY`
+const bashFunctionWithKeywordParser: Parser<BashFunction, string> = async parserContext => {
+	await createBashKeywordParser('function')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const name = await bashFunctionNameParser(parserContext);
+	await bashOptionalInlineWhitespaceParser(parserContext);
+	const parens = await createOptionalParser(promiseCompose(
+		createTupleParser([
+			createExactSequenceParser('('),
+			bashOptionalInlineWhitespaceParser,
+			createExactSequenceParser(')'),
+		]),
+		() => true,
+	))(parserContext);
+	const hasParentheses = parens ?? false;
+	await bashBlankLineFillerParser(parserContext);
+	const body = await bashFunctionBodyParser(parserContext);
+	return {
+		type: 'function' as const,
+		hasFunctionKeyword: true,
+		hasParentheses,
+		name,
+		body,
+	};
+};
+
+// Function form without keyword: `NAME() BODY`
+const bashFunctionWithoutKeywordParser: Parser<BashFunction, string> = async parserContext => {
+	const name = await bashFunctionNameParser(parserContext);
+	await bashOptionalInlineWhitespaceParser(parserContext);
+	await createExactSequenceParser('(')(parserContext);
+	await bashOptionalInlineWhitespaceParser(parserContext);
+	await createExactSequenceParser(')')(parserContext);
+	await bashBlankLineFillerParser(parserContext);
+	const body = await bashFunctionBodyParser(parserContext);
+	return {
+		type: 'function' as const,
+		hasFunctionKeyword: false,
+		hasParentheses: true,
+		name,
+		body,
+	};
+};
+
+const bashFunctionParser: Parser<BashFunction, string> = createDisjunctionParser([
+	bashFunctionWithKeywordParser,
+	bashFunctionWithoutKeywordParser,
+]);
+
+setParserName(bashFunctionParser, 'bashFunctionParser');
+
+// Command unit: simple command, compound command, or function
 const bashCommandUnitParser: Parser<BashCommandUnit, string> = createDisjunctionParser([
 	bashSubshellParser,
 	bashBraceGroupParser,
+	bashWhileLoopParser,
+	bashUntilLoopParser,
+	bashForArithmeticLoopParser,
+	bashForInLoopParser,
+	bashIfExpressionParser,
+	bashCaseExpressionParser,
+	bashFunctionParser,
 	bashSimpleCommandParser,
 ]);
 
@@ -797,34 +1244,6 @@ const bashPipelineParser: Parser<BashPipeline, string> = promiseCompose(
 
 setParserName(bashPipelineParser, 'bashPipelineParser');
 
-// Non-newline character
-const bashNonNewlineCharParser: Parser<string, string> = promiseCompose(
-	createTupleParser([
-		createNegativeLookaheadParser(createExactSequenceParser('\n')),
-		createElementParser<string>(),
-	]),
-	([, ch]) => ch,
-);
-
-// Comment: # through end of line (not consuming the newline)
-const bashCommentParser: Parser<string, string> = promiseCompose(
-	createTupleParser([
-		createExactSequenceParser('#'),
-		createArrayParser(bashNonNewlineCharParser),
-	]),
-	([hash, chars]) => hash + chars.join(''),
-);
-
-// Blank line filler: whitespace, newlines, and comments
-const bashBlankLineFillerParser: Parser<void, string> = promiseCompose(
-	createArrayParser(createDisjunctionParser([
-		bashInlineWhitespaceUnitParser,
-		promiseCompose(createExactSequenceParser('\n'), () => '\n'),
-		bashCommentParser,
-	])),
-	() => {},
-);
-
 // Newline separator: consumes a newline plus any following blank lines, comments, and whitespace
 // This allows multi-line scripts with blank lines and mid-script comments
 const bashNewlineSeparatorParser: Parser<'\n', string> = promiseCompose(
@@ -835,11 +1254,21 @@ const bashNewlineSeparatorParser: Parser<'\n', string> = promiseCompose(
 	() => '\n' as const,
 );
 
-// Command list separator
+// Command list separator. `;` here excludes `;;`, `;&`, `;;&` so they remain available
+// as case-branch terminators further up the stack.
 const bashListSeparatorParser: Parser<'&&' | '||' | ';' | '&' | '\n', string> = createDisjunctionParser([
 	promiseCompose(createExactSequenceParser('&&'), () => '&&' as const),
 	promiseCompose(createExactSequenceParser('||'), () => '||' as const),
-	promiseCompose(createExactSequenceParser(';'), () => ';' as const),
+	promiseCompose(
+		createTupleParser([
+			createExactSequenceParser(';'),
+			createNegativeLookaheadParser(createDisjunctionParser([
+				createExactSequenceParser(';'),
+				createExactSequenceParser('&'),
+			])),
+		]),
+		() => ';' as const,
+	),
 	promiseCompose(createExactSequenceParser('&'), () => '&' as const),
 	bashNewlineSeparatorParser,
 ]);

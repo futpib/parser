@@ -17,7 +17,24 @@ import {
 	type BashRedirect,
 	type BashHereDoc,
 	type BashAssignment,
+	type BashWhileLoop,
+	type BashUntilLoop,
+	type BashForInLoop,
+	type BashForArithmeticLoop,
+	type BashIfExpression,
+	type BashCaseExpression,
+	type BashCaseTerminator,
+	type BashFunction,
 } from './bash.js';
+
+// Bash keywords that must not appear as plain identifiers/words in generated output
+// (they would be treated as reserved at command-name position by the parser).
+const bashReservedWordSet = new Set([
+	'if', 'then', 'elif', 'else', 'fi',
+	'while', 'until', 'do', 'done',
+	'for', 'in', 'case', 'esac',
+	'function',
+]);
 
 const arbitraryBashIdentifier: fc.Arbitrary<string> = fc.stringMatching(/^[a-zA-Z_][a-zA-Z0-9_]*$/);
 
@@ -50,6 +67,11 @@ const arbitraryBashWordPartArithmeticExpansion: fc.Arbitrary<BashWordPartArithme
 	type: fc.constant('arithmeticExpansion' as const),
 	expression: fc.stringMatching(/^[0-9+\- ]*$/),
 });
+
+// Identifiers that are NOT bash reserved words. Used for variable/function/loop names
+// where a reserved word would either fail the parse or change its meaning.
+const arbitrarySafeIdentifier: fc.Arbitrary<string> = arbitraryBashIdentifier
+	.filter(name => !bashReservedWordSet.has(name));
 
 type RecursiveArbitraries = {
 	commandList: BashCommandList;
@@ -112,8 +134,15 @@ const recursiveArbitraries = fc.letrec<RecursiveArbitraries>(tie => {
 
 	const arbitraryWord: fc.Arbitrary<BashWord> = fc.record({
 		parts: fc.array(arbitraryBashWordPart, { minLength: 1, maxLength: 2 }),
-	}).filter(word =>
-		word.parts.every((part, i) => {
+	}).filter(word => {
+		// A single-literal word that happens to spell a reserved word would be rejected at
+		// command-name position by the parser, breaking round-trip.
+		if (word.parts.length === 1 && word.parts[0]!.type === 'literal'
+			&& bashReservedWordSet.has((word.parts[0]! as BashWordPartLiteral).value)) {
+			return false;
+		}
+
+		return word.parts.every((part, i) => {
 			const next = word.parts[i + 1];
 			// Prevent adjacent literal parts (they merge when re-parsed)
 			if (part.type === 'literal' && next !== undefined && next.type === 'literal') {
@@ -126,8 +155,8 @@ const recursiveArbitraries = fc.letrec<RecursiveArbitraries>(tie => {
 			}
 
 			return true;
-		}),
-	);
+		});
+	});
 
 	// Always include value key (even if undefined) to match createObjectParser behavior
 	const arbitraryBashAssignment: fc.Arbitrary<BashAssignment> = fc.record({
@@ -212,10 +241,146 @@ const recursiveArbitraries = fc.letrec<RecursiveArbitraries>(tie => {
 		body: arbitraryBraceGroupBody,
 	});
 
+	// Compound bodies (while/until/for body, if branch body & condition, else body)
+	// must end with a separator so the closing keyword can be cleanly delimited.
+	// Same shape as arbitraryBraceGroupBody.
+	const arbitraryCompoundBody: fc.Arbitrary<BashCommandList> = arbitraryCommandList.map(list => {
+		const entries = list.entries.map((entry, i) => {
+			if (i === list.entries.length - 1 && entry.separator === undefined) {
+				return { pipeline: entry.pipeline, separator: ';' as const };
+			}
+
+			return entry;
+		});
+		return { ...list, entries };
+	});
+
+	const arbitraryBashWhileLoop: fc.Arbitrary<BashWhileLoop> = fc.record({
+		type: fc.constant('whileLoop' as const),
+		condition: arbitraryCompoundBody,
+		body: arbitraryCompoundBody,
+	});
+
+	const arbitraryBashUntilLoop: fc.Arbitrary<BashUntilLoop> = fc.record({
+		type: fc.constant('untilLoop' as const),
+		condition: arbitraryCompoundBody,
+		body: arbitraryCompoundBody,
+	});
+
+	// For-in word: avoid words that would conflict with the `do` terminator or the `in` keyword.
+	const arbitraryForInWord: fc.Arbitrary<BashWord> = arbitraryWord.filter(word => {
+		if (word.parts.length === 1 && word.parts[0]!.type === 'literal') {
+			const value = (word.parts[0]! as BashWordPartLiteral).value;
+			if (value === 'do' || value === 'done' || value === 'in') {
+				return false;
+			}
+		}
+
+		return true;
+	});
+
+	const arbitraryBashForInLoop: fc.Arbitrary<BashForInLoop> = fc.record({
+		type: fc.constant('forInLoop' as const),
+		name: arbitrarySafeIdentifier,
+		// undefined = no `in` clause; otherwise an explicit (possibly empty) word list
+		words: fc.option(fc.array(arbitraryForInWord, { minLength: 0, maxLength: 2 }), { nil: undefined }),
+		body: arbitraryCompoundBody,
+	});
+
+	// For-arithmetic init/condition/update: arithmetic-safe characters only.
+	// Must not contain `;` or unbalanced `()` (parser reads to first bare `;` or `)`).
+	const arbitraryArithSegment = fc.stringMatching(/^[a-z0-9_+\-*/<>= ]*$/);
+
+	const arbitraryBashForArithmeticLoop: fc.Arbitrary<BashForArithmeticLoop> = fc.record({
+		type: fc.constant('forArithmeticLoop' as const),
+		init: arbitraryArithSegment,
+		condition: arbitraryArithSegment,
+		update: arbitraryArithSegment,
+		body: arbitraryCompoundBody,
+	});
+
+	const arbitraryIfBranch: fc.Arbitrary<{ condition: BashCommandList; body: BashCommandList }> = fc.record({
+		condition: arbitraryCompoundBody,
+		body: arbitraryCompoundBody,
+	});
+
+	const arbitraryBashIfExpression: fc.Arbitrary<BashIfExpression> = fc.record({
+		type: fc.constant('ifExpression' as const),
+		branches: fc.array(arbitraryIfBranch, { minLength: 1, maxLength: 2 }),
+		elseBody: fc.option(arbitraryCompoundBody, { nil: undefined }),
+	});
+
+	// Case patterns/word: avoid `esac` and `in` (would interfere with case structure parsing).
+	const arbitraryCaseWord: fc.Arbitrary<BashWord> = arbitraryWord.filter(word => {
+		if (word.parts.length === 1 && word.parts[0]!.type === 'literal') {
+			const value = (word.parts[0]! as BashWordPartLiteral).value;
+			if (value === 'esac' || value === 'in') {
+				return false;
+			}
+		}
+
+		return true;
+	});
+
+	// Case branch body: a list WITHOUT enforced trailing `;` (the terminator handles delimitation).
+	const arbitraryCaseBranchBody: fc.Arbitrary<BashCommandList> = arbitraryCommandList.map(list => {
+		const entries = list.entries.map((entry, i) => {
+			if (i === list.entries.length - 1) {
+				return { pipeline: entry.pipeline, separator: undefined };
+			}
+
+			return entry;
+		});
+		return { ...list, entries };
+	});
+
+	const arbitraryCaseTerminator: fc.Arbitrary<BashCaseTerminator> = fc.oneof(
+		fc.constant(';;' as const),
+		fc.constant(';&' as const),
+		fc.constant(';;&' as const),
+	);
+
+	const arbitraryCaseBranch: fc.Arbitrary<BashCaseExpression['branches'][number]> = fc.record({
+		patterns: fc.array(arbitraryCaseWord, { minLength: 1, maxLength: 2 }),
+		body: fc.option(arbitraryCaseBranchBody, { nil: undefined }),
+		// Always include a terminator (round-trip is unambiguous; trailing-terminator omission
+		// is supported by the parser but not exercised by the arbitrary).
+		terminator: arbitraryCaseTerminator,
+	});
+
+	const arbitraryBashCaseExpression: fc.Arbitrary<BashCaseExpression> = fc.record({
+		type: fc.constant('caseExpression' as const),
+		word: arbitraryCaseWord,
+		branches: fc.array(arbitraryCaseBranch, { minLength: 0, maxLength: 2 }),
+	});
+
+	// Function body: a compound command (brace group or subshell). Bash actually allows any
+	// compound command, but we keep the arbitrary narrow to avoid combinatorial blowup.
+	const arbitraryFunctionBody: fc.Arbitrary<BashCommandUnit> = fc.oneof(
+		arbitraryBashBraceGroup as fc.Arbitrary<BashCommandUnit>,
+		arbitraryBashSubshell as fc.Arbitrary<BashCommandUnit>,
+	);
+
+	// Functions: at least one of `function` keyword or `()` must be present.
+	const arbitraryBashFunction: fc.Arbitrary<BashFunction> = fc.record({
+		type: fc.constant('function' as const),
+		hasFunctionKeyword: fc.boolean(),
+		hasParentheses: fc.boolean(),
+		name: arbitrarySafeIdentifier,
+		body: arbitraryFunctionBody,
+	}).filter(fn => fn.hasFunctionKeyword || fn.hasParentheses);
+
 	const arbitraryBashCommandUnit: fc.Arbitrary<BashCommandUnit> = fc.oneof(
-		{ weight: 5, arbitrary: arbitraryBashSimpleCommand as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 10, arbitrary: arbitraryBashSimpleCommand as fc.Arbitrary<BashCommandUnit> },
 		{ weight: 1, arbitrary: arbitraryBashSubshell as fc.Arbitrary<BashCommandUnit> },
 		{ weight: 1, arbitrary: arbitraryBashBraceGroup as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 1, arbitrary: arbitraryBashWhileLoop as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 1, arbitrary: arbitraryBashUntilLoop as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 1, arbitrary: arbitraryBashForInLoop as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 1, arbitrary: arbitraryBashForArithmeticLoop as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 1, arbitrary: arbitraryBashIfExpression as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 1, arbitrary: arbitraryBashCaseExpression as fc.Arbitrary<BashCommandUnit> },
+		{ weight: 1, arbitrary: arbitraryBashFunction as fc.Arbitrary<BashCommandUnit> },
 	);
 
 	const arbitraryBashPipeline: fc.Arbitrary<BashPipeline> = fc.record({

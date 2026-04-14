@@ -12,6 +12,13 @@ import {
 	type BashHereDoc,
 	type BashAssignment,
 	type BashCommand,
+	type BashWhileLoop,
+	type BashUntilLoop,
+	type BashForInLoop,
+	type BashForArithmeticLoop,
+	type BashIfExpression,
+	type BashCaseExpression,
+	type BashFunction,
 } from './bash.js';
 
 function isIdentChar(ch: string): boolean {
@@ -186,6 +193,89 @@ function unparseSimpleCommand(cmd: BashSimpleCommand): string {
 	return result + hereDocBodies;
 }
 
+// Conditions and bodies of while/until/if are command lists whose last entry must end
+// with `;` (or `\n`) so the keyword that follows (`do`, `then`, `elif`, `else`, `fi`, `done`)
+// is correctly delimited. The arbitrary generator enforces this; here we just emit a single
+// space as the connector — the trailing separator inside the list provides the actual `;`.
+
+function unparseWhileLoop(loop: BashWhileLoop): string {
+	return 'while ' + unparseCommand(loop.condition) + ' do ' + unparseCommand(loop.body) + ' done';
+}
+
+function unparseUntilLoop(loop: BashUntilLoop): string {
+	return 'until ' + unparseCommand(loop.condition) + ' do ' + unparseCommand(loop.body) + ' done';
+}
+
+function unparseForInLoop(loop: BashForInLoop): string {
+	let result = 'for ' + loop.name;
+	if (loop.words !== undefined) {
+		result += ' in';
+		for (const word of loop.words) {
+			result += ' ' + unparseWord(word);
+		}
+	}
+
+	// The for-header doesn't carry its own `;`, so we add one here before `do`.
+	result += '; do ' + unparseCommand(loop.body) + ' done';
+	return result;
+}
+
+function unparseForArithmeticLoop(loop: BashForArithmeticLoop): string {
+	return 'for ((' + loop.init + ';' + loop.condition + ';' + loop.update + ')); do '
+		+ unparseCommand(loop.body) + ' done';
+}
+
+function unparseIfExpression(expr: BashIfExpression): string {
+	let result = 'if ';
+	for (let i = 0; i < expr.branches.length; i++) {
+		const branch = expr.branches[i]!;
+		if (i > 0) {
+			result += ' elif ';
+		}
+
+		result += unparseCommand(branch.condition) + ' then ' + unparseCommand(branch.body);
+	}
+
+	if (expr.elseBody !== undefined) {
+		result += ' else ' + unparseCommand(expr.elseBody);
+	}
+
+	result += ' fi';
+	return result;
+}
+
+function unparseCaseExpression(expr: BashCaseExpression): string {
+	let result = 'case ' + unparseWord(expr.word) + ' in';
+	for (const branch of expr.branches) {
+		result += ' ' + branch.patterns.map(p => unparseWord(p)).join(' | ') + ')';
+		if (branch.body !== undefined) {
+			result += ' ' + unparseCommand(branch.body);
+		}
+
+		if (branch.terminator !== undefined) {
+			result += ' ' + branch.terminator;
+		}
+	}
+
+	result += ' esac';
+	return result;
+}
+
+function unparseFunction(fn: BashFunction): string {
+	let result = '';
+	if (fn.hasFunctionKeyword) {
+		result += 'function ';
+	}
+
+	result += fn.name;
+	if (fn.hasParentheses) {
+		result += '()';
+	}
+
+	result += ' ' + unparseCommandUnit(fn.body);
+	return result;
+}
+
 function unparseCommandUnit(unit: BashCommandUnit): string {
 	switch (unit.type) {
 		case 'simple':
@@ -196,6 +286,27 @@ function unparseCommandUnit(unit: BashCommandUnit): string {
 
 		case 'braceGroup':
 			return '{ ' + unparseCommand(unit.body) + ' }';
+
+		case 'whileLoop':
+			return unparseWhileLoop(unit);
+
+		case 'untilLoop':
+			return unparseUntilLoop(unit);
+
+		case 'forInLoop':
+			return unparseForInLoop(unit);
+
+		case 'forArithmeticLoop':
+			return unparseForArithmeticLoop(unit);
+
+		case 'ifExpression':
+			return unparseIfExpression(unit);
+
+		case 'caseExpression':
+			return unparseCaseExpression(unit);
+
+		case 'function':
+			return unparseFunction(unit);
 	}
 }
 
